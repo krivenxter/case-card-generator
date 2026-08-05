@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <title>Генератор карточек кейсов Calltouch</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="dark">
+  <button class="export-button" id="exportButton" type="button">
+    <span class="export-button__label">Экспорт JPG 2x</span>
+  </button>
+
+  <div class="app-shell">
+    <aside class="control-panel" aria-label="Панель управления карточкой">
+      <header class="control-panel__header">
+        <p class="control-panel__eyebrow">CALLTOUCH</p>
+        <h1>Генератор карточек кейсов</h1>
+        <p>Заполните данные — слайд справа обновится автоматически.</p>
+      </header>
+
+      <form class="editor-form" id="editorForm" autocomplete="off">
+        <section class="form-section form-section--appearance">
+          <h2>Режим</h2>
+
+          <label class="toggle-row" for="lightThemeToggle">
+            <span>
+              <strong>Белая тема</strong>
+              <small>Светлый интерфейс и светлая версия слайда</small>
+            </span>
+            <input id="lightThemeToggle" type="checkbox" role="switch">
+          </label>
+        </section>
+
+        <section class="form-section">
+          <h2>Содержание</h2>
+
+          <label class="field">
+            <span class="field__label">Краткое содержание</span>
+            <textarea
+              id="summaryInput"
+              rows="7"
+              maxlength="520"
+              data-output="summaryOutput"
+            >Сеть клиник ОЛМЕД хотела получать больше записей по приоритетным направлениям без покупки нового трафика. С помощью CDP Calltouch посетителей сегментировали и показывали им персональные поп-апы. За шесть месяцев инструмент принес 154 записи по 406 ₽ за качественный лид.</textarea>
+            <span class="field__counter" data-counter-for="summaryInput"></span>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Компания</span>
+            <textarea
+              id="companyInput"
+              rows="2"
+              maxlength="64"
+              data-output="companyOutput"
+            >ОЛМЕД</textarea>
+            <span class="field__counter" data-counter-for="companyInput"></span>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Задача</span>
+            <textarea
+              id="taskInput"
+              rows="4"
+              maxlength="260"
+              data-output="taskOutput"
+            >Увеличить число записей по приоритетным медицинским направлениям без привлечения нового трафика.</textarea>
+            <span class="field__counter" data-counter-for="taskInput"></span>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Инструмент</span>
+            <textarea
+              id="toolInput"
+              rows="2"
+              maxlength="72"
+              data-output="toolOutput"
+            >CDP CALLTOUCH</textarea>
+            <span class="field__counter" data-counter-for="toolInput"></span>
+          </label>
+        </section>
+
+        <section class="form-section">
+          <h2>Результаты</h2>
+
+          <div class="result-editor">
+            <p class="result-editor__title">Показатель №1</p>
+            <label class="field field--compact">
+              <span class="field__label">Значение</span>
+              <input
+                id="resultValue1Input"
+                type="text"
+                maxlength="20"
+                value="154"
+                data-output="resultValue1Output"
+              >
+            </label>
+            <label class="field field--compact">
+              <span class="field__label">Подпись</span>
+              <textarea
+                id="resultLabel1Input"
+                rows="2"
+                maxlength="100"
+                data-output="resultLabel1Output"
+              >Качественных лида за 6 месяцев</textarea>
+            </label>
+          </div>
+
+          <label class="toggle-row" for="secondResultToggle">
+            <span>
+              <strong>Второй показатель</strong>
+              <small>Отключите, чтобы оставить на слайде один результат</small>
+            </span>
+            <input id="secondResultToggle" type="checkbox" role="switch" checked>
+          </label>
+
+          <div class="result-editor" id="secondResultControls">
+            <p class="result-editor__title">Показатель №2</p>
+            <label class="field field--compact">
+              <span class="field__label">Значение</span>
+              <input
+                id="resultValue2Input"
+                type="text"
+                maxlength="20"
+                value="406 ₽"
+                data-output="resultValue2Output"
+              >
+            </label>
+            <label class="field field--compact">
+              <span class="field__label">Подпись</span>
+              <textarea
+                id="resultLabel2Input"
+                rows="2"
+                maxlength="100"
+                data-output="resultLabel2Output"
+              >За качественный лид</textarea>
+            </label>
+          </div>
+
+          <label class="toggle-row" id="thirdResultToggleRow" for="thirdResultToggle">
+            <span>
+              <strong>Третий показатель</strong>
+              <small>Доступен, когда включён второй показатель</small>
+            </span>
+            <input id="thirdResultToggle" type="checkbox" role="switch">
+          </label>
+
+          <div class="result-editor" id="thirdResultControls" hidden>
+            <p class="result-editor__title">Показатель №3</p>
+            <label class="field field--compact">
+              <span class="field__label">Значение</span>
+              <input
+                id="resultValue3Input"
+                type="text"
+                maxlength="20"
+                value="+27%"
+                data-output="resultValue3Output"
+              >
+            </label>
+            <label class="field field--compact">
+              <span class="field__label">Подпись</span>
+              <textarea
+                id="resultLabel3Input"
+                rows="2"
+                maxlength="100"
+                data-output="resultLabel3Output"
+              >К конверсии приоритетных страниц</textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Фон</h2>
+
+          <fieldset class="background-picker">
+            <legend class="visually-hidden">Выбор фонового изображения</legend>
+
+            <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-1.webp'); --thumb-light: url('backgrounds-light/prez-bg-1.png')">
+              <input type="radio" name="background" value="1" checked>
+              <span>01</span>
+            </label>
+            <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-2.webp'); --thumb-light: url('backgrounds-light/prez-bg-2.png')">
+              <input type="radio" name="background" value="2">
+              <span>02</span>
+            </label>
+            <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-3.webp'); --thumb-light: url('backgrounds-light/prez-bg-3.png')">
+              <input type="radio" name="background" value="3">
+              <span>03</span>
+            </label>
+            <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-4.webp'); --thumb-light: url('backgrounds-light/prez-bg-4.png')">
+              <input type="radio" name="background" value="4">
+              <span>04</span>
+            </label>
+            <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-5.webp'); --thumb-light: url('backgrounds-light/prez-bg-5.png')">
+              <input type="radio" name="background" value="5">
+              <span>05</span>
+            </label>
+            <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-6.webp'); --thumb-light: url('backgrounds-light/prez-bg-6.png')">
+              <input type="radio" name="background" value="6">
+              <span>06</span>
+            </label>
+          </fieldset>
+
+          <p class="background-note" id="backgroundNote">
+            Используются изображения из папки <code>backgrounds</code>.
+          </p>
+
+          <label class="toggle-row" for="backgroundShadeToggle">
+            <span>
+              <strong>Скорректировать фон на 30%</strong>
+              <small>В тёмной теме затемняет, в светлой высветляет фон</small>
+            </span>
+            <input id="backgroundShadeToggle" type="checkbox" role="switch" checked>
+          </label>
+        </section>
+      </form>
+    </aside>
+
+    <main class="workspace">
+      <header class="workspace__header">
+        <div>
+          <p>Предпросмотр</p>
+          <strong>1920 × 1080 px</strong>
+        </div>
+        <span id="scaleIndicator">Масштаб 100%</span>
+      </header>
+
+      <div class="preview-area" id="previewArea">
+        <div class="preview-shell" id="previewShell">
+          <div class="slide-scaler" id="slideScaler">
+            <article class="case-slide" id="caseSlide" aria-label="Карточка кейса Calltouch">
+              <div class="case-slide__background" aria-hidden="true"></div>
+
+              <div class="case-slide__content">
+                <section class="story-column">
+                  <p class="summary-text" id="summaryOutput">
+                    Сеть клиник ОЛМЕД хотела получать больше записей по приоритетным направлениям без покупки нового трафика. С помощью CDP Calltouch посетителей сегментировали и показывали им персональные поп-апы. За шесть месяцев инструмент принес 154 записи по 406 ₽ за качественный лид.
+                  </p>
+
+                  <div class="meta-grid">
+                    <div class="meta-block meta-block--company">
+                      <p class="meta-label">КОМПАНИЯ</p>
+                      <p class="company-name" id="companyOutput">ОЛМЕД</p>
+                    </div>
+
+                    <div class="meta-block meta-block--task">
+                      <p class="meta-label">ЗАДАЧА</p>
+                      <p class="task-text" id="taskOutput">
+                        Увеличить число записей по приоритетным медицинским направлениям без привлечения нового трафика.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="tool-block">
+                    <p class="meta-label">ИНСТРУМЕНТ</p>
+                    <p class="tool-name" id="toolOutput">CDP CALLTOUCH</p>
+                  </div>
+                </section>
+
+                <section class="results-column">
+                  <p class="results-heading">РЕЗУЛЬТАТ</p>
+
+                  <div class="results-list results-count-2" id="resultsList">
+                    <article class="result-card">
+                      <p class="result-value" id="resultValue1Output">154</p>
+                      <p class="result-label" id="resultLabel1Output">Качественных лида за 6 месяцев</p>
+                    </article>
+
+                    <article class="result-card" id="secondResultCard">
+                      <p class="result-value" id="resultValue2Output">406 ₽</p>
+                      <p class="result-label" id="resultLabel2Output">За качественный лид</p>
+                    </article>
+
+                    <article class="result-card" id="thirdResultCard" hidden>
+                      <p class="result-value" id="resultValue3Output">+27%</p>
+                      <p class="result-label" id="resultLabel3Output">К конверсии приоритетных страниц</p>
+                    </article>
+                  </div>
+                </section>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="vendor/dom-export.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
