@@ -82,6 +82,46 @@ function setCaretToEnd(element) {
   selection.addRange(range);
 }
 
+function getCaretOffset(element) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return 0;
+
+  const range = selection.getRangeAt(0);
+  const preCaretRange = range.cloneRange();
+  preCaretRange.selectNodeContents(element);
+  preCaretRange.setEnd(range.endContainer, range.endOffset);
+
+  return preCaretRange.toString().length;
+}
+
+function setCaretByOffset(element, offset) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let remainingOffset = offset;
+  let node = walker.nextNode();
+
+  while (node) {
+    const nodeLength = node.textContent.length;
+
+    if (remainingOffset <= nodeLength) {
+      const range = document.createRange();
+      range.setStart(node, remainingOffset);
+      range.collapse(true);
+
+      const selection = window.getSelection();
+      if (!selection) return;
+
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
+
+    remainingOffset -= nodeLength;
+    node = walker.nextNode();
+  }
+
+  setCaretToEnd(element);
+}
+
 function insertTextAtSelection(text) {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) return false;
@@ -106,14 +146,21 @@ function enforceEditableLimit(output, input) {
   setCaretToEnd(output);
 }
 
+function normalizeResultValueOutput(output) {
+  if (!output.classList.contains("result-value")) return getEditableText(output);
+
+  return getEditableText(output).replace(/[\r\n]+/g, " ");
+}
+
 function syncEditableToInput(output) {
   const input = editableOutputToInput.get(output);
   if (!input) return;
 
   enforceEditableLimit(output, input);
-  input.value = getEditableText(output);
+  input.value = normalizeResultValueOutput(output);
   updateCounter(input);
   updateAdaptiveTypography();
+  scheduleAdaptiveTypographyUpdate();
 }
 
 function syncEditableOnBlur(output) {
@@ -187,6 +234,17 @@ function setAdaptiveClass(element, className, enabled) {
   element.classList.toggle(className, enabled);
 }
 
+function fitResultValue(valueNode) {
+  const length = valueNode.textContent.length;
+  const classes = ["is-medium", "is-compact", "is-tiny"];
+  valueNode.classList.remove(...classes);
+  valueNode.style.removeProperty("font-size");
+
+  valueNode.classList.toggle("is-tiny", length > 16);
+  valueNode.classList.toggle("is-medium", length > 7 && length <= 11);
+  valueNode.classList.toggle("is-compact", length > 11 && length <= 16);
+}
+
 function updateAdaptiveTypography() {
   const summaryLength = elements.summaryOutput.textContent.length;
   elements.summaryOutput.classList.remove("is-medium", "is-compact");
@@ -215,12 +273,11 @@ function updateAdaptiveTypography() {
     elements.toolOutput.textContent.length > 24
   );
 
-  document.querySelectorAll(".result-value").forEach((valueNode) => {
-    const length = valueNode.textContent.length;
-    valueNode.classList.toggle("is-tiny", length > 16);
-    valueNode.classList.toggle("is-medium", length > 7 && length <= 11);
-    valueNode.classList.toggle("is-compact", length > 11 && length <= 16);
-  });
+  document.querySelectorAll(".result-value").forEach(fitResultValue);
+}
+
+function scheduleAdaptiveTypographyUpdate() {
+  window.requestAnimationFrame(updateAdaptiveTypography);
 }
 
 function syncFormToSlide() {
@@ -326,7 +383,7 @@ function applyTheme() {
   elements.caseSlide.classList.toggle("is-light-theme", currentTheme === "light");
 
   elements.backgroundNote.innerHTML = currentTheme === "light"
-    ? 'Используются PNG-изображения из папки <code>backgrounds-light</code>. Пока файлов нет, фон остаётся белым.'
+    ? 'Используются PNG-изображения из папки <code>backgrounds-light</code>.'
     : 'Используются изображения из папки <code>backgrounds</code>.';
 
   applyBackground();
@@ -539,6 +596,7 @@ elements.editorForm.addEventListener("input", (event) => {
     setOutput(input);
     updateCounter(input);
     updateAdaptiveTypography();
+    scheduleAdaptiveTypographyUpdate();
   }
 });
 
