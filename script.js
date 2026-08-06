@@ -108,7 +108,6 @@ function createBannerDefaults() {
       customBackground: "",
       customBackgroundName: "",
       overlayEnabled: true,
-      overlayStrength: 30,
       enabled: true,
       mode: "auto",
       selectedId: "analytics",
@@ -235,6 +234,7 @@ const elements = {
   slideScaler: document.getElementById("slideScaler"),
   scaleIndicator: document.getElementById("scaleIndicator"),
   editorForm: document.getElementById("editorForm"),
+  exportOneButton: document.getElementById("caseExportOneButton"),
   exportButton: document.getElementById("exportButton"),
   exportButtonLabel: document.querySelector(".export-button__label"),
   lightThemeToggle: document.getElementById("lightThemeToggle"),
@@ -774,7 +774,7 @@ function transliterate(value) {
     .join("");
 }
 
-function createFilename(companyName) {
+function createFilename(companyName, pixelRatio = EXPORT_PIXEL_RATIO) {
   const slug = transliterate(companyName)
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -782,7 +782,7 @@ function createFilename(companyName) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 72);
 
-  return `${slug || "calltouch"}-case-2x.jpg`;
+  return `${slug || "calltouch"}-case-${pixelRatio}x.jpg`;
 }
 
 function canvasToBlob(canvas) {
@@ -858,7 +858,9 @@ function restorePreviewBackground() {
 }
 
 function setExportingState(isExporting) {
+  elements.exportOneButton.disabled = isExporting;
   elements.exportButton.disabled = isExporting;
+  elements.exportOneButton.querySelector(".export-button__label").textContent = isExporting ? "Экспорт…" : "Экспорт JPG";
   elements.exportButtonLabel.textContent = isExporting ? "Экспорт…" : "Экспорт JPG 2x";
 }
 
@@ -872,7 +874,7 @@ function showToast(message, isError = false) {
   }, isError ? 6500 : 3200);
 }
 
-async function exportSlide() {
+async function exportSlide(pixelRatio = EXPORT_PIXEL_RATIO) {
   if (document.activeElement instanceof HTMLElement) {
     document.activeElement.blur();
   }
@@ -906,7 +908,7 @@ async function exportSlide() {
     const renderedCanvas = await window.DomExport.toCanvas(elements.caseSlide, {
       width: SLIDE_WIDTH,
       height: SLIDE_HEIGHT,
-      pixelRatio: EXPORT_PIXEL_RATIO,
+      pixelRatio,
       cacheBust: location.protocol !== "file:",
       backgroundColor: getSlideCanvasColor(),
       fontFaces
@@ -914,10 +916,10 @@ async function exportSlide() {
 
     const jpgBlob = await canvasToBlob(renderedCanvas);
     const companyName = document.getElementById("companyInput").value;
-    const filename = createFilename(companyName);
+    const filename = createFilename(companyName, pixelRatio);
 
     downloadBlob(jpgBlob, filename);
-    showToast(`JPG ${EXPORT_WIDTH}×${EXPORT_HEIGHT} сохранён: ${filename}`);
+    showToast(`JPG ${SLIDE_WIDTH * pixelRatio}×${SLIDE_HEIGHT * pixelRatio} сохранён: ${filename}`);
   } catch (error) {
     console.error(error);
     showToast(error.message || "Ошибка экспорта JPG.", true);
@@ -989,7 +991,8 @@ elements.caseSlide.addEventListener("focusout", (event) => {
   syncEditableOnBlur(output);
 });
 
-elements.exportButton.addEventListener("click", exportSlide);
+elements.exportOneButton.addEventListener("click", () => exportSlide(1));
+elements.exportButton.addEventListener("click", () => exportSlide(2));
 window.addEventListener("resize", updatePreviewScale, { passive: true });
 
 if ("ResizeObserver" in window) {
@@ -1023,7 +1026,6 @@ const bannerElements = {
   label2Settings: document.getElementById("bannerLabel2Settings"),
   buttonSettings: document.getElementById("bannerButtonSettings"),
   logoSettings: document.getElementById("bannerLogoSettings"),
-  overlaySettings: document.getElementById("bannerOverlaySettings"),
   visualSettings: document.getElementById("bannerVisualSettings"),
   manualVisualSettings: document.getElementById("bannerManualVisualSettings"),
   manualVisualPicker: document.getElementById("bannerVisualPicker"),
@@ -1060,7 +1062,6 @@ const bannerElements = {
   exportCurrentMp4Button: document.getElementById("bannerExportCurrentMp4Button"),
   exportAllMp4Button: document.getElementById("bannerExportAllMp4Button"),
   mp4SupportStatus: document.getElementById("bannerMp4SupportStatus"),
-  exportCurrentButton: document.getElementById("bannerExportCurrentButton"),
   exportAllButton: document.getElementById("bannerExportAllButton"),
   resetButton: document.getElementById("bannerResetButton"),
   topExportOneButton: document.getElementById("bannerExportTopOneButton"),
@@ -1074,7 +1075,6 @@ const bannerPreviewItems = new Map();
 const bannerAssetCache = new Map();
 const bannerExportAssetCache = new Map();
 const numericBannerPaths = new Set([
-  "visual.overlayStrength",
   "visual.scale",
   "animation.duration",
   "animation.entranceOffsetMin",
@@ -1575,7 +1575,7 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   canvas.style.setProperty("--creative-background", `url("${backgroundUrl}")`);
   canvas.style.setProperty(
     "--overlay-opacity",
-    state.visual.overlayEnabled ? String(state.visual.overlayStrength / 100) : "0"
+    state.visual.overlayEnabled ? "0.3" : "0"
   );
   canvas.style.setProperty("--creative-padding", `${state.layout.padding}px`);
   canvas.style.setProperty("--creative-gap", `${state.layout.gap}px`);
@@ -1873,7 +1873,6 @@ function syncBannerControls() {
   bannerElements.label2Settings.hidden = !state.content.label2.enabled;
   bannerElements.buttonSettings.hidden = !state.content.button.enabled;
   bannerElements.logoSettings.hidden = !state.branding.logoEnabled;
-  bannerElements.overlaySettings.hidden = !state.visual.overlayEnabled;
   bannerElements.visualSettings.hidden = !state.visual.enabled;
   bannerElements.manualVisualSettings.hidden = state.visual.mode !== "manual";
   bannerElements.autoVisualNote.hidden = state.visual.mode !== "auto";
@@ -2461,7 +2460,6 @@ async function createCreativeMp4(format, onProgress) {
 }
 
 function setBannerExporting(isExporting, allFormats = false, kind = "jpg", progressLabel = "") {
-  bannerElements.exportCurrentButton.disabled = isExporting;
   bannerElements.exportAllButton.disabled = isExporting;
   bannerElements.resetButton.disabled = isExporting;
   bannerElements.topExportOneButton.disabled = isExporting;
@@ -2472,9 +2470,6 @@ function setBannerExporting(isExporting, allFormats = false, kind = "jpg", progr
   bannerElements.animationRestartButton.disabled = isExporting;
   bannerElements.animationTimeline.disabled = isExporting;
   bannerElements.workspace.classList.toggle("is-exporting", isExporting);
-  bannerElements.exportCurrentButton.textContent = isExporting && kind === "jpg" && !allFormats
-    ? "Подготавливаем JPG…"
-    : "Скачать текущий JPG 2x";
   bannerElements.exportAllButton.textContent = isExporting && kind === "jpg" && allFormats
     ? "Собираем архив…"
     : "Скачать шесть размеров в ZIP";
@@ -2834,7 +2829,6 @@ bannerElements.canvasHost.addEventListener("keydown", (event) => {
   setBannerFormat(preview.dataset.format);
 });
 
-bannerElements.exportCurrentButton.addEventListener("click", () => exportCurrentCreative());
 bannerElements.exportAllButton.addEventListener("click", exportAllCreatives);
 bannerElements.exportCurrentMp4Button.addEventListener("click", exportCurrentCreativeMp4);
 bannerElements.exportAllMp4Button.addEventListener("click", exportAllCreativeMp4s);

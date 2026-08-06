@@ -28,6 +28,9 @@
 
       <div class="app-toolbar__actions">
         <div id="caseToolbarExport">
+          <button class="export-button export-button--toolbar export-button--one-x" id="caseExportOneButton" type="button">
+            <span class="export-button__label">Экспорт JPG</span>
+          </button>
           <button class="export-button export-button--toolbar" id="exportButton" type="button">
             <span class="export-button__label">Экспорт JPG 2x</span>
           </button>
@@ -376,12 +379,8 @@
               </div>
 
               <label class="toggle-row" for="bannerOverlayToggle">
-                <span><strong><i data-lucide="contrast" aria-hidden="true"></i>Коррекция фона</strong><small>Затемняет или высветляет изображение</small></span>
+                <span><strong><i data-lucide="contrast" aria-hidden="true"></i>Коррекция фона</strong><small>Всегда 30%: затемняет или высветляет изображение</small></span>
                 <input id="bannerOverlayToggle" type="checkbox" role="switch" data-banner-path="visual.overlayEnabled" checked>
-              </label>
-              <label class="field" id="bannerOverlaySettings">
-                <span class="field__label">Сила коррекции</span>
-                <select data-banner-path="visual.overlayStrength"><option value="0">0%</option><option value="15">15%</option><option value="30" selected>30%</option></select>
               </label>
             </section>
 
@@ -550,8 +549,7 @@
             </details>
 
             <section class="form-section">
-              <h2><i data-lucide="download" aria-hidden="true"></i>Экспорт</h2>
-              <button class="panel-button panel-button--primary" id="bannerExportCurrentButton" type="button">Скачать текущий JPG 2x</button>
+              <h2><i data-lucide="files" aria-hidden="true"></i>Пакетный экспорт</h2>
               <button class="panel-button" id="bannerExportAllButton" type="button">Скачать шесть размеров в ZIP</button>
               <button class="panel-button panel-button--quiet" id="bannerResetButton" type="button">Сбросить настройки</button>
             </section>

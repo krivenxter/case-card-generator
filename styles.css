@@ -140,9 +140,6 @@ body {
   display: flex;
   align-items: center;
   height: 100%;
-}
-
-#bannerToolbarExport {
   gap: 8px;
 }
 
@@ -2030,9 +2027,9 @@ body[data-theme="light"] .background-option span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 70px;
+  min-height: 2.2em;
   max-width: 100%;
-  padding: 16px 32px;
+  padding: 0.5em 1em;
   border: 2px solid var(--creative-chip-border);
   border-radius: var(--chip-radius, 4px);
   background: var(--creative-chip-glass);
@@ -2404,8 +2401,8 @@ body[data-theme="light"] .background-option span {
 }
 
 .creative-canvas[data-format="story"] .creative-chip {
-  min-height: 82px;
-  padding: 18px 37px;
+  min-height: 1.96em;
+  padding: 0.43em 0.88em;
   font-size: var(--runtime-chip-size);
 }
 
