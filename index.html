@@ -73,6 +73,11 @@
         </span>
       </nav>
 
+      <button class="mobile-controls-toggle" id="mobileControlsToggle" type="button" aria-expanded="false" aria-controls="casesView bannersView">
+        <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
+        <span id="mobileControlsLabel">Настройки</span>
+      </button>
+
       <div class="app-toolbar__actions">
         <div id="caseToolbarExport">
           <button class="export-button export-button--toolbar export-button--one-x" id="caseExportOneButton" type="button">
@@ -92,6 +97,7 @@
         </div>
       </div>
     </header>
+    <button class="mobile-controls-scrim" id="mobileControlsScrim" type="button" tabindex="-1" aria-label="Закрыть настройки"></button>
 
     <section class="generator-view" id="casesView" data-tool-view="cases" hidden>
       <div class="app-shell">
@@ -622,6 +628,17 @@
             </div>
             <div class="workspace__actions workspace__actions--banners">
               <span id="bannerScaleIndicator">Нажмите на размер, чтобы настроить его</span>
+              <label class="mobile-format-select" for="mobileBannerFormat">
+                <span>Формат</span>
+                <select id="mobileBannerFormat">
+                  <option value="landscape">Широкий · 1920 × 1080</option>
+                  <option value="square" selected>Квадрат · 1080 × 1080</option>
+                  <option value="story">История · 1080 × 1920</option>
+                  <option value="portrait">Портрет · 1080 × 1350</option>
+                  <option value="ad">Реклама · 1200 × 628</option>
+                  <option value="adVisual">Реклама без текста · 1200 × 628</option>
+                </select>
+              </label>
             </div>
           </header>
 

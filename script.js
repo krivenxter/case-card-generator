@@ -274,6 +274,17 @@ const elements = {
   toast: document.getElementById("toast")
 };
 
+const mobileControlsToggle = document.getElementById("mobileControlsToggle");
+const mobileControlsLabel = document.getElementById("mobileControlsLabel");
+const mobileControlsScrim = document.getElementById("mobileControlsScrim");
+
+function setMobileControlsOpen(open) {
+  const isOpen = Boolean(open);
+  document.body.classList.toggle("is-mobile-controls-open", isOpen);
+  mobileControlsToggle?.setAttribute("aria-expanded", String(isOpen));
+  if (mobileControlsLabel) mobileControlsLabel.textContent = isOpen ? "Закрыть" : "Настройки";
+}
+
 let currentTheme = "dark";
 let currentBackgroundIndex = "1";
 let currentBackgroundUrl = "backgrounds/prez-bg-1.webp";
@@ -1108,6 +1119,7 @@ const bannerElements = {
   canvasHost: document.getElementById("creativeCanvasHost"),
   centerCanvasButton: document.getElementById("bannerCenterCanvasButton"),
   sizeLabel: document.getElementById("bannerSizeLabel"),
+  mobileFormatSelect: document.getElementById("mobileBannerFormat"),
   scaleIndicator: document.getElementById("bannerScaleIndicator"),
   warning: document.getElementById("creativeWarning"),
   subtitleSettings: document.getElementById("bannerSubtitleSettings"),
@@ -2019,6 +2031,7 @@ function setBannerFormat(format) {
   appState.ui.activeBannerFormat = format;
   const config = BANNER_FORMATS[format];
   bannerElements.sizeLabel.textContent = `Выбран: ${config.label.toLowerCase()} ${config.width} × ${config.height} px`;
+  if (bannerElements.mobileFormatSelect) bannerElements.mobileFormatSelect.value = format;
 
   bannerPreviewItems.forEach((item, itemFormat) => {
     const active = itemFormat === format;
@@ -2038,6 +2051,7 @@ function getToolFromHash() {
 
 function setActiveTool(tool, { updateHash = true } = {}) {
   if (!document.querySelector(`[data-tool-view="${tool}"]`)) return;
+  setMobileControlsOpen(false);
   appState.ui.activeTool = tool;
 
   document.querySelectorAll("[data-tool-view]").forEach((view) => {
@@ -2718,6 +2732,16 @@ document.querySelectorAll("[data-tool-tab]").forEach((tab) => {
   });
 });
 
+mobileControlsToggle?.addEventListener("click", () => {
+  setMobileControlsOpen(!document.body.classList.contains("is-mobile-controls-open"));
+});
+
+mobileControlsScrim?.addEventListener("click", () => setMobileControlsOpen(false));
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setMobileControlsOpen(false);
+});
+
 document.querySelector(".app-brand")?.addEventListener("click", (event) => {
   event.preventDefault();
   setActiveTool("banners");
@@ -2730,6 +2754,9 @@ window.addEventListener("hashchange", () => {
 
 bannerElements.form.addEventListener("input", handleBannerControl);
 bannerElements.form.addEventListener("change", handleBannerControl);
+bannerElements.mobileFormatSelect?.addEventListener("change", () => {
+  setBannerFormat(bannerElements.mobileFormatSelect.value);
+});
 bannerElements.lightThemeToggle.addEventListener("change", handleBannerControl);
 bannerElements.form.addEventListener("click", (event) => {
   const target = event.target instanceof Element ? event.target : null;
