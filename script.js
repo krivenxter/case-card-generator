@@ -89,8 +89,19 @@ const BANNER_TYPE_SCALE = Object.freeze({
   story: { title: 62, titleMin: 58, subtitle: 50, subtitleMin: 36, chip: 42, chipMin: 28, button: 38, buttonMin: 26 },
   portrait: { title: 62, titleMin: 52, subtitle: 44, subtitleMin: 30, chip: 35, chipMin: 24, button: 32, buttonMin: 22 },
   landscape: { title: 68, titleMin: 48, subtitle: 42, subtitleMin: 28, chip: 32, chipMin: 22, button: 34, buttonMin: 24 },
-  ad: { title: 50, titleMin: 32, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19 },
+  ad: { title: 42, titleMin: 32, subtitle: 28, subtitleMin: 20, chip: 27, chipMin: 19, button: 27, buttonMin: 19 },
   adVisual: { title: 60, titleMin: 40, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19 }
+});
+
+// The layout slider remains a shared base value, while larger canvases receive
+// proportionate safe areas so the composition does not look cramped.
+const BANNER_FORMAT_PADDING_SCALE = Object.freeze({
+  square: { x: 1, y: 1 },
+  story: { x: 1.18, y: 1.05 },
+  portrait: { x: 1, y: 1 },
+  landscape: { x: 1.36, y: 1.3 },
+  ad: { x: 1, y: 1 },
+  adVisual: { x: 1, y: 1 }
 });
 
 function createBannerDefaults() {
@@ -1652,7 +1663,9 @@ function renderBannerCanvas(canvas, resolvedVisual) {
     "--overlay-opacity",
     state.visual.overlayEnabled ? "0.3" : "0"
   );
-  canvas.style.setProperty("--creative-padding", `${state.layout.padding}px`);
+  const paddingScale = BANNER_FORMAT_PADDING_SCALE[format] ?? BANNER_FORMAT_PADDING_SCALE.square;
+  canvas.style.setProperty("--creative-padding-x", `${state.layout.padding * paddingScale.x}px`);
+  canvas.style.setProperty("--creative-padding-y", `${state.layout.padding * paddingScale.y}px`);
   canvas.style.setProperty("--creative-gap", `${state.layout.gap}px`);
   canvas.style.setProperty("--runtime-gap", `${state.layout.gap}px`);
   canvas.style.setProperty("--content-width", `${state.layout.contentWidth}%`);
