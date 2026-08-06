@@ -63,11 +63,12 @@ const BANNER_VISUALS = Object.freeze([
   createBannerVisual("sms-mailing", "СМС рассылка", "СМС рассылка по базе клиентов.png", ["смс", "рассылка", "база"]),
   createBannerVisual("sms", "СМС", "СМС.png", ["смс", "сообщение"]),
   createBannerVisual("construction", "Строительство", "Строительство.png", ["строительство", "недвижимость", "дом"]),
+  createBannerVisual("real-estate", "Недвижимость", "Недвижимость.png", ["недвижимость", "риелтор", "квартира", "дом", "жильё"]),
   createBannerVisual("target-sms", "Таргетированная СМС рассылка", "Таргетированная СМС рассылка.png", ["таргет", "смс", "аудитория"]),
   createBannerVisual("plate", "Тарелка", "Тарелка.png", ["еда", "ресторан", "блюдо"]),
   createBannerVisual("tagging", "Тегирование", "Тегирование.png", ["тег", "тегирование", "метка"]),
   createBannerVisual("trade-in", "Трейд-ин", "Трейд-ин.png", ["трейд-ин", "авто", "обмен"]),
-  createBannerVisual("smart-request", "Умная заявка", "Умнапя заявка.png", ["умная заявка", "заявка", "лид"]),
+  createBannerVisual("smart-request", "Умная заявка", "Умная заявка.png", ["умная заявка", "заявка", "лид"]),
   createBannerVisual("outdoor", "Цифровая наружная реклама", "Цифровая наружная реклама.png", ["наружная", "dooh", "реклама"])
 ]);
 
@@ -1464,7 +1465,7 @@ function resolveBannerVisual() {
   const state = appState.banners;
   bannerElements.lightThemeToggle.checked = state.branding.theme === "light";
 
-  if (state.visual.customVisual) {
+  if (state.visual.mode === "custom" && state.visual.customVisual) {
     return { id: "custom", label: "Своя картинка", shortLabel: "", src: state.visual.customVisual };
   }
 
@@ -2074,6 +2075,7 @@ async function handleBannerAssetUpload(input, path) {
       path === "visual.customBackground" ? "visual.customBackgroundName" : "visual.customVisualName",
       file.name
     );
+    if (path === "visual.customVisual") appState.banners.visual.mode = "custom";
     bannerAssetCache.clear();
     syncBannerControls();
     renderBanners();
@@ -2266,10 +2268,19 @@ async function createCreativeJpg(format, pixelRatio = 2) {
   }
 }
 
+function getCreativeTitlePrefix() {
+  const words = (appState.banners.content.title.match(/[\p{L}\p{N}]+/gu) || []).slice(0, 2);
+  return words.join("-") || "Баннер";
+}
+
+function getCreativeFormatSuffix(format) {
+  const config = BANNER_FORMATS[format];
+  return `${config.width}x${config.height}`;
+}
+
 function getCreativeFilename(format, pixelRatio = 2) {
-  return pixelRatio === 1
-    ? `calltouch-creative-${format}-1x.jpg`
-    : `calltouch-creative-${format}.jpg`;
+  const ratioSuffix = pixelRatio === 1 ? "-1x" : "";
+  return `${getCreativeTitlePrefix()}-${getCreativeFormatSuffix(format)}${ratioSuffix}.jpg`;
 }
 
 function getSupportedMp4MimeType() {
@@ -2301,7 +2312,7 @@ function syncMp4Support() {
 }
 
 function getCreativeVideoFilename(format) {
-  return `calltouch-creative-${format}.mp4`;
+  return `${getCreativeTitlePrefix()}-${getCreativeFormatSuffix(format)}.mp4`;
 }
 
 async function createCreativeVideoLayers(format) {
@@ -2537,8 +2548,9 @@ async function exportAllCreatives() {
     }
 
     const archive = await zip.generateAsync({ type: "blob", compression: "STORE" });
-    downloadBlob(archive, "calltouch-creatives-2x.zip");
-    showToast("Шесть баннеров сохранены в calltouch-creatives-2x.zip");
+    const archiveFilename = `${getCreativeTitlePrefix()}-баннеры-2x.zip`;
+    downloadBlob(archive, archiveFilename);
+    showToast(`Шесть баннеров сохранены в ${archiveFilename}`);
   } catch (error) {
     console.error(error);
     showToast(error.message || "Не удалось собрать ZIP-архив.", true);
@@ -2610,8 +2622,9 @@ async function exportAllCreativeMp4s() {
 
     bannerElements.exportAllMp4Button.textContent = "Упаковываем ZIP…";
     const archive = await zip.generateAsync({ type: "blob", compression: "STORE" });
-    downloadBlob(archive, "calltouch-animations.zip");
-    showToast("Шесть MP4 сохранены в calltouch-animations.zip");
+    const archiveFilename = `${getCreativeTitlePrefix()}-анимации.zip`;
+    downloadBlob(archive, archiveFilename);
+    showToast(`Шесть MP4 сохранены в ${archiveFilename}`);
   } catch (error) {
     console.error(error);
     showToast(error.message || "Не удалось собрать ZIP с MP4.", true);
