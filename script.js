@@ -483,11 +483,13 @@ function updateAdaptiveTypography() {
     elements.summaryOutput.classList.add("is-medium");
   }
 
-  setAdaptiveClass(
-    elements.companyOutput,
-    "is-compact",
-    elements.companyOutput.textContent.length > 20
-  );
+  const companyLength = elements.companyOutput.textContent.length;
+  elements.companyOutput.classList.remove("is-compact", "is-tiny");
+  if (companyLength > 42) {
+    elements.companyOutput.classList.add("is-tiny");
+  } else if (companyLength > 20) {
+    elements.companyOutput.classList.add("is-compact");
+  }
 
   setAdaptiveClass(
     elements.taskOutput,
