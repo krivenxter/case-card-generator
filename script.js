@@ -154,6 +154,7 @@ const appState = {
     theme: "light",
     backgroundIndex: "1",
     backgroundShade: true,
+    composition: "standard",
     fields: {}
   },
   banners: createBannerDefaults()
@@ -238,6 +239,7 @@ const elements = {
   exportButton: document.getElementById("exportButton"),
   exportButtonLabel: document.querySelector(".export-button__label"),
   lightThemeToggle: document.getElementById("lightThemeToggle"),
+  compositionSelect: document.getElementById("caseCompositionSelect"),
   secondResultToggle: document.getElementById("secondResultToggle"),
   secondResultControls: document.getElementById("secondResultControls"),
   secondResultCard: document.getElementById("secondResultCard"),
@@ -615,6 +617,12 @@ function applyTheme() {
   applyBackground();
 }
 
+function applyCaseComposition() {
+  const composition = elements.compositionSelect.value === "cards" ? "cards" : "standard";
+  appState.caseCard.composition = composition;
+  elements.caseSlide.dataset.composition = composition;
+}
+
 function applyBackgroundShade() {
   appState.caseCard.backgroundShade = elements.backgroundShadeToggle.checked;
   elements.caseSlide.classList.toggle(
@@ -944,6 +952,13 @@ elements.editorForm.addEventListener("input", (event) => {
 
 elements.editorForm.addEventListener("change", (event) => {
   const input = event.target;
+  if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)) return;
+
+  if (input === elements.compositionSelect) {
+    applyCaseComposition();
+    return;
+  }
+
   if (!(input instanceof HTMLInputElement)) return;
 
   if (input === elements.lightThemeToggle) {
@@ -2896,6 +2911,7 @@ syncFormToSlide();
 syncResultVisibility();
 applyBackgroundShade();
 applyTheme();
+applyCaseComposition();
 syncBannerControls();
 setBannerFormat(BANNER_FORMATS[startupFormat] ? startupFormat : BANNER_FORMATS[appState.ui.activeBannerFormat] ? appState.ui.activeBannerFormat : "square");
 applyBannerAnimationFrame(1);
