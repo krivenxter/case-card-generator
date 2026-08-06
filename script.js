@@ -100,8 +100,8 @@ const BANNER_FORMAT_PADDING_SCALE = Object.freeze({
   story: { x: 1.18, y: 1.05 },
   portrait: { x: 1, y: 1 },
   landscape: { x: 1.36, y: 1.3 },
-  ad: { x: 1, y: 1 },
-  adVisual: { x: 1, y: 1 }
+  ad: { x: 0.86, y: 0.62 },
+  adVisual: { x: 0.86, y: 0.62 }
 });
 
 function createBannerDefaults() {
@@ -508,11 +508,14 @@ function updateAdaptiveTypography() {
     elements.taskOutput.textContent.length > 150
   );
 
-  setAdaptiveClass(
-    elements.toolOutput,
-    "is-compact",
-    elements.toolOutput.textContent.length > 24
-  );
+  const toolText = elements.toolOutput.textContent;
+  const toolLineCount = toolText.split(/\r?\n/).length;
+  elements.toolOutput.classList.remove("is-compact", "is-tiny");
+  if (toolText.length > 50 || toolLineCount > 2) {
+    elements.toolOutput.classList.add("is-tiny");
+  } else if (toolText.length > 24 || toolLineCount > 1) {
+    elements.toolOutput.classList.add("is-compact");
+  }
 
   document.querySelectorAll(".result-value").forEach(fitResultValue);
 }
