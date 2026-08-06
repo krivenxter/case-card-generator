@@ -78,11 +78,11 @@ const BANNER_LOGOS = Object.freeze({
 });
 
 const BANNER_TYPE_SCALE = Object.freeze({
-  square: { title: 62, titleMin: 46, subtitle: 40, subtitleMin: 28, chip: 32, chipMin: 22, button: 28, buttonMin: 20 },
+  square: { title: 62, titleMin: 44, subtitle: 40, subtitleMin: 28, chip: 32, chipMin: 22, button: 28, buttonMin: 20 },
   story: { title: 62, titleMin: 58, subtitle: 50, subtitleMin: 36, chip: 42, chipMin: 28, button: 38, buttonMin: 26 },
   portrait: { title: 62, titleMin: 52, subtitle: 44, subtitleMin: 30, chip: 35, chipMin: 24, button: 32, buttonMin: 22 },
   landscape: { title: 68, titleMin: 48, subtitle: 42, subtitleMin: 28, chip: 32, chipMin: 22, button: 34, buttonMin: 24 },
-  ad: { title: 60, titleMin: 40, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19 },
+  ad: { title: 50, titleMin: 32, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19 },
   adVisual: { title: 60, titleMin: 40, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19 }
 });
 
