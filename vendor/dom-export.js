@@ -162,11 +162,12 @@
     clone.style.setProperty("max-width", "none", "important");
     clone.style.setProperty("max-height", "none", "important");
     clone.style.setProperty("transform", "none", "important");
+    const serializedClone = new XMLSerializer().serializeToString(clone);
 
     const xhtml = `
       <div xmlns="${XHTML_NAMESPACE}" style="width:${width}px;height:${height}px;overflow:hidden;">
         <style>${fontCss}</style>
-        ${clone.outerHTML}
+        ${serializedClone}
       </div>
     `;
 

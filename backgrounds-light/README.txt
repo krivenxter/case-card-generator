@@ -1,11 +1,11 @@
-Сюда можно добавить до шести светлых фонов в формате WebP.
+Светлые фоны хранятся в формате PNG.
 
 Ожидаемые имена файлов:
-- prez-bg-1.webp
-- prez-bg-2.webp
-- prez-bg-3.webp
-- prez-bg-4.webp
-- prez-bg-5.webp
-- prez-bg-6.webp
+- prez-bg-1.png
+- prez-bg-2.png
+- prez-bg-3.png
+- prez-bg-4.png
+- prez-bg-5.png
+- prez-bg-6.png
 
-Пока файлов нет, в белой теме используется чистый белый фон.
+Если файл отсутствует, используется белый фон.

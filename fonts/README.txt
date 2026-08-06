@@ -1,8 +1,7 @@
-Положите в эту папку локальные файлы шрифтов:
+Основные шрифты приложения:
 
-1. DelaGothicOne-Regular.ttf
-2. museosanscyrl-500.woff2
+- DelaGothicOne-Regular.ttf
+- museosanscyrl-500.woff2
+- museosanscyrl-700.woff2
 
-Ожидаемые пути:
-fonts/DelaGothicOne-Regular.ttf
-fonts/museosanscyrl-500.woff2
+Все шрифты подключаются локально через styles.css.
