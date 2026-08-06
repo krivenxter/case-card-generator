@@ -24,6 +24,27 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body data-theme="light">
+  <section class="access-gate" id="accessGate" aria-labelledby="accessGateTitle">
+    <div class="access-gate__glow access-gate__glow--one" aria-hidden="true"></div>
+    <div class="access-gate__glow access-gate__glow--two" aria-hidden="true"></div>
+    <div class="access-gate__grid" aria-hidden="true"></div>
+    <div class="access-gate__card">
+      <div class="access-gate__symbol" aria-hidden="true">
+        <img src="icons/lock.svg" alt="">
+      </div>
+      <p class="access-gate__eyebrow">ДОСТУП К МАТЕРИАЛАМ</p>
+      <h1 id="accessGateTitle">Генераторы<br><span>Calltouch</span></h1>
+      <p class="access-gate__copy">Введите пароль, чтобы перейти на сайт</p>
+      <form class="access-gate__form" id="accessGateForm">
+        <label class="access-gate__field" for="accessGatePassword">
+
+          <input id="accessGatePassword" type="password" autocomplete="current-password" placeholder="Пароль" required>
+        </label>
+        <button class="access-gate__submit" type="submit">Открыть генераторы <span aria-hidden="true">→</span></button>
+        <p class="access-gate__error" id="accessGateError" role="alert" hidden>Пароль не подошёл. Попробуйте ещё раз.</p>
+      </form>
+    </div>
+  </section>
   <div class="app-frame">
     <header class="app-toolbar">
       <a class="app-brand" href="#banners" aria-label="Calltouch Генераторы">
@@ -40,6 +61,11 @@
           <i data-lucide="layout-template" aria-hidden="true"></i>
           Карточки кейсов
         </a>
+        <span class="tool-tab tool-tab--coming" aria-disabled="true">
+          <i data-lucide="presentation" aria-hidden="true"></i>
+          Презентации
+          <small>СКОРО. а может и нет</small>
+        </span>
       </nav>
 
       <div class="app-toolbar__actions">
@@ -491,6 +517,7 @@
               </summary>
 
               <div class="animation-panel__content">
+                <div class="animation-panel__body">
                 <p class="form-section__hint">До 6 секунд. Текстовые элементы появляются по очереди из прозрачности и смещённой точки, а кей-вижуал плавно покачивается по зацикленной траектории.</p>
 
                 <div class="animation-transport" aria-label="Управление предпросмотром анимации">
@@ -569,6 +596,7 @@
                   <button class="panel-button panel-button--primary" id="bannerExportCurrentMp4Button" type="button">Скачать текущий MP4</button>
                   <button class="panel-button" id="bannerExportAllMp4Button" type="button">Скачать все MP4 в ZIP</button>
                   <p class="animation-panel__support" id="bannerMp4SupportStatus">Проверяем поддержку MP4 в браузере…</p>
+                </div>
                 </div>
               </div>
             </details>
