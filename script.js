@@ -9,7 +9,7 @@ const EXPORT_JPEG_QUALITY = 0.92;
 const TEXT_COVERAGE_SAFETY_MULTIPLIER = 1.35;
 // Демо-ворота: поставьте enabled: false, чтобы полностью убрать экран доступа.
 const DEMO_ACCESS_CONFIG = Object.freeze({
-  enabled: true,
+  enabled: false,
   password: "trogai333",
   storageKey: "calltouch-generators-demo-access-v1"
 });
