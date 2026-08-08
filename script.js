@@ -34,49 +34,13 @@ const BANNER_VISUAL_BASE_SCALES = Object.freeze({
   adVisual: 1.3
 });
 
-function createBannerVisual(id, label, file, keywords) {
-  return { id, label, shortLabel: label.toUpperCase(), src: `visuals/${file}`, keywords };
-}
-
-const BANNER_VISUALS = Object.freeze([
-  createBannerVisual("analytics", "Сквозная аналитика", "Сквозная аналитика.png", ["аналитика", "данные", "сквозная", "метрика"]),
-  createBannerVisual("calltouch", "Calltouch", "Calltouch-1.png", ["calltouch", "платформа", "маркетинг"]),
-  createBannerVisual("cdp-platform", "CDP-платформа", "CDP-платформа.png", ["cdp", "сегмент", "аудитория", "персонализация"]),
-  createBannerVisual("cdp", "CDP", "CDP.png", ["cdp", "данные", "клиенты"]),
-  createBannerVisual("marquiz", "Marquiz", "Marquiz.png", ["marquiz", "квиз", "опрос", "форма"]),
-  createBannerVisual("car", "Автомобиль", "Автомобиль.png", ["авто", "автомобиль", "дилер"]),
-  createBannerVisual("autodialer", "Автопрозвон", "Автопрозвон.png", ["автопрозвон", "звонок", "телефония"]),
-  createBannerVisual("big-data", "Биг Дата", "Биг Дата.png", ["биг дата", "данные", "аналитика"]),
-  createBannerVisual("budget", "Бюджет", "Бюджет.png", ["бюджет", "расход", "деньги"]),
-  createBannerVisual("voice-target", "Войс-таргет", "Войс-таргет.png", ["войс", "таргет", "голос"]),
-  createBannerVisual("data", "Данные", "Данные.png", ["данные", "отчёт", "метрика"]),
-  createBannerVisual("device", "Девайс", "Девайс-2.png", ["девайс", "устройство", "гаджет"]),
-  createBannerVisual("email-tracking", "Емейл-трекинг", "Емейл-трекинг.png", ["email", "почта", "трекинг"]),
-  createBannerVisual("ai-assistant", "ИИ Ассистент", "ИИ Ассистент.png", ["ии", "ассистент", "ai"]),
-  createBannerVisual("ai-operator", "ИИ Оператор", "ИИ Оператор.png", ["ии", "оператор", "колл-центр"]),
-  createBannerVisual("fortune-wheel", "Колесо фортуны", "Колесо фортуны.png", ["колесо", "фортуны", "розыгрыш"]),
-  createBannerVisual("call-tracking", "Коллтрекинг", "Коллтрекинг.png", ["коллтрекинг", "звонки", "звонок"]),
-  createBannerVisual("marketing-budget", "Маркетинг-Бюджет", "Маркетинг-Бюджет.png", ["маркетинг", "бюджет"]),
-  createBannerVisual("display", "Медийный формат", "Медийный формат.png", ["медийный", "реклама", "баннер"]),
-  createBannerVisual("multi-button", "Мультикнопка", "Мультикнопка.png", ["мультикнопка", "кнопка", "виджет"]),
-  createBannerVisual("callback", "Обратный звонок", "Обратный звонок.png", ["обратный звонок", "заявка"]),
-  createBannerVisual("online-chat", "Онлайн-чат", "Онлайн-чат.png", ["чат", "сообщение", "мессенджер"]),
-  createBannerVisual("predict", "Предикт", "Предикт.png", ["предикт", "прогноз"]),
-  createBannerVisual("programmatic", "Программатик", "Программатик.png", ["программатик", "dsp", "реклама"]),
-  createBannerVisual("promo-widgets", "Промо виджеты", "Промо виджеты.png", ["промо", "виджет", "поп-ап"]),
-  createBannerVisual("customer-scoring", "Скоринг Клиентов", "Скоринг Клиентов.png", ["скоринг", "клиент", "оценка"]),
-  createBannerVisual("smartphone", "Смартфон-гаджет", "Смартфон-гаджет.png", ["смартфон", "телефон", "гаджет"]),
-  createBannerVisual("sms-mailing", "СМС рассылка", "СМС рассылка по базе клиентов.png", ["смс", "рассылка", "база"]),
-  createBannerVisual("sms", "СМС", "СМС.png", ["смс", "сообщение"]),
-  createBannerVisual("construction", "Строительство", "Строительство.png", ["строительство", "недвижимость", "дом"]),
-  createBannerVisual("real-estate", "Недвижимость", "Недвижимость.png", ["недвижимость", "риелтор", "квартира", "дом", "жильё"]),
-  createBannerVisual("target-sms", "Таргетированная СМС рассылка", "Таргетированная СМС рассылка.png", ["таргет", "смс", "аудитория"]),
-  createBannerVisual("plate", "Тарелка", "Тарелка.png", ["еда", "ресторан", "блюдо"]),
-  createBannerVisual("tagging", "Тегирование", "Тегирование.png", ["тег", "тегирование", "метка"]),
-  createBannerVisual("trade-in", "Трейд-ин", "Трейд-ин.png", ["трейд-ин", "авто", "обмен"]),
-  createBannerVisual("smart-request", "Умная заявка", "Умная заявка.png", ["умная заявка", "заявка", "лид"]),
-  createBannerVisual("outdoor", "Цифровая наружная реклама", "Цифровая наружная реклама.png", ["наружная", "dooh", "реклама"])
-]);
+const BANNER_VISUALS = Object.freeze((window.CALLTOUCH_ASSETS?.visuals || []).map((asset) => ({
+  id: asset.id,
+  label: asset.label,
+  shortLabel: asset.label.toUpperCase(),
+  src: asset.previewSource,
+  keywords: asset.keywords
+})));
 
 const BANNER_LOGOS = Object.freeze({
   light: "logos/calltouch-light.svg",

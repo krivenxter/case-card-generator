@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Генератор брендированных HTML email-рассылок Calltouch с безопасными шаблонами и production-ready экспортом.">
+  <title>Рассылки — Генераторы Calltouch</title>
+  <link rel="icon" href="favicon/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="email/email.css">
+</head>
+<body class="email-page" data-theme="light">
+  <header class="email-toolbar">
+    <a class="app-brand" href="index.html#banners" aria-label="К генераторам Calltouch">
+      <span>CALLTOUCH</span>
+      <strong>Генераторы</strong>
+    </a>
+    <nav class="email-toolbar__nav" aria-label="Генераторы">
+      <a href="index.html#banners">Баннеры</a>
+      <a href="index.html#cases">Карточки кейсов</a>
+      <a class="is-active" href="email.html" aria-current="page">Рассылки</a>
+    </nav>
+    <div class="email-toolbar__actions">
+      <button class="email-button email-button--quiet" id="newEmailButton" type="button">Новое письмо</button>
+      <button class="email-button email-button--primary" id="qualityButton" type="button">Проверить и экспортировать</button>
+    </div>
+  </header>
+
+  <main class="email-app" id="emailApp">
+    <section class="email-start" id="startScreen" aria-labelledby="startTitle">
+      <div class="email-start__intro">
+        <p>ГЕНЕРАТОР РАССЫЛОК</p>
+        <h1 id="startTitle">СОЗДАТЬ ПИСЬМО</h1>
+        <span>Вставьте контент — сетку, стили и адаптивность соберёт система.</span>
+      </div>
+      <div class="email-start__choices">
+        <button type="button" data-start-action="paste"><i data-lucide="clipboard-paste"></i><strong>Вставить текст</strong><span>Основной и самый быстрый способ</span><small>РЕКОМЕНДУЕМ</small></button>
+        <label class="email-start__file"><input id="importFileInput" type="file" accept=".docx,.txt"><i data-lucide="file-up"></i><strong>Загрузить DOCX / TXT</strong><span>Разберём заголовки, абзацы и списки</span></label>
+        <button type="button" data-start-action="manual"><i data-lucide="blocks"></i><strong>Собрать вручную</strong><span>Начать с безопасного базового письма</span></button>
+      </div>
+      <div class="email-import" id="pastePanel" hidden>
+        <label for="importText">Текст письма</label>
+        <textarea id="importText" rows="12" placeholder="Первая короткая строка станет заголовком. Разделяйте смысловые блоки пустой строкой, списки начинайте с дефиса."></textarea>
+        <div><button class="email-button email-button--quiet" id="cancelPasteButton" type="button">Назад</button><button class="email-button email-button--primary" id="generateVariantsButton" type="button">Собрать 2 варианта</button></div>
+      </div>
+    </section>
+
+    <section class="email-variants" id="variantScreen" hidden aria-labelledby="variantTitle">
+      <header><p>АВТОМАТИЧЕСКАЯ СБОРКА</p><h1 id="variantTitle">Выберите композицию</h1><span>Текст не переписывается — меняется только безопасная структура блоков.</span></header>
+      <div class="email-variants__grid">
+        <article><span class="email-tag">РЕКОМЕНДУЕМЫЙ</span><h2>МОДУЛЬНЫЙ</h2><p>Крупный стартовый блок, смысловые модули, преимущества и финальная кнопка.</p><iframe id="variantAFrame" title="Предпросмотр модульного варианта"></iframe><button class="email-button email-button--primary" type="button" data-variant="0">Выбрать модульный</button></article>
+        <article><span class="email-tag email-tag--alt">АЛЬТЕРНАТИВНЫЙ</span><h2>ПОСЛЕДОВАТЕЛЬНЫЙ</h2><p>Спокойная подача: текст и чередующиеся блоки с картинкой.</p><iframe id="variantBFrame" title="Предпросмотр последовательного варианта"></iframe><button class="email-button email-button--quiet" type="button" data-variant="1">Выбрать последовательный</button></article>
+      </div>
+      <button class="email-link-button" id="backToStartButton" type="button">← Вернуться к импорту</button>
+    </section>
+
+    <section class="email-editor" id="editorScreen" hidden>
+      <aside class="email-sidebar">
+        <section class="email-sidebar__global">
+          <div><p>ГЕНЕРАТОР РАССЫЛОК</p><h1 id="projectTitle">Новое письмо</h1></div>
+          <div class="email-segmented" aria-label="Размер предпросмотра">
+            <button class="is-active" type="button" data-preview="desktop">Компьютер</button>
+            <button type="button" data-preview="mobile">Телефон</button>
+          </div>
+          <div class="email-global-fields">
+            <label><span>Оформление</span><select id="themeSelect"><option value="classic">Светло-голубое</option><option value="editorial">Циановое</option></select></label>
+          </div>
+          <button class="email-button email-button--normalize" id="normalizeButton" type="button"><i data-lucide="wand-sparkles"></i>Привести письмо в порядок</button>
+        </section>
+        <section class="email-structure">
+          <div class="email-section-title"><h2>Структура</h2><button id="addBlockButton" type="button">+ Добавить блок</button></div>
+          <div class="email-block-list" id="blockList"></div>
+        </section>
+        <section class="email-block-editor" id="blockEditor"></section>
+        <section class="email-footnotes">
+          <div class="email-section-title"><h2>Сноски</h2><button id="addFootnoteButton" type="button">+ Добавить</button></div>
+          <div id="footnoteList"></div>
+        </section>
+      </aside>
+      <section class="email-workspace">
+        <div class="email-workspace__status"><span id="saveStatus">Сохранено на этом устройстве</span><div class="email-canvas-controls"><button id="zoomOutButton" type="button" aria-label="Уменьшить масштаб">−</button><output id="zoomIndicator">100%</output><button id="zoomInButton" type="button" aria-label="Увеличить масштаб">+</button><button id="resetCanvasButton" type="button">Вписать</button></div><span id="previewModeLabel">Компьютер · 660 px</span></div>
+        <div class="email-preview-stage" id="previewStage" title="Ctrl + колесо — масштаб. Пробел или средняя кнопка мыши — перемещение по холсту."><div class="email-preview-canvas" id="previewCanvas"><iframe id="emailPreview" title="Предпросмотр письма"></iframe></div></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog class="email-dialog email-block-library" id="blockLibraryDialog">
+    <form method="dialog"><header><div><p>БИБЛИОТЕКА БЛОКОВ</p><h2>Добавить блок</h2></div><button value="cancel" aria-label="Закрыть">×</button></header><div id="blockLibrary"></div></form>
+  </dialog>
+  <dialog class="email-dialog email-asset-dialog" id="assetDialog">
+    <form method="dialog"><header><div><p>ОБЩАЯ БИБЛИОТЕКА</p><h2>Выберите изображение</h2></div><button value="cancel" aria-label="Закрыть">×</button></header><div class="email-asset-grid" id="assetGrid"></div><section class="email-custom-asset"><h3>Своё изображение</h3><label>Файл для предпросмотра<input id="customAssetFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label><label>Публичная ссылка для экспорта<input id="customAssetUrl" type="url" placeholder="https://cdn.example.com/image.png"></label><button class="email-button email-button--primary" id="applyCustomAssetButton" type="button">Использовать</button><p>Локальный файл нельзя встроить в реальную рассылку без публичной ссылки.</p></section></form>
+  </dialog>
+  <dialog class="email-dialog email-quality-dialog" id="qualityDialog">
+    <form method="dialog"><header><div><p>ПРОВЕРКА ПЕРЕД ЭКСПОРТОМ</p><h2 id="qualityTitle">Письмо готово ✓</h2></div><button value="cancel" aria-label="Закрыть">×</button></header><div id="qualityResults"></div><details><summary>Показать HTML-код</summary><textarea id="codePreview" readonly rows="12"></textarea></details><footer><button class="email-button email-button--quiet" id="copyHtmlButton" type="button">Копировать HTML</button><button class="email-button email-button--primary" id="downloadHtmlButton" type="button">Скачать HTML</button></footer></form>
+  </dialog>
+  <div class="email-toast" id="emailToast" role="status" hidden></div>
+
+  <script src="shared/assets.js"></script>
+  <script src="shared/email-config.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="vendor/dom-export.js"></script>
+  <script type="module" src="email/email-app.js"></script>
+</body>
+</html>
