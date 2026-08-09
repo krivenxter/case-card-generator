@@ -39,7 +39,7 @@ function editAttrs(preview, path) {
 }
 
 function displayText(value, color = C.navy, size = 30, align = "left", path = "", preview = false) {
-  return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;text-transform:uppercase;color:${color};text-align:${align};word-break:break-word;">${escapeHtml(value)}</div>`;
+  return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;color:${color};text-align:${align};word-break:break-word;">${escapeHtml(value)}</div>`;
 }
 
 function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
@@ -57,7 +57,7 @@ function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
 function button(text, url, variant = "primary", path = "", preview = false) {
   const background = variant === "secondary" ? C.cyan : `linear-gradient(90deg,${C.magenta},${C.purple})`;
   const fallback = variant === "secondary" ? C.cyan : C.purple;
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${fallback}" style="background:${background};border-radius:999px;text-align:center;"><a href="${safeUrl(url)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${fontDisplay};font-size:15px;line-height:18px;font-weight:900;color:#ffffff;text-decoration:none;text-transform:uppercase;min-width:160px;"><span${editAttrs(preview, path)}>${escapeHtml(text || "ПОДРОБНЕЕ")}</span></a></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${fallback}" style="background:${background};border-radius:999px;text-align:center;"><a href="${safeUrl(url)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${fontDisplay};font-size:15px;line-height:18px;font-weight:900;color:#ffffff;text-decoration:none;min-width:160px;"><span${editAttrs(preview, path)}>${escapeHtml(text || "Подробнее")}</span></a></td></tr></table>`;
 }
 
 function wrapBlock(block, content, background = "transparent", padding = "0 0 20px") {
@@ -69,7 +69,7 @@ function renderTitle(block, preview) {
   const highlighted = block.variant === "accent" && accent && heading.includes(accent)
     ? escapeHtml(heading).replace(escapeHtml(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${escapeHtml(accent)}</span>`)
     : escapeHtml(heading);
-  return wrapBlock(block, `<div${editAttrs(preview, "content.heading")} style="font-family:${fontDisplay};font-size:34px;line-height:1.1;font-weight:900;text-transform:uppercase;color:${C.navy};word-break:break-word;">${highlighted}</div>${subtitle && block.variant !== "plain" ? `<div style="padding-top:18px;">${bodyText(subtitle, C.navy, 17, "content.subtitle", preview)}</div>` : ""}`, "transparent", "4px 0 24px");
+  return wrapBlock(block, `<div${editAttrs(preview, "content.heading")} style="font-family:${fontDisplay};font-size:34px;line-height:1.1;font-weight:900;color:${C.navy};word-break:break-word;">${highlighted}</div>${subtitle && block.variant !== "plain" ? `<div style="padding-top:18px;">${bodyText(subtitle, C.navy, 17, "content.subtitle", preview)}</div>` : ""}`, "transparent", "4px 0 24px");
 }
 
 function renderText(block, preview) {
@@ -79,7 +79,7 @@ function renderText(block, preview) {
 function renderPromo(block, preview) {
   const content = block.content;
   const visual = img(content.image, content.heading, preview, 180);
-  const lower = table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:18px;line-height:1.2;color:#ffffff;text-transform:uppercase;">${escapeHtml(content.offer || "")}</div>${bodyText(content.body, "#D6E8F2", 15, "content.body", preview)}`, "width:62%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${td(visual, "width:38%;padding:12px;vertical-align:middle;", 'class="stack-column"')}</tr>`);
+  const lower = table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:18px;line-height:1.2;color:#ffffff;">${escapeHtml(content.offer || "")}</div>${bodyText(content.body, "#D6E8F2", 15, "content.body", preview)}`, "width:62%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${td(visual, "width:38%;padding:12px;vertical-align:middle;", 'class="stack-column"')}</tr>`);
   const contentHtml = `${content.eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;padding:9px 16px;background:${C.magenta};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;">${escapeHtml(content.eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};border-radius:0 28px 28px 28px;"><div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 28, "left", "content.heading", preview)}</div><div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>${content.ctaText ? `<div style="padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>`;
   return wrapBlock(block, contentHtml, "transparent", "0 0 28px");
 }

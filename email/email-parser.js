@@ -28,7 +28,7 @@ function isUrl(line) {
 export function normalizeContent(parsed) {
   const sections = parsed.sections.filter((section, index) => index > 0 || section.heading !== parsed.title || section.body || section.list.length);
   return {
-    title: parsed.title.slice(0, 180) || "ЗАГОЛОВОК ПИСЬМА",
+    title: parsed.title.slice(0, 180) || "Заголовок письма",
     intro: sections.find((section) => section.body)?.body || "",
     sections,
     primaryUrl: parsed.urls[0] || "{{cta_url}}",
@@ -38,7 +38,7 @@ export function normalizeContent(parsed) {
 
 function findCtaCandidate(sections) {
   const candidates = sections.flatMap((section) => [section.heading, ...section.list]).filter(Boolean);
-  return candidates.reverse().find((line) => line.length <= 34 && /узна|подключ|заяв|регистр|получ|попроб|смотр|читать/i.test(line)) || "УЗНАТЬ БОЛЬШЕ";
+  return candidates.reverse().find((line) => line.length <= 34 && /узна|подключ|заяв|регистр|получ|попроб|смотр|читать/i.test(line)) || "Узнать больше";
 }
 
 function sectionBlocks(content, editorial = false) {
@@ -50,15 +50,15 @@ function sectionBlocks(content, editorial = false) {
     if (editorial) {
       return createBlock(index % 2 ? "featureCard" : "imageText", {
         variant: index % 2 ? "image-right" : "image-left",
-        content: { heading: section.heading || `РАЗДЕЛ ${index + 1}`, body: body || "Добавьте описание.", image: assetList[index % assetList.length] }
+        content: { heading: section.heading || `Раздел ${index + 1}`, body: body || "Добавьте описание.", image: assetList[index % assetList.length] }
       });
     }
     if (section.list.length >= 2) {
-      const items = section.list.slice(0, 4).map((item, itemIndex) => ({ heading: item.length < 44 ? item : `ПРЕИМУЩЕСТВО ${itemIndex + 1}`, body: item.length < 44 ? "" : item }));
+      const items = section.list.slice(0, 4).map((item, itemIndex) => ({ heading: item.length < 44 ? item : `Преимущество ${itemIndex + 1}`, body: item.length < 44 ? "" : item }));
       while (items.length < 4) items.push({ heading: "", body: "" });
       return createBlock("iconGrid", { content: { items } });
     }
-    return createBlock("featureCard", { variant: index % 2 ? "image-right" : "image-left", content: { heading: section.heading || `РАЗДЕЛ ${index + 1}`, body: body || "Добавьте описание.", image: assetList[index % assetList.length] } });
+    return createBlock("featureCard", { variant: index % 2 ? "image-right" : "image-left", content: { heading: section.heading || `Раздел ${index + 1}`, body: body || "Добавьте описание.", image: assetList[index % assetList.length] } });
   });
 }
 
