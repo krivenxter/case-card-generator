@@ -124,7 +124,7 @@ function bindPreviewInteractions() {
     return;
   }
   const style = previewDocument.createElement("style");
-  style.textContent = `[data-block-id]{cursor:pointer;transition:filter .12s ease}[data-block-id]:hover{filter:brightness(.96)}[data-block-id].is-selected>td{outline:3px solid #24b8dc;outline-offset:-3px}[data-edit-path]{cursor:text;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}[data-edit-path]:hover,[data-edit-path]:focus{outline-color:rgba(36,184,220,.8);background:rgba(255,255,255,.08)}[data-edit-path]:focus{outline-width:2px}`;
+  style.textContent = `[data-block-id]{cursor:pointer;transition:filter .12s ease}[data-block-id]:hover{filter:brightness(.96)}[data-block-id].is-selected>td{outline:3px solid #24b8dc;outline-offset:0}[data-edit-path]{cursor:text;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}[data-edit-path]:hover,[data-edit-path]:focus{outline-color:rgba(36,184,220,.8);background:rgba(255,255,255,.08)}[data-edit-path]:focus{outline-width:2px}`;
   previewDocument.head.append(style);
   previewDocument.addEventListener("click", (event) => {
     const link = event.target.closest("a[href]");
@@ -145,6 +145,7 @@ function bindPreviewInteractions() {
       bindPreviewSelection();
     });
     node.addEventListener("focus", () => {
+      node.dataset.editStart = node.innerText;
       selectedBlockId = node.closest("[data-block-id]")?.dataset.blockId || selectedBlockId;
       renderBlockList();
       renderBlockEditor();
@@ -156,7 +157,11 @@ function bindPreviewInteractions() {
       setPath(block, node.dataset.editPath, node.innerText.replace(/\n{3,}/g, "\n\n").trim());
       persistSoon();
     });
-    node.addEventListener("blur", () => commitChange({ rerenderEditor: true }));
+    // Перерендериваем предпросмотр только если текст реально изменился,
+    // иначе каждый клик-выделение перезагружает iframe и мерцает белым.
+    node.addEventListener("blur", () => {
+      if (node.innerText !== node.dataset.editStart) commitChange({ rerenderEditor: true });
+    });
   });
   $$('[data-block-id]', previewDocument).forEach((node) => {
     node.classList.toggle("is-selected", node.dataset.blockId === selectedBlockId);
@@ -222,7 +227,7 @@ function renderBlockEditor() {
   if (block.type === "text") controls = field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" });
   if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer)}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
-  if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
+  if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><strong>Преимущество ${index + 1}</strong><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"></div>`).join("")}</div>`;
   if (block.type === "ctaCard") controls = `${field("Тема", "variant", block.variant, { options: [["dark", "Тёмно-синяя"], ["light", "Светлая"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Пояснение", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;

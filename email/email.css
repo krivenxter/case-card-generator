@@ -131,7 +131,7 @@
 .email-footnote-row > span { padding-top: 10px; color: #68757b; font-size: 11px; }
 .email-footnote-row__actions { display: grid; }
 
-.email-workspace { min-width: 0; overflow: hidden; background-color: #e8edef; background-image: linear-gradient(rgba(31,40,44,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(31,40,44,.035) 1px, transparent 1px); background-size: 20px 20px; }
+.email-workspace { min-width: 0; overflow: hidden; background-color: #e8edef; }
 .email-workspace__status { display: flex; height: 42px; padding: 0 18px; align-items: center; justify-content: space-between; color: #68757b; background: rgba(255,255,255,.8); font-size: 11px; }
 .email-preview-stage { height: calc(100% - 42px); padding: 28px; overflow: auto; box-sizing: border-box; }
 .email-preview-stage iframe { display: block; width: 760px; max-width: 100%; height: calc(100% - 2px); min-height: 700px; margin: 0 auto; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 18px 60px rgba(31,40,44,.16); transition: width .2s ease; }

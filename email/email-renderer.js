@@ -10,6 +10,13 @@ function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character]));
 }
 
+// У части почтовых клиентов в подменённом Arial нет глифа ₽ (U+20BD) — он приезжает
+// из случайного запасного шрифта и выбивается по весу. Оборачиваем знак в span со
+// стеком шрифтов, где глиф точно есть и поддерживает жирное начертание.
+function rubleSafe(value = "") {
+  return escapeHtml(value).replace(/₽/g, `<span style="font-family:Arial,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">₽</span>`);
+}
+
 function safeUrl(value = "") {
   const url = String(value).trim();
   return /^(https:\/\/|\{\{[a-z0-9_]+\}\}$)/i.test(url) ? escapeHtml(url) : "#";
@@ -39,25 +46,25 @@ function editAttrs(preview, path) {
 }
 
 function displayText(value, color = C.navy, size = 30, align = "left", path = "", preview = false) {
-  return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;color:${color};text-align:${align};word-break:break-word;">${escapeHtml(value)}</div>`;
+  return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;color:${color};text-align:${align};word-break:break-word;">${rubleSafe(value)}</div>`;
 }
 
 function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
   const lines = String(value || "").split("\n").filter(Boolean);
   const html = lines.map((line) => {
     const list = /^\s*[-–—•]\s*/.test(line);
-    const text = escapeHtml(line.replace(/^\s*[-–—•]\s*/, ""))
+    const text = rubleSafe(line.replace(/^\s*[-–—•]\s*/, ""))
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
       .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:#084E7D;">$1</a>');
     return list ? `<div style="padding:0 0 8px 18px;">•&nbsp; ${text}</div>` : `<div style="padding:0 0 10px;">${text}</div>`;
   }).join("");
-  return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};">${html}</div>`;
+  return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};word-break:break-word;overflow-wrap:break-word;">${html}</div>`;
 }
 
 function button(text, url, variant = "primary", path = "", preview = false) {
   const background = variant === "secondary" ? C.cyan : `linear-gradient(90deg,${C.magenta},${C.purple})`;
   const fallback = variant === "secondary" ? C.cyan : C.purple;
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${fallback}" style="background:${background};border-radius:999px;text-align:center;"><a href="${safeUrl(url)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${fontDisplay};font-size:15px;line-height:18px;font-weight:900;color:#ffffff;text-decoration:none;min-width:160px;"><span${editAttrs(preview, path)}>${escapeHtml(text || "Подробнее")}</span></a></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${fallback}" style="background:${background};border-radius:999px;text-align:center;"><a href="${safeUrl(url)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${fontDisplay};font-size:15px;line-height:18px;font-weight:900;color:#ffffff;text-decoration:none;min-width:160px;"><span${editAttrs(preview, path)}>${rubleSafe(text || "Подробнее")}</span></a></td></tr></table>`;
 }
 
 function wrapBlock(block, content, background = "transparent", padding = "0 0 20px") {
@@ -67,8 +74,8 @@ function wrapBlock(block, content, background = "transparent", padding = "0 0 20
 function renderTitle(block, preview) {
   const { heading, subtitle, accent } = block.content;
   const highlighted = block.variant === "accent" && accent && heading.includes(accent)
-    ? escapeHtml(heading).replace(escapeHtml(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${escapeHtml(accent)}</span>`)
-    : escapeHtml(heading);
+    ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`)
+    : rubleSafe(heading);
   return wrapBlock(block, `<div${editAttrs(preview, "content.heading")} style="font-family:${fontDisplay};font-size:34px;line-height:1.1;font-weight:900;color:${C.navy};word-break:break-word;">${highlighted}</div>${subtitle && block.variant !== "plain" ? `<div style="padding-top:18px;">${bodyText(subtitle, C.navy, 17, "content.subtitle", preview)}</div>` : ""}`, "transparent", "4px 0 24px");
 }
 
@@ -79,7 +86,7 @@ function renderText(block, preview) {
 function renderPromo(block, preview) {
   const content = block.content;
   const visual = img(content.image, content.heading, preview, 180);
-  const lower = table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:18px;line-height:1.2;color:#ffffff;">${escapeHtml(content.offer || "")}</div>${bodyText(content.body, "#D6E8F2", 15, "content.body", preview)}`, "width:62%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${td(visual, "width:38%;padding:12px;vertical-align:middle;", 'class="stack-column"')}</tr>`);
+  const lower = table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:18px;line-height:1.2;color:#ffffff;">${rubleSafe(content.offer || "")}</div>${bodyText(content.body, "#D6E8F2", 15, "content.body", preview)}`, "width:62%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${td(visual, "width:38%;padding:12px;vertical-align:middle;", 'class="stack-column"')}</tr>`);
   const contentHtml = `${content.eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;padding:9px 16px;background:${C.magenta};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;">${escapeHtml(content.eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};border-radius:0 28px 28px 28px;"><div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 28, "left", "content.heading", preview)}</div><div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>${content.ctaText ? `<div style="padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>`;
   return wrapBlock(block, contentHtml, "transparent", "0 0 28px");
 }
@@ -87,7 +94,7 @@ function renderPromo(block, preview) {
 function renderImageText(block, preview, feature = false) {
   const content = block.content;
   const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 190), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : 22}px;vertical-align:middle;`, 'class="stack-column"');
-  const textCell = td(`${displayText(content.heading, C.ink, feature ? 19 : 23, "left", "content.heading", preview)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 15, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};">${escapeHtml(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : 26}px;vertical-align:middle;`, 'class="stack-column"');
+  const textCell = td(`${displayText(content.heading, C.ink, feature ? 19 : 23, "left", "content.heading", preview)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 15, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : 26}px;vertical-align:middle;`, 'class="stack-column"');
   const cells = block.variant === "image-right" ? textCell + imageCell : imageCell + textCell;
   return wrapBlock(block, table(`<tr>${cells}</tr>`, `background:#ffffff;border-radius:${feature ? 22 : 28}px;overflow:hidden;`), "transparent", `0 0 ${feature ? 12 : 20}px`);
 }
@@ -112,7 +119,9 @@ function renderIconGrid(block, preview) {
   const icons = window.CALLTOUCH_ASSETS.essentials || {};
   const rows = [0, 2].map((start) => `<tr>${items.slice(start, start + 2).map((item, index) => {
     const icon = icons[item.iconId] || icons[["send", "verify", "clock", "message"][start + index]];
-    const iconMarkup = icon ? `<img src="${assetSource(icon, preview)}" width="44" height="44" alt="${escapeHtml(icon.label)}" style="display:block;width:44px;height:44px;border:0;">` : "";
+    // Подложка под иконку — залитая ячейка таблицы: в старом Outlook border-radius
+    // не сработает, подложка станет квадратной, но ничего не сломается.
+    const iconMarkup = icon ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${C.pale}" style="background:${C.pale};border-radius:18px;padding:13px;"><img src="${assetSource(icon, preview)}" width="44" height="44" alt="${escapeHtml(icon.label)}" style="display:block;width:44px;height:44px;border:0;"></td></tr></table>` : "";
     return td(`${iconMarkup}<div style="padding-top:13px;">${displayText(item.heading, C.ink, 17, "left", `content.items.${start + index}.heading`, preview)}</div>${item.body ? `<div style="padding-top:5px;">${bodyText(item.body, C.ink, 14, `content.items.${start + index}.body`, preview)}</div>` : ""}`, "width:50%;padding:18px;vertical-align:top;", 'class="grid-column"');
   }).join("")}</tr>`).join("");
   return wrapBlock(block, table(rows, "background:#ffffff;border-radius:28px;overflow:hidden;"), "transparent", "0 0 24px");
@@ -165,7 +174,7 @@ export function renderEmailDocument(email, { preview = false } = {}) {
   const logo = window.CALLTOUCH_ASSETS.logos.dark;
   const background = email.settings.theme === "editorial" ? C.cyan : C.lightCyan;
   const blocks = email.blocks.map((block) => renderBlock(block, preview)).join("");
-  const footnotes = email.footnotes.map((note, index) => `<div data-footnote-id="${escapeHtml(note.id)}" style="padding:0 0 10px;font-family:${fontBody};font-size:13px;line-height:1.45;color:${C.muted};">${"*".repeat(index + 1)} ${escapeHtml(note.text)}</div>`).join("");
+  const footnotes = email.footnotes.map((note, index) => `<div data-footnote-id="${escapeHtml(note.id)}" style="padding:0 0 10px;font-family:${fontBody};font-size:13px;line-height:1.45;color:${C.muted};word-break:break-word;overflow-wrap:break-word;">${"*".repeat(index + 1)} ${escapeHtml(note.text)}</div>`).join("");
   const mainContent = table(`${blocks}<tr><td style="padding:6px 0 0;font-family:${fontBody};font-size:16px;line-height:1.4;color:${C.navy};text-align:center;">С уважением, Команда Calltouch</td></tr>`);
   const main = table(`<tr>${td(mainContent, "padding:28px;", 'class="email-main-pad"')}</tr>`, `background:${background};border-radius:30px;`, `bgcolor="${background}"`);
   const responsive = `@media only screen and (max-width:620px){.email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}.stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}h1{font-size:28px!important}[data-brand-title],[data-brand-scene]{width:100%!important}[data-brand-scene]{padding:22px!important}[data-brand-scene]>div:nth-of-type(2){padding:18px 100px 18px 18px!important}[data-brand-scene]>[aria-hidden="true"]{width:110px!important;height:110px!important;right:0!important}}`;

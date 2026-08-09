@@ -37,6 +37,8 @@ export function resolveBrandTitleColors(block) {
   const background = block?.variant === "custom"
     ? normalizeHex(block?.content?.backgroundColor)
     : THEMES[block?.variant] || THEMES["light-cyan"];
+  // На циановой схеме текст всегда белый, иначе авто-контраст ставит тёмно-синий.
+  if (block?.variant === "cyan") return { background, text: LIGHT_TEXT };
   const tone = block?.content?.textTone || "auto";
   const text = tone === "light" ? LIGHT_TEXT : tone === "dark" ? DARK_TEXT : contrast(background, LIGHT_TEXT) > contrast(background, DARK_TEXT) ? LIGHT_TEXT : DARK_TEXT;
   return { background, text };
