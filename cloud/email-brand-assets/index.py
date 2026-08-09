@@ -17,7 +17,9 @@ MAX_IMAGE_BYTES = 2 * 1024 * 1024
 
 def _cors_headers(origin):
     allowed = [item.strip() for item in os.getenv("ALLOWED_ORIGINS", "").split(",") if item.strip()]
-    allow_origin = origin if origin in allowed else (allowed[0] if allowed else "*")
+    parsed_origin = urllib.parse.urlparse(origin)
+    local_origin = parsed_origin.scheme in ("http", "https") and parsed_origin.hostname in ("localhost", "127.0.0.1", "::1")
+    allow_origin = origin if origin in allowed or local_origin else (allowed[0] if allowed else "*")
     return {
         "Access-Control-Allow-Origin": allow_origin,
         "Access-Control-Allow-Headers": "Content-Type,X-Generator-Token",
@@ -44,7 +46,7 @@ def _validate_png(data):
     if len(data) > MAX_IMAGE_BYTES:
         raise ValueError("PNG больше 2 МБ.")
     width, height = struct.unpack(">II", data[16:24])
-    if not (600 <= width <= 1600 and 300 <= height <= 1200):
+    if not (600 <= width <= 1600 and 180 <= height <= 1200):
         raise ValueError("Некорректный размер PNG.")
     return width, height
 

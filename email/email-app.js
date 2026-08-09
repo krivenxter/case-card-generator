@@ -2,8 +2,8 @@ import { BLOCK_DEFINITIONS, EMAIL_STORAGE_KEY, createBlock, createDefaultEmail, 
 import { buildAutoVariants, readImportedFile } from "./email-parser.js";
 import { renderEmailDocument } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
-import { BRAND_SCENE_HEIGHT, BRAND_SCENE_WIDTH, brandSceneSignature, isBrandScenePublished, renderBrandSceneMarkup } from "./email-brand-scene.js";
-import { BRAND_TITLE_HEIGHT, BRAND_TITLE_WIDTH, brandTitleSignature, isBrandTitlePublished, renderBrandTitleMarkup, resolveBrandTitleColors } from "./email-brand-title.js";
+import { BRAND_SCENE_MIN_HEIGHT, BRAND_SCENE_WIDTH, brandSceneSignature, isBrandScenePublished, renderBrandSceneMarkup } from "./email-brand-scene.js";
+import { BRAND_TITLE_MIN_HEIGHT, BRAND_TITLE_WIDTH, brandTitleSignature, isBrandTitlePublished, renderBrandTitleMarkup, resolveBrandTitleColors } from "./email-brand-title.js";
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
@@ -418,22 +418,25 @@ function blobToBase64(blob) {
 
 function getBrandRenderConfig(block) {
   if (block.type === "brandTitle") {
-    return { width: BRAND_TITLE_WIDTH, height: BRAND_TITLE_HEIGHT, markup: renderBrandTitleMarkup(block), signature: brandTitleSignature, background: resolveBrandTitleColors(block).background };
+    return { width: BRAND_TITLE_WIDTH, minHeight: BRAND_TITLE_MIN_HEIGHT, markup: renderBrandTitleMarkup(block), signature: brandTitleSignature, background: resolveBrandTitleColors(block).background };
   }
-  return { width: BRAND_SCENE_WIDTH, height: BRAND_SCENE_HEIGHT, markup: renderBrandSceneMarkup(block, { preview: true, editable: false }), signature: brandSceneSignature, background: "#064b79" };
+  return { width: BRAND_SCENE_WIDTH, minHeight: BRAND_SCENE_MIN_HEIGHT, markup: renderBrandSceneMarkup(block, { preview: true, editable: false }), signature: brandSceneSignature, background: "#064b79" };
 }
 
 async function renderBrandImagePng(block) {
   if (!window.DomExport) throw new Error("Модуль создания изображений не загрузился.");
   const config = getBrandRenderConfig(block);
   const host = document.createElement("div");
-  host.style.cssText = `position:fixed;left:-10000px;top:0;width:${config.width}px;height:${config.height}px;overflow:hidden;pointer-events:none;`;
+  host.style.cssText = `position:fixed;left:-10000px;top:0;width:${config.width}px;min-height:${config.minHeight}px;pointer-events:none;`;
   host.innerHTML = config.markup;
   document.body.append(host);
   try {
+    if (document.fonts?.ready) await document.fonts.ready;
+    const height = Math.ceil(host.firstElementChild.getBoundingClientRect().height);
+    host.firstElementChild.style.height = `${height}px`;
     const canvas = await window.DomExport.toCanvas(host.firstElementChild, {
       width: config.width,
-      height: config.height,
+      height,
       pixelRatio: 2,
       cacheBust: location.protocol !== "file:",
       backgroundColor: config.background,
@@ -483,7 +486,9 @@ async function publishBrandImage(block, button) {
     commitChange({ rerenderEditor: true });
     showToast("Изображение создано и загружено.");
   } catch (error) {
-    showToast(error.message || "Не удалось создать изображение.");
+    const localOrigin = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+    const networkError = error instanceof TypeError && /fetch/i.test(error.message || "");
+    showToast(networkError && localOrigin ? "Локальный адрес не разрешён функцией. Обновите её версию." : error.message || "Не удалось создать изображение.");
     renderBlockEditor();
   }
 }
