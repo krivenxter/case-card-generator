@@ -4,7 +4,7 @@ import { BRAND_TITLE_WIDTH, renderBrandTitleMarkup } from "./email-brand-title.j
 
 const C = EMAIL_TOKENS.colors;
 const fontBody = "Arial, Helvetica, sans-serif";
-const fontDisplay = "'Arial Black', Arial, sans-serif";
+const fontDisplay = "Arial, Helvetica, sans-serif";
 
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character]));
