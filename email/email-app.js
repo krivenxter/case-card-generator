@@ -336,7 +336,7 @@ function bindPreviewCanvasControls(previewDocument) {
   });
   previewDocument.addEventListener("pointerup", stopCanvasPan);
   previewDocument.addEventListener("keydown", (event) => {
-    if (event.code !== "Space" || /INPUT|TEXTAREA|SELECT/.test(previewDocument.activeElement?.tagName || "")) return;
+    if (event.code !== "Space" || previewDocument.activeElement?.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(previewDocument.activeElement?.tagName || "")) return;
     canvasState.spacePressed = true;
     elements.previewStage.classList.add("is-pan-ready");
     event.preventDefault();
@@ -432,7 +432,7 @@ async function renderBrandImagePng(block) {
   document.body.append(host);
   try {
     if (document.fonts?.ready) await document.fonts.ready;
-    const height = Math.ceil(host.firstElementChild.getBoundingClientRect().height);
+    const height = Math.max(Math.ceil(host.firstElementChild.getBoundingClientRect().height), config.minHeight);
     host.firstElementChild.style.height = `${height}px`;
     const canvas = await window.DomExport.toCanvas(host.firstElementChild, {
       width: config.width,
@@ -717,7 +717,7 @@ elements.previewStage.addEventListener("pointerdown", (event) => {
 window.addEventListener("pointermove", (event) => moveCanvasPan(event.clientX, event.clientY));
 window.addEventListener("pointerup", stopCanvasPan);
 window.addEventListener("keydown", (event) => {
-  if (event.code !== "Space" || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) return;
+  if (event.code !== "Space" || document.activeElement?.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) return;
   canvasState.spacePressed = true;
   elements.previewStage.classList.add("is-pan-ready");
   event.preventDefault();

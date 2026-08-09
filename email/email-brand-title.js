@@ -62,7 +62,7 @@ export function renderBrandTitleMarkup(block, { editable = false } = {}) {
   const length = String(content.heading || "").length;
   const fontSize = length > 64 ? 27 : length > 38 ? 31 : 36;
   const headingAttrs = editable ? ' data-edit-path="content.heading"' : "";
-  return `<div data-brand-title style="display:flex;width:${BRAND_TITLE_WIDTH}px;min-height:${BRAND_TITLE_MIN_HEIGHT}px;padding:24px 32px;align-items:center;box-sizing:border-box;overflow:hidden;border-radius:28px;background:${background};color:${text};">
+  return `<div data-brand-title style="display:flex;width:${BRAND_TITLE_WIDTH}px;align-items:center;box-sizing:border-box;overflow:hidden;background:${background};color:${text};">
     <div${headingAttrs} style="width:100%;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${fontSize}px;line-height:1.12;font-weight:400;text-transform:uppercase;letter-spacing:-.02em;word-break:break-word;">${escapeHtml(content.heading || "ЗАГОЛОВОК DELA")}</div>
   </div>`;
 }
