@@ -842,10 +842,10 @@ function delaTexts() {
 }
 
 async function renderDelaPng(text) {
-  const color = email.settings.theme === "editorial" ? "#ffffff" : "#084E7D";
+  const style = delaStyle(text);
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:-10000px;top:0;width:560px;padding:8px 0;pointer-events:none;";
-  host.innerHTML = `<div style="display:inline-block;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:17px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;color:${color};">${escapeAttr(text)}</div>`;
+  host.innerHTML = `<div style="display:inline-block;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;color:${style.color};">${escapeAttr(text)}</div>`;
   document.body.append(host);
   try {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -854,6 +854,17 @@ async function renderDelaPng(text) {
     const canvas = await window.DomExport.toCanvas(element, { width: 560, height, pixelRatio: 2, cacheBust: location.protocol !== "file:", backgroundColor: "transparent", fontFaces: location.protocol === "file:" ? [] : [{ family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" }] });
     return canvasToPngBlob(canvas);
   } finally { host.remove(); }
+}
+
+function delaStyle(text) {
+  const darkDefault = email.settings.theme === "editorial";
+  for (const block of email.blocks) {
+    const content = block.content || {};
+    if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: 27, color: block.variant === "light" ? "#084E7D" : "#ffffff" };
+    if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: 28, color: "#ffffff" };
+    if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: 17, color: "#1F282C" };
+  }
+  return { size: 17, color: darkDefault ? "#ffffff" : "#084E7D" };
 }
 
 async function publishDelaAssets() {
