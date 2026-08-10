@@ -234,8 +234,8 @@ export function renderBlock(block, preview, darkText = false) {
 function renderSocial(preview) {
   const social = window.CALLTOUCH_ASSETS.social;
   const links = Object.values(social).map((item) => {
-    const icon = item.previewSource || item.exportUrl ? `<img src="${escapeHtml(preview ? item.previewSource : item.exportUrl)}" width="24" height="24" alt="${escapeHtml(item.label)}" style="display:block;width:24px;height:24px;border:0;filter:brightness(0) saturate(100%) invert(53%) sepia(79%) saturate(1100%) hue-rotate(157deg) brightness(91%);">` : `<span style="display:block;width:24px;height:24px;border-radius:50%;background:${C.cyan};font-family:${fontBody};font-size:8px;line-height:24px;color:#ffffff;text-align:center;">MAX</span>`;
-    return td(`<a href="${safeUrl(item.url)}" target="_blank" style="display:block;padding:0 6px;text-decoration:none;">${icon}</a>`, "width:36px;");
+    const icon = item.previewSource || item.exportUrl ? `<img src="${escapeHtml(preview ? item.previewSource : item.exportUrl)}" width="31" height="31" alt="${escapeHtml(item.label)}" style="display:block;width:31px;height:31px;border:0;filter:brightness(0) saturate(100%) invert(53%) sepia(79%) saturate(1100%) hue-rotate(157deg) brightness(91%);">` : `<span style="display:block;width:31px;height:31px;border-radius:50%;background:${C.cyan};font-family:${fontBody};font-size:10px;line-height:31px;color:#ffffff;text-align:center;">MAX</span>`;
+    return td(`<a href="${safeUrl(item.url)}" target="_blank" style="display:block;padding:0 7px;text-decoration:none;">${icon}</a>`, "width:45px;");
   }).join("");
   return table(`<tr>${td("Подписывайтесь на нас", `font-family:${fontBody};font-size:14px;color:${C.muted};opacity:.72;text-align:center;padding-bottom:10px;`)}</tr><tr>${td(`<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 auto;"><tr>${links}</tr></table>`, "text-align:center;")}</tr>`, "width:100%;margin:0 auto;text-align:center;", 'align="center"');
 }
