@@ -44,7 +44,8 @@ export function validateEmail(email) {
   });
   if (!email.blocks.length) errors.push("В письме нет пользовательских блоков.");
   if (ctaBlocks.length > 3) warnings.push("В письме больше трёх конкурирующих CTA.");
-  if (delaFragments) warnings.push(`Фрагментов Dela: ${delaFragments}. В текущей версии они отображаются HTML-шрифтом; для идеальной совместимости с почтовыми клиентами потребуется PNG-режим.`);
+  const delaReady = delaFragments > 0 && typeof window !== "undefined" && Object.keys(window.CALLTOUCH_DELA_ASSETS || {}).length >= delaFragments;
+  if (delaFragments && !delaReady) warnings.push(`Фрагментов Dela: ${delaFragments}. В текущей версии они отображаются HTML-шрифтом; для идеальной совместимости с почтовыми клиентами потребуется PNG-режим.`);
   if (email.blocks.some((block) => block.type === "promo") && email.blocks[0]?.type === "button") warnings.push("Основная кнопка стоит раньше заголовка.");
   return { errors, warnings };
 }
