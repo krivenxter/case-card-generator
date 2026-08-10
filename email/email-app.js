@@ -864,7 +864,7 @@ function delaStyle(text) {
     if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: 28, color: "#ffffff" };
     if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: 17, color: "#1F282C" };
   }
-  return { size: 17, color: darkDefault ? "#ffffff" : "#084E7D" };
+  return { size: 17, color: darkDefault ? "#ffffff" : "#1F282C" };
 }
 
 async function publishDelaAssets() {
