@@ -71,16 +71,18 @@ function wrapBlock(block, content, background = "transparent", padding = "0 0 20
   return `<tr data-block-id="${escapeHtml(block.id)}"><td style="padding:${padding};background:${background};">${content}</td></tr>`;
 }
 
-function renderTitle(block, preview) {
+function renderTitle(block, preview, darkText = false) {
   const { heading, subtitle, accent } = block.content;
+  // На циановом оформлении текст без собственной подложки делаем белым.
+  const textColor = darkText ? "#ffffff" : C.navy;
   const highlighted = block.variant === "accent" && accent && heading.includes(accent)
     ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`)
     : rubleSafe(heading);
-  return wrapBlock(block, `<div${editAttrs(preview, "content.heading")} style="font-family:${fontDisplay};font-size:34px;line-height:1.1;font-weight:900;color:${C.navy};word-break:break-word;">${highlighted}</div>${subtitle && block.variant !== "plain" ? `<div style="padding-top:18px;">${bodyText(subtitle, C.navy, 17, "content.subtitle", preview)}</div>` : ""}`, "transparent", "4px 0 24px");
+  return wrapBlock(block, `<div${editAttrs(preview, "content.heading")} style="font-family:${fontDisplay};font-size:34px;line-height:1.1;font-weight:900;color:${textColor};word-break:break-word;">${highlighted}</div>${subtitle && block.variant !== "plain" ? `<div style="padding-top:18px;">${bodyText(subtitle, textColor, 17, "content.subtitle", preview)}</div>` : ""}`, "transparent", "4px 0 24px");
 }
 
-function renderText(block, preview) {
-  return wrapBlock(block, bodyText(block.content.body, C.ink, 17, "content.body", preview), "transparent", "0 0 24px");
+function renderText(block, preview, darkText = false) {
+  return wrapBlock(block, bodyText(block.content.body, darkText ? "#ffffff" : C.ink, 17, "content.body", preview), "transparent", "0 0 24px");
 }
 
 function renderPromo(block, preview) {
@@ -143,9 +145,9 @@ function renderDivider(block) {
   return wrapBlock(block, `<div style="height:${height}px;line-height:${height}px;">&nbsp;</div>`, "transparent", "0");
 }
 
-function renderBlock(block, preview) {
-  if (block.type === "title") return renderTitle(block, preview);
-  if (block.type === "text") return renderText(block, preview);
+function renderBlock(block, preview, darkText = false) {
+  if (block.type === "title") return renderTitle(block, preview, darkText);
+  if (block.type === "text") return renderText(block, preview, darkText);
   if (block.type === "promo") return renderPromo(block, preview);
   if (block.type === "imageText") return renderImageText(block, preview);
   if (block.type === "brandTitle") return renderBrandTitle(block, preview);
@@ -173,9 +175,10 @@ function footerShell(content, padding = "") {
 export function renderEmailDocument(email, { preview = false } = {}) {
   const logo = window.CALLTOUCH_ASSETS.logos.dark;
   const background = email.settings.theme === "editorial" ? C.cyan : C.lightCyan;
-  const blocks = email.blocks.map((block) => renderBlock(block, preview)).join("");
+  const darkText = email.settings.theme === "editorial";
+  const blocks = email.blocks.map((block) => renderBlock(block, preview, darkText)).join("");
   const footnotes = email.footnotes.map((note, index) => `<div data-footnote-id="${escapeHtml(note.id)}" style="padding:0 0 10px;font-family:${fontBody};font-size:13px;line-height:1.45;color:${C.muted};word-break:break-word;overflow-wrap:break-word;">${"*".repeat(index + 1)} ${escapeHtml(note.text)}</div>`).join("");
-  const mainContent = table(`${blocks}<tr><td style="padding:6px 0 0;font-family:${fontBody};font-size:16px;line-height:1.4;color:${C.navy};text-align:center;">С уважением, Команда Calltouch</td></tr>`);
+  const mainContent = table(`${blocks}<tr><td style="padding:6px 0 0;font-family:${fontBody};font-size:16px;line-height:1.4;color:${darkText ? "#ffffff" : C.navy};text-align:center;">С уважением, Команда Calltouch</td></tr>`);
   const main = table(`<tr>${td(mainContent, "padding:28px;", 'class="email-main-pad"')}</tr>`, `background:${background};border-radius:30px;`, `bgcolor="${background}"`);
   const responsive = `@media only screen and (max-width:620px){.email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}.stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}h1{font-size:28px!important}[data-brand-title],[data-brand-scene]{width:100%!important}[data-brand-scene]{padding:22px!important}[data-brand-scene]>div:nth-of-type(2){padding:18px 100px 18px 18px!important}[data-brand-scene]>[aria-hidden="true"]{width:110px!important;height:110px!important;right:0!important}}`;
   const footnotesBlock = footnotes ? `<tr>${td(footerShell(footnotes, "padding:20px 0 8px;"), "")}</tr>` : "";
