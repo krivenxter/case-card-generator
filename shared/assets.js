@@ -1,5 +1,6 @@
 (function exposeCalltouchAssets(global) {
   const PUBLIC_BASE_URL = "https://calltouch-public.website.yandexcloud.net/";
+  const fromEntries = Object.fromEntries || ((entries) => entries.reduce((result, [key, value]) => ({ ...result, [key]: value }), {}));
   const visualFiles = [
     ["analytics", "Сквозная аналитика", "Сквозная аналитика.png", ["аналитика", "данные", "сквозная", "метрика"]],
     ["calltouch", "Calltouch", "Calltouch-1.png", ["calltouch", "платформа", "маркетинг"]],
@@ -67,12 +68,10 @@
       light: { previewSource: "logos/calltouch-light.svg", exportUrl: `${PUBLIC_BASE_URL}logos/calltouch-light.svg` },
       color: { previewSource: "logos/calltouch-color.svg", exportUrl: `${PUBLIC_BASE_URL}logos/calltouch-color.svg` }
     }),
-    essentials: Object.freeze({
-      send: { label: "Старт", previewSource: "icons/essentials/icons-send-2.svg", exportUrl: `${PUBLIC_BASE_URL}icons/essentials/icons-send-2.svg` },
-      verify: { label: "Результат", previewSource: "icons/essentials/icons-verify.svg", exportUrl: `${PUBLIC_BASE_URL}icons/essentials/icons-verify.svg` },
-      clock: { label: "Время", previewSource: "icons/essentials/icons-clock.svg", exportUrl: `${PUBLIC_BASE_URL}icons/essentials/icons-clock.svg` },
-      message: { label: "Поддержка", previewSource: "icons/essentials/icons-message.svg", exportUrl: `${PUBLIC_BASE_URL}icons/essentials/icons-message.svg` }
-    }),
+    essentials: Object.freeze(fromEntries([
+      ["send", "Старт"], ["verify", "Результат"], ["clock", "Время"], ["message", "Поддержка"], ["ok-2", "Одобрение"],
+      ["sms", "Сообщения"], ["house", "Дом"], ["key", "Доступ"], ["chart", "График"], ["gallery", "Изображения"], ["profile-circle", "Профиль"], ["copy-success", "Копирование"], ["like", "Одобрение"], ["cpu", "Технологии"], ["element-plus", "Добавить"], ["3d-cube-scan", "Объём"], ["teacher", "Обучение"], ["gps", "Местоположение"], ["shop", "Магазин"], ["briefcase", "Работа"], ["user", "Пользователь"], ["shopping-cart", "Покупки"], ["flag", "Цель"], ["monitor-mobbile", "Устройства"], ["notification", "Уведомления"], ["brush-square", "Дизайн"], ["link", "Ссылка"], ["document", "Документ"], ["call-incoming", "Входящий звонок"], ["lock", "Защита"], ["tag", "Метка"], ["toggle-on-circle", "Переключатель"], ["moneys", "Деньги"], ["star", "Избранное"], ["mobile", "Телефон"], ["eye", "Просмотр"], ["car", "Автомобиль"], ["crown", "Премиум"], ["empty-wallet", "Кошелёк"], ["edit", "Редактирование"], ["monitor", "Монитор"], ["ticket-discount", "Скидка"], ["folder", "Папка"], ["cloud-connection", "Облако"], ["share", "Поделиться"], ["search-normal", "Поиск"], ["discount-shape", "Скидка"], ["calendar", "Дата"], ["people", "Команда"], ["video-play", "Видео"], ["location", "Адрес"], ["setting-4", "Настройки"], ["diagram", "Схема"], ["shield-tick", "Безопасность"], ["refresh-2", "Обновление"], ["clipboard-tick", "Задача"], ["call", "Звонок"], ["call-outgoing", "Исходящий звонок"], ["heart", "Избранное"], ["hierarchy-2", "Связи"], ["setting-2", "Параметры"], ["graph", "Рост"], ["danger", "Внимание"]
+    ].map(([id, label]) => { const file = id === "send" ? "icons-send-2.svg" : id === "ok-2" ? "icons-OK 2.svg" : `icons-${id}.svg`; return [id, { label, keywords: label.toLowerCase().split(" "), previewSource: `icons/essentials/${file}`, exportUrl: `${PUBLIC_BASE_URL}icons/essentials/${encodeURIComponent(file)}` }]; }))),
     social: Object.freeze({
       telegram: { label: "Telegram", previewSource: "icons/Telegram.svg", exportUrl: `${PUBLIC_BASE_URL}icons/Telegram.svg`, url: "https://t.me/blogcalltouch" },
       max: { label: "MAX", previewSource: "icons/MAX.svg", exportUrl: `${PUBLIC_BASE_URL}icons/MAX.svg`, url: "https://max.ru/calltouch" },

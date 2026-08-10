@@ -23,10 +23,12 @@ let autoVariants = [];
 let selectedBlockId = "";
 let assetTargetId = "";
 let assetTargetPath = "content.image";
+let iconTargetIndex = -1;
 let customPreviewSource = "";
 let saveTimer = 0;
 let historyTimer = 0;
 const history = { undo: [], redo: [] };
+const iconAutoTimers = new Map();
 let previewTimer = 0;
 let draggedBlockId = "";
 let pendingPreviewScroll = null;
@@ -336,6 +338,19 @@ function bindPreviewNodes(previewDocument) {
       persistSoon();
     });
   });
+  $$('[data-footnote-edit]', previewDocument).forEach((node) => {
+    if (node.dataset.bound) return;
+    node.dataset.bound = "1";
+    node.contentEditable = "plaintext-only";
+    node.classList.add("is-inline-editable");
+    node.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); node.focus(); });
+    node.addEventListener("input", () => {
+      const note = email.footnotes.find((item) => item.id === node.dataset.footnoteId);
+      if (!note) return;
+      note.text = node.innerText.replace(/^\*+\s*/, "").trim();
+      persistSoon();
+    });
+  });
   $$('[data-block-id]', previewDocument).forEach((node) => {
     node.classList.toggle("is-selected", node.dataset.blockId === selectedBlockId);
     if (node.dataset.bound) return;
@@ -448,7 +463,7 @@ function renderBlockEditor() {
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
-  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
+  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
   if (block.type === "ctaCard") controls = `${field("Тема", "variant", block.variant, { options: [["dark", "Тёмно-синяя"], ["light", "Светлая"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Пояснение", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "button") controls = `${field("Акцент", "variant", block.variant, { options: [["primary", "Основной"], ["secondary", "Спокойный"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
   if (block.type === "divider") controls = field("Интервал", "variant", block.variant, { options: [["s", "S — компактный"], ["m", "M — обычный"], ["l", "L — большой"], ["xl", "XL — очень большой"]] });
@@ -611,6 +626,11 @@ function renderLibrary() {
 }
 
 function renderAssetGrid() {
+  if (assetTargetPath === "content.icon") {
+    const assets = Object.entries(window.CALLTOUCH_ASSETS.essentials).map(([id, asset]) => ({ ...asset, id }));
+    elements.assetGrid.innerHTML = assets.map((asset) => `<button class="email-asset-card email-icon-card" type="button" data-icon-id="${asset.id}"><img src="${escapeAttr(asset.previewSource)}" alt=""><span>${escapeAttr(asset.label)}</span></button>`).join("");
+    return;
+  }
   const assets = assetTargetPath === "content.background" ? window.CALLTOUCH_ASSETS.backgrounds : window.CALLTOUCH_ASSETS.visuals;
   elements.assetGrid.innerHTML = assets.map((asset) => `<button class="email-asset-card" type="button" data-asset-id="${asset.id}"><img src="${escapeAttr(asset.previewSource)}" alt=""><span>${escapeAttr(asset.label)}</span></button>`).join("");
 }
@@ -618,6 +638,9 @@ function renderAssetGrid() {
 function openAssetDialog(blockId, path = "content.image") {
   assetTargetId = blockId;
   assetTargetPath = path;
+  iconTargetIndex = -1;
+  elements.assetDialog.querySelector("h2").textContent = "Выберите изображение";
+  elements.assetDialog.querySelector(".email-custom-asset").hidden = false;
   customPreviewSource = "";
   elements.customAssetFile.value = "";
   elements.customAssetFileName.textContent = "Файл не выбран";
@@ -626,6 +649,39 @@ function openAssetDialog(blockId, path = "content.image") {
   elements.customAssetUrl.value = "";
   renderAssetGrid();
   elements.assetDialog.showModal();
+}
+
+function openIconDialog(blockId, index) {
+  assetTargetId = blockId;
+  assetTargetPath = "content.icon";
+  iconTargetIndex = index;
+  renderAssetGrid();
+  elements.assetDialog.querySelector("h2").textContent = "Выберите иконку";
+  elements.assetDialog.querySelector(".email-custom-asset").hidden = true;
+  elements.assetDialog.showModal();
+}
+
+function autoPickIcon(block, index) {
+  const item = block.content.items[index];
+  const text = `${item.heading || ""} ${item.body || ""}`.toLowerCase();
+  const semantic = {
+    chart: ["аналит", "сквоз", "метрик", "данн", "показател", "отчёт", "отчет", "график"], graph: ["аналит", "рост", "динамик", "данн", "показател"], diagram: ["аналит", "процесс", "схем", "воронк", "структур"], "clipboard-tick": ["задач", "план", "контрол", "провер"], calendar: ["дат", "срок", "расписан", "встреч"], clock: ["врем", "быстр", "срок", "скорост", "эконом"], message: ["сообщ", "поддерж", "клиент", "обратн", "связ"], call: ["звон", "телефон", "колл"], "call-incoming": ["входящ", "звон", "обращен"], "call-outgoing": ["исходящ", "звон", "обзвон"], people: ["команд", "клиент", "аудитор", "люд"], "profile-circle": ["клиент", "пользовател", "профил"], moneys: ["деньг", "бюджет", "стоим", "оплат", "доход"], "empty-wallet": ["эконом", "бюджет", "расход", "деньг"], "discount-shape": ["скид", "выгод", "акци", "предложен"], verify: ["результат", "качеств", "надёж", "надеж", "провер", "точност"], send: ["старт", "начал", "запуск", "отправ", "рассыл"], "shield-tick": ["безопас", "защит", "надёж", "надеж"], gps: ["адрес", "мест", "географ", "локац"], house: ["дом", "строител", "недвиж", "офис"], car: ["авто", "машин", "автомобил"], heart: ["любов", "лоял", "забот"], star: ["важн", "избран", "лучший", "премиум"]
+  };
+  const matches = Object.entries(window.CALLTOUCH_ASSETS.essentials).map(([id, asset]) => ({ id, score: [...(asset.keywords || []), ...(semantic[id] || [])].filter((word) => text.includes(word)).length }));
+  const best = matches.sort((a, b) => b.score - a.score)[0];
+  if (best?.score) item.iconId = best.id;
+  commitChange({ rerenderEditor: true });
+}
+
+function autoPickIconSilently(block, index) {
+  const item = block.content.items[index];
+  const text = `${item.heading || ""} ${item.body || ""}`.toLowerCase();
+  const semantic = { chart: ["аналит", "сквоз", "метрик", "данн", "показател", "отчёт", "отчет", "график"], graph: ["аналит", "рост", "динамик", "данн", "показател"], diagram: ["аналит", "процесс", "схем", "воронк", "структур"], calendar: ["дат", "срок", "расписан", "встреч"], clock: ["врем", "быстр", "срок", "скорост", "эконом"], message: ["сообщ", "поддерж", "клиент", "обратн", "связ"], call: ["звон", "телефон", "колл"], people: ["команд", "клиент", "аудитор", "люд"], moneys: ["деньг", "бюджет", "стоим", "оплат", "доход"], verify: ["результат", "качеств", "надёж", "надеж", "провер", "точност"], send: ["старт", "начал", "запуск", "отправ", "рассыл"] };
+  const best = Object.entries(window.CALLTOUCH_ASSETS.essentials).map(([id, asset]) => ({ id, score: [...(asset.keywords || []), ...(semantic[id] || [])].filter((word) => text.includes(word)).length })).sort((a, b) => b.score - a.score)[0];
+  if (best?.score && item.iconId !== best.id) {
+    item.iconId = best.id;
+    updatePreviewBlock(block);
+  }
 }
 
 function applyAsset(asset) {
@@ -905,6 +961,12 @@ elements.blockEditor.addEventListener("input", (event) => {
   if (!control || !block) return;
   setPath(block, control.dataset.field, control.value);
   updatePreviewBlock(block);
+  const iconMatch = control.dataset.field.match(/^content\.items\.(\d+)\.(heading|body)$/);
+  if (block.type === "iconGrid" && iconMatch) {
+    const timerKey = `${block.id}:${iconMatch[1]}`;
+    window.clearTimeout(iconAutoTimers.get(timerKey));
+    iconAutoTimers.set(timerKey, window.setTimeout(() => autoPickIconSilently(block, Number(iconMatch[1])), 420));
+  }
   persistSoon();
 });
 elements.blockEditor.addEventListener("change", (event) => {
@@ -950,6 +1012,14 @@ elements.blockEditor.addEventListener("click", async (event) => {
       block.content.items.push({ heading: "Новое преимущество", body: "Короткое описание", iconId: ["send", "verify", "clock", "message"][block.content.items.length % 4] });
       commitChange({ rerenderEditor: true });
     }
+    return;
+  }
+  const iconPick = event.target.closest("[data-icon-pick]");
+  if (iconPick) return openIconDialog(getSelectedBlock()?.id, Number(iconPick.dataset.iconPick));
+  const iconAuto = event.target.closest("[data-icon-auto]");
+  if (iconAuto) {
+    const block = getSelectedBlock();
+    if (block?.type === "iconGrid") autoPickIcon(block, Number(iconAuto.dataset.iconAuto));
     return;
   }
   const iconRemove = event.target.closest("[data-icon-remove]");
@@ -1006,6 +1076,15 @@ elements.footnoteList.addEventListener("click", (event) => {
 });
 
 elements.assetGrid.addEventListener("click", (event) => {
+  const iconButton = event.target.closest("[data-icon-id]");
+  if (iconButton) {
+    const block = email.blocks.find((item) => item.id === assetTargetId);
+    if (block?.type === "iconGrid" && iconTargetIndex >= 0) block.content.items[iconTargetIndex].iconId = iconButton.dataset.iconId;
+    elements.assetDialog.close();
+    elements.assetDialog.querySelector(".email-custom-asset").hidden = false;
+    commitChange({ rerenderEditor: true });
+    return;
+  }
   const button = event.target.closest("[data-asset-id]");
   const assets = assetTargetPath === "content.background" ? window.CALLTOUCH_ASSETS.backgrounds : window.CALLTOUCH_ASSETS.visuals;
   const asset = assets.find((item) => item.id === button?.dataset.assetId);
