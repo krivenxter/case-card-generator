@@ -74,7 +74,7 @@
       message: { label: "Поддержка", previewSource: "icons/essentials/icons-message.svg", exportUrl: `${PUBLIC_BASE_URL}icons/essentials/icons-message.svg` }
     }),
     social: Object.freeze({
-      telegram: { label: "Telegram", previewSource: "icons/Telegram.svg", exportUrl: `${PUBLIC_BASE_URL}icons/Telegram.svg`, url: "https://t.me/calltouch" },
+      telegram: { label: "Telegram", previewSource: "icons/Telegram.svg", exportUrl: `${PUBLIC_BASE_URL}icons/Telegram.svg`, url: "https://t.me/blogcalltouch" },
       max: { label: "MAX", previewSource: "icons/MAX.svg", exportUrl: `${PUBLIC_BASE_URL}icons/MAX.svg`, url: "https://max.ru/calltouch" },
       vk: { label: "VK", previewSource: "icons/VK.svg", exportUrl: `${PUBLIC_BASE_URL}icons/VK.svg`, url: "https://vk.com/calltouch" },
       youtube: { label: "YouTube", previewSource: "icons/Youtube.svg", exportUrl: `${PUBLIC_BASE_URL}icons/Youtube.svg`, url: "https://www.youtube.com/@CalltouchRu" }
