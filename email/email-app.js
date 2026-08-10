@@ -1,6 +1,6 @@
 import { BLOCK_DEFINITIONS, EMAIL_STORAGE_KEY, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
 import { buildAutoVariants, readImportedFile } from "./email-parser.js";
-import { renderEmailDocument } from "./email-renderer.js";
+import { renderEmailDocument, renderBlock } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
 import { BRAND_SCENE_MIN_HEIGHT, BRAND_SCENE_WIDTH, brandSceneSignature, isBrandScenePublished, renderBrandSceneMarkup } from "./email-brand-scene.js";
 import { BRAND_TITLE_MIN_HEIGHT, BRAND_TITLE_WIDTH, brandTitleSignature, isBrandTitlePublished, renderBrandTitleMarkup, resolveBrandTitleColors } from "./email-brand-title.js";
@@ -13,8 +13,8 @@ const elements = {
   start: $("#startScreen"), variants: $("#variantScreen"), editor: $("#editorScreen"), pastePanel: $("#pastePanel"), importText: $("#importText"), fileInput: $("#importFileInput"),
   variantFrames: [$("#variantAFrame"), $("#variantBFrame")], preview: $("#emailPreview"), previewStage: $("#previewStage"), previewCanvas: $("#previewCanvas"), previewModeLabel: $("#previewModeLabel"), zoomIndicator: $("#zoomIndicator"),
   projectTitle: $("#projectTitle"), theme: $("#themeSelect"), blockList: $("#blockList"), blockEditor: $("#blockEditor"), footnoteList: $("#footnoteList"),
-  blockLibraryDialog: $("#blockLibraryDialog"), blockLibrary: $("#blockLibrary"), assetDialog: $("#assetDialog"), assetGrid: $("#assetGrid"), customAssetFile: $("#customAssetFile"), customAssetFileName: $("#customAssetFileName"), customAssetUrl: $("#customAssetUrl"),
-  qualityDialog: $("#qualityDialog"), qualityTitle: $("#qualityTitle"), qualityResults: $("#qualityResults"), codePreview: $("#codePreview"), copyButton: $("#copyHtmlButton"), downloadButton: $("#downloadHtmlButton"),
+  blockLibraryDialog: $("#blockLibraryDialog"), blockLibrary: $("#blockLibrary"), assetDialog: $("#assetDialog"), assetGrid: $("#assetGrid"), customAssetFile: $("#customAssetFile"), customAssetFileName: $("#customAssetFileName"), customAssetUrl: $("#customAssetUrl"), customAssetPreview: $("#customAssetPreview"),
+  qualityDialog: $("#qualityDialog"), qualityTitle: $("#qualityTitle"), qualityResults: $("#qualityResults"), codePreview: $("#codePreview"), copyButton: $("#copyHtmlButton"), downloadButton: $("#downloadHtmlButton"), linkDialog: $("#linkDialog"), linkDialogUrl: $("#linkDialogUrl"),
   saveStatus: $("#saveStatus"), toast: $("#emailToast")
 };
 
@@ -116,24 +116,107 @@ function renderPreview({ preservePosition = true } = {}) {
   }, 80);
 }
 
-function bindPreviewInteractions() {
-  const previewDocument = elements.preview.contentDocument;
-  if (!previewDocument) return;
-  if (email.blocks.length && !previewDocument.querySelector("[data-block-id]")) {
-    renderPreview({ preservePosition: false });
-    return;
+// Переводит rich-разметку contenteditable (b/a/br/div) в markdown, который хранится в состоянии.
+function richToMarkdown(root) {
+  const walk = (node) => {
+    if (node.nodeType === 3) return node.nodeValue || "";
+    if (node.nodeType !== 1) return "";
+    const tag = node.tagName.toLowerCase();
+    const inner = [...node.childNodes].map(walk).join("");
+    if (tag === "b" || tag === "strong") return inner.trim() ? `**${inner}**` : inner;
+    if (tag === "a") return `[${inner}](${node.getAttribute("href") || ""})`;
+    if (tag === "li") return `\n- ${inner}`;
+    if (tag === "br") return "\n";
+    if (tag === "div" || tag === "p") return `\n${inner}`;
+    return inner;
+  };
+  return [...root.childNodes].map(walk).join("").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim();
+}
+
+function isRichEditNode(node) {
+  if (!/\.(body|subtitle|heading)$/.test(node.dataset.editPath || "")) return false;
+  const block = email.blocks.find((item) => item.id === node.closest("[data-block-id]")?.dataset.blockId);
+  return Boolean(block) && !["brandTitle", "brandScene"].includes(block.type);
+}
+
+// Аккуратная модалка вместо системного prompt() для ввода адреса ссылки.
+function askLinkUrl() {
+  return new Promise((resolve) => {
+    const dialog = elements.linkDialog;
+    elements.linkDialogUrl.value = "https://";
+    dialog.addEventListener("close", () => {
+      const value = dialog.returnValue === "apply" ? elements.linkDialogUrl.value.trim() : "";
+      resolve(value && value !== "https://" ? (/^https?:\/\//i.test(value) ? value : `https://${value}`) : "");
+    }, { once: true });
+    dialog.showModal();
+    elements.linkDialogUrl.focus();
+    elements.linkDialogUrl.setSelectionRange(elements.linkDialogUrl.value.length, elements.linkDialogUrl.value.length);
+  });
+}
+
+// Плавающая панель форматирования: жирный и ссылка для выделенного текста.
+function ensureEditToolbar(previewDocument) {
+  const toolbar = previewDocument.createElement("div");
+  const buttonStyle = "min-width:26px;height:24px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:#fff;font:700 13px/1 Arial,sans-serif;cursor:pointer;";
+  toolbar.style.cssText = "position:absolute;z-index:60;display:none;gap:2px;padding:3px;border-radius:9px;background:#084E7D;box-shadow:0 8px 20px rgba(31,40,44,.3);";
+  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" style="${buttonStyle}">B</button><button type="button" data-cmd="link" title="Ссылка" style="${buttonStyle}">🔗</button><button type="button" data-cmd="list" title="Список с пунктами" style="${buttonStyle}">•</button>`;
+  previewDocument.body.append(toolbar);
+  toolbar.addEventListener("mousedown", (event) => event.preventDefault());
+  let savedRange = null;
+  toolbar.addEventListener("click", async (event) => {
+    const command = event.target.closest("[data-cmd]")?.dataset.cmd;
+    if (!command) return;
+    if (command === "bold") previewDocument.execCommand("bold");
+    if (command === "list") previewDocument.execCommand("insertUnorderedList");
+    if (command === "link") {
+      const range = savedRange?.cloneRange();
+      const url = await askLinkUrl();
+      if (!url || !range) return;
+      const selection = previewDocument.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      previewDocument.execCommand("createLink", false, url);
+    }
+  });
+  previewDocument.addEventListener("selectionchange", () => {
+    const selection = previewDocument.getSelection();
+    const anchor = selection?.anchorNode;
+    const element = anchor ? (anchor.nodeType === 1 ? anchor : anchor.parentElement) : null;
+    if (!selection || selection.isCollapsed || !element?.closest?.("[data-rich]")) {
+      toolbar.style.display = "none";
+      return;
+    }
+    const rect = selection.getRangeAt(0).getBoundingClientRect();
+    if (!rect.width && !rect.height) { toolbar.style.display = "none"; return; }
+    savedRange = selection.getRangeAt(0).cloneRange();
+    toolbar.style.display = "flex";
+    toolbar.style.left = `${Math.max(rect.left + previewDocument.defaultView.scrollX, 8)}px`;
+    toolbar.style.top = `${rect.bottom + previewDocument.defaultView.scrollY + 6}px`;
+  });
+}
+
+// Биндинги узлов предпросмотра. Идемпотентно: узлы помечаются data-bound,
+// поэтому функцию можно вызывать повторно после точечной замены блока.
+function bindPreviewNodes(previewDocument) {
+  if (!previewDocument.__editorBound) {
+    previewDocument.__editorBound = true;
+    const style = previewDocument.createElement("style");
+    style.textContent = `[data-block-id]{cursor:pointer;transition:filter .12s ease}[data-block-id]:hover{filter:brightness(.96)}[data-block-id].is-selected>td{outline:3px solid #24b8dc;outline-offset:0}[data-edit-path]{cursor:text;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}[data-edit-path]:hover,[data-edit-path]:focus{outline-color:rgba(36,184,220,.8);background:rgba(255,255,255,.08)}[data-edit-path]:focus{outline-width:2px}[data-rich] b,[data-rich] strong{font-weight:700}`;
+    previewDocument.head.append(style);
+    previewDocument.addEventListener("click", (event) => {
+      const link = event.target.closest("a[href]");
+      if (!link) return;
+      event.preventDefault();
+      showToast("Ссылки в предпросмотре не открываются.");
+    }, true);
+    ensureEditToolbar(previewDocument);
   }
-  const style = previewDocument.createElement("style");
-  style.textContent = `[data-block-id]{cursor:pointer;transition:filter .12s ease}[data-block-id]:hover{filter:brightness(.96)}[data-block-id].is-selected>td{outline:3px solid #24b8dc;outline-offset:0}[data-edit-path]{cursor:text;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}[data-edit-path]:hover,[data-edit-path]:focus{outline-color:rgba(36,184,220,.8);background:rgba(255,255,255,.08)}[data-edit-path]:focus{outline-width:2px}`;
-  previewDocument.head.append(style);
-  previewDocument.addEventListener("click", (event) => {
-    const link = event.target.closest("a[href]");
-    if (!link) return;
-    event.preventDefault();
-    showToast("Ссылки в предпросмотре не открываются.");
-  }, true);
   $$('[data-edit-path]', previewDocument).forEach((node) => {
-    node.contentEditable = "plaintext-only";
+    if (node.dataset.bound) return;
+    node.dataset.bound = "1";
+    const rich = isRichEditNode(node);
+    node.contentEditable = rich ? "true" : "plaintext-only";
+    if (rich) node.dataset.rich = "1";
     node.spellcheck = true;
     node.classList.add("is-inline-editable");
     node.addEventListener("click", (event) => {
@@ -154,17 +237,25 @@ function bindPreviewInteractions() {
     node.addEventListener("input", () => {
       const block = email.blocks.find((item) => item.id === node.closest("[data-block-id]")?.dataset.blockId);
       if (!block) return;
-      setPath(block, node.dataset.editPath, node.innerText.replace(/\n{3,}/g, "\n\n").trim());
+      setPath(block, node.dataset.editPath, rich ? richToMarkdown(node) : node.innerText.replace(/\n{3,}/g, "\n\n").trim());
       persistSoon();
     });
-    // Перерендериваем предпросмотр только если текст реально изменился,
+    // Перерендериваем только изменённый блок и только если текст реально изменился —
     // иначе каждый клик-выделение перезагружает iframe и мерцает белым.
     node.addEventListener("blur", () => {
-      if (node.innerText !== node.dataset.editStart) commitChange({ rerenderEditor: true });
+      if (node.innerText === node.dataset.editStart) return;
+      const block = email.blocks.find((item) => item.id === node.closest("[data-block-id]")?.dataset.blockId);
+      if (!block) return;
+      updatePreviewBlock(block);
+      renderBlockList();
+      renderBlockEditor();
+      persistSoon();
     });
   });
   $$('[data-block-id]', previewDocument).forEach((node) => {
     node.classList.toggle("is-selected", node.dataset.blockId === selectedBlockId);
+    if (node.dataset.bound) return;
+    node.dataset.bound = "1";
     node.addEventListener("click", (event) => {
       event.preventDefault();
       selectedBlockId = node.dataset.blockId;
@@ -173,6 +264,34 @@ function bindPreviewInteractions() {
       bindPreviewSelection();
     });
   });
+}
+
+// Точечно перерендеривает один блок в предпросмотре без перезагрузки iframe (без белой вспышки).
+function updatePreviewBlock(block) {
+  const previewDocument = elements.preview.contentDocument;
+  if (!previewDocument) return;
+  const row = previewDocument.querySelector(`[data-block-id="${block.id}"]`);
+  if (!row) {
+    renderPreview();
+    return;
+  }
+  const host = previewDocument.createElement("tbody");
+  host.innerHTML = renderBlock(block, true, email.settings.theme === "editorial").trim();
+  const next = host.firstElementChild;
+  if (next) row.replaceWith(next);
+  else row.remove();
+  bindPreviewNodes(previewDocument);
+  syncPreviewHeight(previewDocument);
+}
+
+function bindPreviewInteractions() {
+  const previewDocument = elements.preview.contentDocument;
+  if (!previewDocument) return;
+  if (email.blocks.length && !previewDocument.querySelector("[data-block-id]")) {
+    renderPreview({ preservePosition: false });
+    return;
+  }
+  bindPreviewNodes(previewDocument);
   bindPreviewCanvasControls(previewDocument);
   syncPreviewHeight(previewDocument);
   if (pendingPreviewScroll) {
@@ -198,7 +317,7 @@ function renderBlockList() {
 function field(label, path, value, { type = "text", rows = 0, hint = "", options = null } = {}) {
   let control = "";
   if (options) control = `<select data-field="${path}">${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${value === optionValue ? " selected" : ""}>${optionLabel}</option>`).join("")}</select>`;
-  else if (rows) control = `<textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea>`;
+  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)"><b>B</b></button><button type="button" data-fmt="link" title="Ссылка">🔗</button><button type="button" data-fmt="list" title="Список с пунктами">•</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
   else control = `<input data-field="${path}" type="${type}" value="${escapeAttr(value)}">`;
   return `<label class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</label>`;
 }
@@ -223,14 +342,14 @@ function renderBlockEditor() {
   }
   const definition = getDefinition(block.type);
   let controls = "";
-  if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
-  if (block.type === "text") controls = field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" });
+  if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
+  if (block.type === "text") controls = `${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" })}`;
   if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer)}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "image") controls = `${assetField(block)}${field("Описание картинки (alt)", "content.alt", block.content.alt, { rows: 2, hint: "Виден, если картинки отключены" })}`;
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
-  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><strong>Преимущество ${index + 1}</strong><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"></div>`).join("")}</div>`;
+  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
   if (block.type === "ctaCard") controls = `${field("Тема", "variant", block.variant, { options: [["dark", "Тёмно-синяя"], ["light", "Светлая"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Пояснение", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "button") controls = `${field("Акцент", "variant", block.variant, { options: [["primary", "Основной"], ["secondary", "Спокойный"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
   if (block.type === "divider") controls = field("Интервал", "variant", block.variant, { options: [["s", "S — компактный"], ["m", "M — обычный"], ["l", "L — большой"], ["xl", "XL — очень большой"]] });
@@ -384,7 +503,11 @@ function duplicateBlock(id) {
 }
 
 function renderLibrary() {
-  elements.blockLibrary.innerHTML = BLOCK_DEFINITIONS.map((definition) => `<button class="email-library-item" type="button" data-add-type="${definition.type}"><i data-lucide="${definition.icon}"></i><span><strong>${definition.label}</strong><span>${definition.description}</span></span></button>`).join("");
+  const brandTypes = ["brandTitle", "brandScene"];
+  const item = (definition) => `<button class="email-library-item" type="button" data-add-type="${definition.type}"><i data-lucide="${definition.icon}"></i><span><strong>${definition.label}</strong><span>${definition.description}</span></span></button>`;
+  const brandItems = BLOCK_DEFINITIONS.filter((definition) => brandTypes.includes(definition.type));
+  const plainItems = BLOCK_DEFINITIONS.filter((definition) => !brandTypes.includes(definition.type));
+  elements.blockLibrary.innerHTML = `<div class="email-library-brand"><span class="email-library-brand__badge">Фирменные блоки · готовый дизайн картинкой</span>${brandItems.map(item).join("")}</div>${plainItems.map(item).join("")}`;
   iconRefresh(elements.blockLibrary);
 }
 
@@ -399,6 +522,8 @@ function openAssetDialog(blockId, path = "content.image") {
   customPreviewSource = "";
   elements.customAssetFile.value = "";
   elements.customAssetFileName.textContent = "Файл не выбран";
+  elements.customAssetPreview.hidden = true;
+  elements.customAssetPreview.removeAttribute("src");
   elements.customAssetUrl.value = "";
   renderAssetGrid();
   elements.assetDialog.showModal();
@@ -524,12 +649,62 @@ function buildVariants(text) {
   showScreen("variants");
 }
 
-function openQualityDialog() {
+// Перед финальной проверкой догружает в облако всё неопубликованное:
+// бренд-блоки с устаревшим PNG и свои картинки без публичной ссылки.
+async function publishPendingAssets() {
+  const stubButton = { disabled: false, textContent: "" };
+  let uploaded = 0;
+  const failed = [];
+  for (const [index, block] of email.blocks.entries()) {
+    const content = block.content || {};
+    try {
+      if (block.type === "brandTitle" && !isBrandTitlePublished(block)) {
+        await publishBrandImage(block, stubButton);
+        if (isBrandTitlePublished(block)) uploaded += 1; else failed.push(`Блок ${index + 1}: заголовок Dela`);
+      } else if (block.type === "brandScene" && !isBrandScenePublished(block)) {
+        await publishBrandImage(block, stubButton);
+        if (isBrandScenePublished(block)) uploaded += 1; else failed.push(`Блок ${index + 1}: фирменная композиция`);
+      } else if (content.image && /^data:/i.test(content.image.previewSource || "") && !/^https:\/\//i.test(content.image.exportUrl || "")) {
+        const blob = await (await fetch(content.image.previewSource)).blob();
+        if (blob.size > 2 * 1024 * 1024) {
+          failed.push(`Блок ${index + 1}: файл больше 2 МБ, нужна публичная ссылка`);
+        } else {
+          content.image = { ...content.image, exportUrl: await uploadCustomAssetFile(blob) };
+          uploaded += 1;
+        }
+      }
+    } catch {
+      failed.push(`Блок ${index + 1}: не удалось загрузить изображение`);
+    }
+  }
+  if (uploaded) {
+    renderBlockEditor();
+    renderPreview();
+    persistSoon();
+  }
+  return { uploaded, failed };
+}
+
+async function openQualityDialog() {
   if (!email) return;
+  const hasPendingUploads = email.blocks.some((block) => {
+    const content = block.content || {};
+    return (block.type === "brandTitle" && !isBrandTitlePublished(block))
+      || (block.type === "brandScene" && !isBrandScenePublished(block))
+      || (content.image && /^data:/i.test(content.image.previewSource || "") && !/^https:\/\//i.test(content.image.exportUrl || ""));
+  });
+  let uploadNote = "";
+  if (hasPendingUploads) {
+    showToast("Сначала загружаем изображения в облако…");
+    const { uploaded, failed } = await publishPendingAssets();
+    if (uploaded || failed.length) {
+      uploadNote = `<section class="email-quality-group"><h3>Загрузка в облако</h3><ul>${uploaded ? `<li>Автоматически загружено изображений: ${uploaded}. Публичные ссылки уже подставлены в письмо.</li>` : ""}${failed.map((item) => `<li>${escapeAttr(item)}.</li>`).join("")}</ul></section>`;
+    }
+  }
   const report = validateEmail(email);
   const html = renderEmailDocument(email, { preview: false });
   elements.qualityTitle.textContent = report.errors.length ? `Нужно исправить: ${report.errors.length}` : report.warnings.length ? `Нужно проверить: ${report.warnings.length}` : "Письмо готово ✓";
-  elements.qualityResults.innerHTML = `${report.errors.length ? `<section class="email-quality-group"><h3>Ошибки</h3><ul>${report.errors.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${report.warnings.length ? `<section class="email-quality-group"><h3>Предупреждения</h3><ul>${report.warnings.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${!report.errors.length && !report.warnings.length ? `<section class="email-quality-group"><h3>Критических проблем не найдено</h3><ul><li>Проверьте ссылки и отправьте тестовое письмо в вашей системе рассылок.</li></ul></section>` : ""}`;
+  elements.qualityResults.innerHTML = `${uploadNote}${report.errors.length ? `<section class="email-quality-group"><h3>Ошибки</h3><ul>${report.errors.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${report.warnings.length ? `<section class="email-quality-group"><h3>Предупреждения</h3><ul>${report.warnings.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${!report.errors.length && !report.warnings.length ? `<section class="email-quality-group"><h3>Критических проблем не найдено</h3><ul><li>Проверьте ссылки и отправьте тестовое письмо в вашей системе рассылок.</li></ul></section>` : ""}`;
   elements.codePreview.value = html;
   elements.copyButton.disabled = Boolean(report.errors.length);
   elements.downloadButton.disabled = Boolean(report.errors.length);
@@ -623,14 +798,63 @@ elements.blockEditor.addEventListener("input", (event) => {
   const block = getSelectedBlock();
   if (!control || !block) return;
   setPath(block, control.dataset.field, control.value);
+  updatePreviewBlock(block);
   persistSoon();
 });
 elements.blockEditor.addEventListener("change", (event) => {
   const control = event.target.closest("[data-field]");
-  if (!control) return;
-  commitChange({ rerenderEditor: true });
+  const block = getSelectedBlock();
+  if (!control || !block) return;
+  updatePreviewBlock(block);
+  renderBlockList();
+  renderBlockEditor();
+  persistSoon();
 });
-elements.blockEditor.addEventListener("click", (event) => {
+elements.blockEditor.addEventListener("click", async (event) => {
+  // Кнопки форматирования в боковой панели: оборачивают выделенный текст в markdown.
+  const fmtButton = event.target.closest("[data-fmt]");
+  if (fmtButton) {
+    const textarea = fmtButton.closest(".email-format")?.querySelector("textarea");
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = textarea.value.slice(start, end);
+    let replacement = "";
+    if (fmtButton.dataset.fmt === "bold") {
+      replacement = `**${selected || "жирный текст"}**`;
+    } else if (fmtButton.dataset.fmt === "list") {
+      // Тоггл: если все выделенные строки уже пункты — снимаем маркеры, иначе добавляем.
+      const lines = (selected || "пункт списка").split("\n");
+      const allList = lines.every((line) => !line.trim() || /^\s*[-–—•]\s*/.test(line));
+      replacement = lines.map((line) => allList ? line.replace(/^\s*[-–—•]\s*/, "") : line.trim() ? `- ${line}` : line).join("\n");
+    } else {
+      const url = await askLinkUrl();
+      if (!url) return;
+      replacement = `[${selected || "текст ссылки"}](${url})`;
+    }
+    textarea.setRangeText(replacement, start, end, "select");
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.focus();
+    return;
+  }
+  const iconAdd = event.target.closest("[data-icon-add]");
+  if (iconAdd) {
+    const block = getSelectedBlock();
+    if (block?.type === "iconGrid" && block.content.items.length < 6) {
+      block.content.items.push({ heading: "Новое преимущество", body: "Короткое описание", iconId: ["send", "verify", "clock", "message"][block.content.items.length % 4] });
+      commitChange({ rerenderEditor: true });
+    }
+    return;
+  }
+  const iconRemove = event.target.closest("[data-icon-remove]");
+  if (iconRemove) {
+    const block = getSelectedBlock();
+    if (block?.type === "iconGrid" && block.content.items.length > 1) {
+      block.content.items.splice(Number(iconRemove.dataset.iconRemove), 1);
+      commitChange({ rerenderEditor: true });
+    }
+    return;
+  }
   const publishButton = event.target.closest("[data-brand-publish]");
   if (publishButton) {
     const block = getSelectedBlock();
@@ -686,7 +910,11 @@ elements.customAssetFile.addEventListener("change", () => {
   if (!file) return;
   elements.customAssetFileName.textContent = file.name;
   const reader = new FileReader();
-  reader.addEventListener("load", () => { customPreviewSource = String(reader.result || ""); });
+  reader.addEventListener("load", () => {
+    customPreviewSource = String(reader.result || "");
+    elements.customAssetPreview.src = customPreviewSource;
+    elements.customAssetPreview.hidden = false;
+  });
   reader.readAsDataURL(file);
 });
 async function uploadCustomAssetFile(file) {

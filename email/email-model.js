@@ -44,8 +44,8 @@ export function createBlock(type, overrides = {}) {
     settings: {}
   };
   const presets = {
-    title: { variant: "accent", content: { heading: "Заголовок письма", subtitle: "Коротко объясните, какую пользу получит читатель.", accent: "письма" } },
-    text: { content: { body: "Добавьте основной текст. Разделяйте абзацы пустой строкой, а пункты списка начинайте с дефиса." } },
+    title: { variant: "accent", content: { heading: "Заголовок письма", subtitle: "Коротко объясните, какую пользу получит читатель.", accent: "письма", plate: "" } },
+    text: { content: { plate: "", body: "Добавьте основной текст. Разделяйте абзацы пустой строкой, а пункты списка начинайте с дефиса." } },
     promo: { variant: "dark", content: { eyebrow: "Специальное предложение", heading: "Решение для роста бизнеса", offer: "0 ₽", body: "Расскажите об условиях предложения и главной выгоде.", ctaText: "Подключить", ctaUrl: "https://calltouch.ru/", image: asset } },
     imageText: { variant: "image-left", content: { heading: "Как это работает", body: "Коротко опишите продукт, сценарий или преимущество.", linkText: "Подробнее", linkUrl: "https://calltouch.ru/", image: asset } },
     image: { content: { image: asset, alt: "" } },

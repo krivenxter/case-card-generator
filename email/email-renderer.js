@@ -46,7 +46,10 @@ function editAttrs(preview, path) {
 }
 
 function displayText(value, color = C.navy, size = 30, align = "left", path = "", preview = false) {
-  return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;color:${color};text-align:${align};word-break:break-word;">${rubleSafe(value)}</div>`;
+  const text = rubleSafe(value)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+  return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;color:${color};text-align:${align};word-break:break-word;">${text}</div>`;
 }
 
 function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
@@ -56,7 +59,8 @@ function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
     const text = rubleSafe(line.replace(/^\s*[-–—•]\s*/, ""))
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
       .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:#084E7D;">$1</a>');
-    return list ? `<div style="padding:0 0 8px 18px;">•&nbsp; ${text}</div>` : `<div style="padding:0 0 10px;">${text}</div>`;
+    // Висячий отступ: переносы строк пункта выравниваются по тексту, а не под маркер.
+    return list ? `<div style="padding:0 0 8px 18px;text-indent:-15px;"><span style="color:${C.cyan};">•</span>&nbsp; ${text}</div>` : `<div style="padding:0 0 10px;">${text}</div>`;
   }).join("");
   return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};word-break:break-word;overflow-wrap:break-word;">${html}</div>`;
 }
@@ -75,14 +79,36 @@ function renderTitle(block, preview, darkText = false) {
   const { heading, subtitle, accent } = block.content;
   // На циановом оформлении текст без собственной подложки делаем белым.
   const textColor = darkText ? "#ffffff" : C.navy;
-  const highlighted = block.variant === "accent" && accent && heading.includes(accent)
+  const bodyColor = darkText ? "#ffffff" : C.ink;
+  const hasHeading = String(heading || "").trim().length > 0;
+  const hasSubtitle = block.variant !== "plain" && String(subtitle || "").trim().length > 0;
+  // Пустой блок не оставляет пустоты: в экспорте его нет, в редакторе — тонкая заглушка для выбора.
+  if (!hasHeading && !hasSubtitle) {
+    return preview
+      ? wrapBlock(block, `<div style="padding:10px 14px;border:1px dashed rgba(8,78,125,.35);border-radius:12px;box-sizing:border-box;font-family:${fontBody};font-size:13px;color:${C.muted};">Пустой заголовок — заполните в панели слева или удалите блок</div>`, "transparent", "0 0 24px")
+      : "";
+  }
+  const highlighted = (hasHeading && block.variant === "accent" && accent && heading.includes(accent)
     ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`)
-    : rubleSafe(heading);
-  return wrapBlock(block, `<div${editAttrs(preview, "content.heading")} style="font-family:${fontDisplay};font-size:34px;line-height:1.1;font-weight:900;color:${textColor};word-break:break-word;">${highlighted}</div>${subtitle && block.variant !== "plain" ? `<div style="padding-top:18px;">${bodyText(subtitle, textColor, 17, "content.subtitle", preview)}</div>` : ""}`, "transparent", "4px 0 24px");
+    : rubleSafe(heading))
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+  const headingHtml = hasHeading ? `<div${editAttrs(preview, "content.heading")} style="font-family:${fontDisplay};font-size:34px;line-height:1.1;font-weight:900;color:${textColor};word-break:break-word;">${highlighted}</div>` : "";
+  const subtitleHtml = hasSubtitle ? `<div style="${hasHeading ? "padding-top:18px;" : ""}">${bodyText(subtitle, bodyColor, 17, "content.subtitle", preview)}</div>` : "";
+  // Необязательная белая плашка с отступами под заголовком и подзаголовком.
+  const inner = String(block.content.plate || "") === "1"
+    ? `<div style="padding:22px;background:#ffffff;border-radius:22px;box-sizing:border-box;">${headingHtml}${subtitleHtml}</div>`
+    : headingHtml + subtitleHtml;
+  return wrapBlock(block, inner, "transparent", "4px 0 24px");
 }
 
 function renderText(block, preview, darkText = false) {
-  return wrapBlock(block, bodyText(block.content.body, darkText ? "#ffffff" : C.ink, 17, "content.body", preview), "transparent", "0 0 24px");
+  const body = bodyText(block.content.body, darkText ? "#ffffff" : C.ink, 17, "content.body", preview);
+  // Необязательная белая плашка с отступами под текстом.
+  const inner = String(block.content.plate || "") === "1"
+    ? `<div style="padding:22px;background:#ffffff;border-radius:22px;box-sizing:border-box;">${body}</div>`
+    : body;
+  return wrapBlock(block, inner, "transparent", "0 0 24px");
 }
 
 function renderPromo(block, preview) {
@@ -123,16 +149,21 @@ function renderBrandTitle(block, preview) {
 }
 
 function renderIconGrid(block, preview) {
-  const items = (block.content.items || []).slice(0, 4);
+  const items = (block.content.items || []).slice(0, 6);
   const icons = window.CALLTOUCH_ASSETS.essentials || {};
-  const rows = [0, 2].map((start) => `<tr>${items.slice(start, start + 2).map((item, index) => {
-    const icon = icons[item.iconId] || icons[["send", "verify", "clock", "message"][start + index]];
-    // Подложка под иконку — залитая ячейка таблицы: в старом Outlook border-radius
-    // не сработает, подложка станет квадратной, но ничего не сломается.
-    const iconMarkup = icon ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${C.pale}" style="background:${C.pale};border-radius:18px;padding:13px;"><img src="${assetSource(icon, preview)}" width="44" height="44" alt="${escapeHtml(icon.label)}" style="display:block;width:44px;height:44px;border:0;"></td></tr></table>` : "";
-    return td(`${iconMarkup}<div style="padding-top:13px;">${displayText(item.heading, C.ink, 17, "left", `content.items.${start + index}.heading`, preview)}</div>${item.body ? `<div style="padding-top:5px;">${bodyText(item.body, C.ink, 14, `content.items.${start + index}.body`, preview)}</div>` : ""}`, "width:50%;padding:18px;vertical-align:top;", 'class="grid-column"');
-  }).join("")}</tr>`).join("");
-  return wrapBlock(block, table(rows, "background:#ffffff;border-radius:28px;overflow:hidden;"), "transparent", "0 0 24px");
+  const fallbackIds = ["send", "verify", "clock", "message", "send", "verify"];
+  const rows = [];
+  // Размеры иконки с подложкой: картинка 35px, паддинг плашки 10px, радиус 14px.
+  for (let start = 0; start < items.length; start += 2) {
+    rows.push(`<tr>${items.slice(start, start + 2).map((item, index) => {
+      const icon = icons[item.iconId] || icons[fallbackIds[start + index]];
+      // Подложка под иконку — залитая ячейка таблицы: в старом Outlook border-radius
+      // не сработает, подложка станет квадратной, но ничего не сломается.
+      const iconMarkup = icon ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${C.pale}" style="background:${C.pale};border-radius:14px;padding:10px;"><img src="${assetSource(icon, preview)}" width="35" height="35" alt="${escapeHtml(icon.label)}" style="display:block;width:35px;height:35px;border:0;"></td></tr></table>` : "";
+      return td(`${iconMarkup}<div style="padding-top:13px;">${displayText(item.heading, C.ink, 17, "left", `content.items.${start + index}.heading`, preview)}</div>${item.body ? `<div style="padding-top:5px;">${bodyText(item.body, C.ink, 14, `content.items.${start + index}.body`, preview)}</div>` : ""}`, "width:50%;padding:18px;vertical-align:top;", 'class="grid-column"');
+    }).join("")}</tr>`);
+  }
+  return wrapBlock(block, table(rows.join(""), "background:#ffffff;border-radius:28px;overflow:hidden;"), "transparent", "0 0 24px");
 }
 
 function renderCtaCard(block, preview) {
@@ -151,7 +182,7 @@ function renderDivider(block) {
   return wrapBlock(block, `<div style="height:${height}px;line-height:${height}px;">&nbsp;</div>`, "transparent", "0");
 }
 
-function renderBlock(block, preview, darkText = false) {
+export function renderBlock(block, preview, darkText = false) {
   if (block.type === "title") return renderTitle(block, preview, darkText);
   if (block.type === "text") return renderText(block, preview, darkText);
   if (block.type === "promo") return renderPromo(block, preview);

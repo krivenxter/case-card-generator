@@ -23,7 +23,7 @@ export function validateEmail(email) {
   email.blocks.forEach((block, index) => {
     const label = `Блок ${index + 1}`;
     const content = block.content || {};
-    if (["title", "promo", "imageText", "brandTitle", "brandScene", "featureCard", "ctaCard"].includes(block.type) && !String(content.heading || "").trim()) errors.push(`${label}: пустой заголовок.`);
+    if (["promo", "imageText", "brandTitle", "brandScene", "featureCard", "ctaCard"].includes(block.type) && !String(content.heading || "").trim()) errors.push(`${label}: пустой заголовок.`);
     if (String(content.heading || "").length > 120) warnings.push(`${label}: заголовок длиннее 120 символов.`);
     if (String(content.body || "").length > 900) warnings.push(`${label}: текстовый блок слишком длинный.`);
     const url = content.ctaUrl || content.url || content.linkUrl;
