@@ -1,4 +1,4 @@
-import { EMAIL_TOKENS, SYSTEM_LINKS } from "./email-model.js";
+import { DELA_FONT_SIZES, EMAIL_TOKENS, SYSTEM_LINKS } from "./email-model.js";
 import { BRAND_SCENE_WIDTH, renderBrandSceneMarkup } from "./email-brand-scene.js";
 import { BRAND_TITLE_WIDTH, renderBrandTitleMarkup } from "./email-brand-title.js";
 

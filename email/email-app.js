@@ -1,4 +1,4 @@
-import { BLOCK_DEFINITIONS, EMAIL_STORAGE_KEY, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
+import { BLOCK_DEFINITIONS, DELA_FONT_SIZES, EMAIL_STORAGE_KEY, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
 import { buildAutoVariants, readImportedFile } from "./email-parser.js";
 import { renderEmailDocument, renderBlock } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
@@ -860,11 +860,11 @@ function delaStyle(text) {
   const darkDefault = email.settings.theme === "editorial";
   for (const block of email.blocks) {
     const content = block.content || {};
-    if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: 27, color: block.variant === "light" ? "#084E7D" : "#ffffff" };
-    if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: 28, color: "#ffffff" };
-    if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: 17, color: "#1F282C" };
+    if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.cta, color: block.variant === "light" ? "#084E7D" : "#ffffff" };
+    if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.promo, color: "#ffffff" };
+    if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: DELA_FONT_SIZES.inline, color: "#1F282C" };
   }
-  return { size: 17, color: darkDefault ? "#ffffff" : "#1F282C" };
+  return { size: DELA_FONT_SIZES.inline, color: darkDefault ? "#ffffff" : "#1F282C" };
 }
 
 async function publishDelaAssets() {

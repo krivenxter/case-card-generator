@@ -1,4 +1,4 @@
-import { EMAIL_TOKENS } from "./email-model.js";
+import { DELA_FONT_SIZES, EMAIL_TOKENS } from "./email-model.js";
 
 const THEMES = Object.freeze({
   "light-cyan": EMAIL_TOKENS.colors.lightCyan,
@@ -64,7 +64,7 @@ export function renderBrandTitleMarkup(block, { editable = false } = {}) {
   const content = block?.content || {};
   const { background, text } = resolveBrandTitleColors(block);
   const length = String(content.heading || "").length;
-  const fontSize = length > 64 ? 27 : length > 38 ? 31 : 36;
+  const fontSize = length > 64 ? DELA_FONT_SIZES.inline + 10 : length > 38 ? DELA_FONT_SIZES.brand : DELA_FONT_SIZES.brandTitle;
   const headingAttrs = editable ? ' data-edit-path="content.heading"' : "";
   return `<div data-brand-title style="display:flex;width:${BRAND_TITLE_WIDTH}px;align-items:center;box-sizing:border-box;overflow:hidden;background:${background};color:${text};">
     <div${headingAttrs} style="width:100%;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${fontSize}px;line-height:1.12;font-weight:400;text-transform:uppercase;letter-spacing:.02em;word-break:break-word;">${escapeHtml(content.heading || "ЗАГОЛОВОК DELA").replace(/\r?\n/g, "<br>")}</div>
