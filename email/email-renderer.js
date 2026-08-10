@@ -49,8 +49,15 @@ function displayText(value, color = C.navy, size = 30, align = "left", path = ""
   const text = rubleSafe(value)
     .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\\\*/g, "*")
+    .replace(/%%([\s\S]*?)%%/g, (_, inner) => delaMarkup(inner, preview))
     .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
   return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;color:${color};text-align:${align};word-break:break-word;">${text}</div>`;
+}
+
+function delaMarkup(value, preview) {
+  const text = String(value || "");
+  const asset = preview ? null : window.CALLTOUCH_DELA_ASSETS?.[text.trim()];
+  return asset ? `<img src="${escapeHtml(asset)}" alt="${escapeHtml(text)}" style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">` : `<span data-dela="1" style="font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;">${text}</span>`;
 }
 
 function bodyText(value, color = C.ink, size = 17, path = "", preview = false, listStyle = "bullet") {
@@ -61,11 +68,12 @@ function bodyText(value, color = C.ink, size = 17, path = "", preview = false, l
     const text = rubleSafe(line.replace(/^\s*[-–—•]\s*/, ""))
       .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\\\*/g, "*")
+      .replace(/%%([\s\S]*?)%%/g, (_, inner) => delaMarkup(inner, preview))
       .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:#084E7D;">$1</a>');
     // Висячий отступ: переносы строк пункта выравниваются по тексту, а не под маркер.
     if (!list) return `<div style="padding:0 0 10px;">${text}</div>`;
     listIndex += 1;
-    const marker = listStyle === "number" ? `<span style="display:inline-block;width:22px;height:22px;margin-right:9px;border-radius:50%;background:${C.cyan};color:#ffffff;font-size:14px;line-height:22px;text-align:center;text-indent:0;">${listIndex}</span>` : `<span style="color:${C.cyan};">•</span>&nbsp;`;
+    const marker = listStyle === "number" ? `<span style="display:inline-block;width:22px;height:22px;margin-right:16px;border-radius:50%;background:${C.cyan};color:#ffffff;font-size:14px;line-height:22px;text-align:center;text-indent:0;">${listIndex}</span>` : `<span style="color:${C.cyan};">•</span>&nbsp;`;
     return `<div style="display:flex;align-items:flex-start;padding:0 0 8px;"><span style="flex:0 0 auto;">${marker}</span><span>${text}</span></div>`;
   }).join("");
   return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};word-break:break-word;overflow-wrap:break-word;">${html}</div>`;

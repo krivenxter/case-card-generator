@@ -21,10 +21,12 @@ export function validateEmail(email) {
   const errors = [];
   const warnings = ["Перед отправкой eNkod заменит {{link_view_in_browser}} и {{link_unsubscribe}}."];
   const ctaBlocks = [];
+  let delaFragments = 0;
   email.blocks.forEach((block, index) => {
     if (block.settings?.hidden) return;
     const label = `Блок ${index + 1}`;
     const content = block.content || {};
+    delaFragments += Object.values(content).filter((value) => typeof value === "string").reduce((count, value) => count + (value.match(/%%[\s\S]*?%%/g) || []).length, 0);
     if (["promo", "imageText", "brandTitle", "brandScene", "featureCard", "ctaCard"].includes(block.type) && !String(content.heading || "").trim()) errors.push(`${label}: пустой заголовок.`);
     if (String(content.heading || "").length > 120) warnings.push(`${label}: заголовок длиннее 120 символов.`);
     if (String(content.body || "").length > 900) warnings.push(`${label}: текстовый блок слишком длинный.`);
@@ -42,6 +44,7 @@ export function validateEmail(email) {
   });
   if (!email.blocks.length) errors.push("В письме нет пользовательских блоков.");
   if (ctaBlocks.length > 3) warnings.push("В письме больше трёх конкурирующих CTA.");
+  if (delaFragments) warnings.push(`Фрагментов Dela: ${delaFragments}. В текущей версии они отображаются HTML-шрифтом; для идеальной совместимости с почтовыми клиентами потребуется PNG-режим.`);
   if (email.blocks.some((block) => block.type === "promo") && email.blocks[0]?.type === "button") warnings.push("Основная кнопка стоит раньше заголовка.");
   return { errors, warnings };
 }

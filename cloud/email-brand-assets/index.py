@@ -40,13 +40,16 @@ def _request_body(event):
     return json.loads(raw)
 
 
-def _validate_png(data):
+def _validate_png(data, kind=""):
     if not data.startswith(PNG_SIGNATURE) or len(data) < 24:
         raise ValueError("Поддерживается только PNG.")
     if len(data) > MAX_IMAGE_BYTES:
         raise ValueError("PNG больше 2 МБ.")
     width, height = struct.unpack(">II", data[16:24])
-    if not (600 <= width <= 1600 and 180 <= height <= 1200):
+    if kind == "dela":
+        if not (100 <= width <= 1600 and 24 <= height <= 1200):
+            raise ValueError("Некорректный размер PNG Dela.")
+    elif not (600 <= width <= 1600 and 180 <= height <= 1200):
         raise ValueError("Некорректный размер PNG.")
     return width, height
 
@@ -102,9 +105,10 @@ def handler(event, context):
             ext, content_type = _validate_asset(image_data)
             object_key = f"email-assets/uploads/{now:%Y/%m}/{block_id}-{digest}.{ext}"
         else:
-            width, height = _validate_png(image_data)
+            width, height = _validate_png(image_data, str(payload.get("kind", "")))
             ext, content_type = "png", "image/png"
-            object_key = f"email-assets/production/{now:%Y/%m}/{block_id}-{digest}.png"
+            prefix = "dela" if str(payload.get("kind", "")) == "dela" else "production"
+            object_key = f"email-assets/{prefix}/{now:%Y/%m}/{block_id}-{digest}.png"
         bucket = os.environ["S3_BUCKET"]
 
         _s3_client().put_object(

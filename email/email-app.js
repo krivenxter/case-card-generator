@@ -197,6 +197,7 @@ function richToMarkdown(root) {
     const tag = node.tagName.toLowerCase();
     const inner = [...node.childNodes].map(walk).join("");
     if (tag === "b" || tag === "strong") return inner.trim() ? `**${inner}**` : inner;
+    if (node.dataset?.dela) return inner.trim() ? `%%${inner}%%` : inner;
     if (tag === "a") return `[${inner}](${node.getAttribute("href") || ""})`;
     if (tag === "li") return `\n- ${inner}`;
     if (tag === "br") return "\n";
@@ -232,7 +233,7 @@ function ensureEditToolbar(previewDocument) {
   const toolbar = previewDocument.createElement("div");
   const buttonStyle = "min-width:26px;height:24px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:#fff;font:700 13px/1 Arial,sans-serif;cursor:pointer;";
   toolbar.style.cssText = "position:absolute;z-index:60;display:none;gap:2px;padding:3px;border-radius:9px;background:#084E7D;box-shadow:0 8px 20px rgba(31,40,44,.3);";
-  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" style="${buttonStyle}">B</button><button type="button" data-cmd="link" title="Ссылка" style="${buttonStyle}">🔗</button><button type="button" data-cmd="list" title="Список с пунктами" style="${buttonStyle}">•</button>`;
+  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" style="${buttonStyle}">B</button><button type="button" data-cmd="dela" title="Шрифт Dela" style="${buttonStyle};font-family:'Dela Gothic One',Arial Black,Arial,sans-serif;">D</button><button type="button" data-cmd="link" title="Ссылка" style="${buttonStyle}">🔗</button><button type="button" data-cmd="list" title="Список с пунктами" style="${buttonStyle}">•</button>`;
   previewDocument.body.append(toolbar);
   toolbar.addEventListener("mousedown", (event) => event.preventDefault());
   let savedRange = null;
@@ -240,6 +241,33 @@ function ensureEditToolbar(previewDocument) {
     const command = event.target.closest("[data-cmd]")?.dataset.cmd;
     if (!command) return;
     if (command === "bold") previewDocument.execCommand("bold");
+    if (command === "dela") {
+      const selection = previewDocument.getSelection();
+      const selected = selection?.toString().trim();
+      if (selected) {
+        const range = savedRange?.cloneRange();
+        const selectedElement = selection.anchorNode?.nodeType === 1 ? selection.anchorNode : selection.anchorNode?.parentElement;
+        const rangeElement = range?.commonAncestorContainer?.nodeType === 1 ? range.commonAncestorContainer : range?.commonAncestorContainer?.parentElement;
+        const delaParent = selectedElement?.closest("[data-dela]") || rangeElement?.closest("[data-dela]");
+        if (delaParent) {
+          const parent = delaParent.parentNode;
+          while (delaParent.firstChild) parent.insertBefore(delaParent.firstChild, delaParent);
+          delaParent.remove();
+          parent?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward", data: null }));
+          return;
+        }
+        if (range) {
+          const span = previewDocument.createElement("span");
+          span.dataset.dela = "1";
+          span.style.cssText = "font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;";
+          span.textContent = selected;
+          const editable = (range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement)?.closest("[data-rich]");
+          range.deleteContents();
+          range.insertNode(span);
+          editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: selected }));
+        }
+      }
+    }
     if (command === "list") previewDocument.execCommand("insertUnorderedList");
     if (command === "link") {
       const range = savedRange?.cloneRange();
@@ -431,7 +459,7 @@ function renderBlockList() {
 function field(label, path, value, { type = "text", rows = 0, hint = "", options = null } = {}) {
   let control = "";
   if (options) control = `<select data-field="${path}">${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${value === optionValue ? " selected" : ""}>${optionLabel}</option>`).join("")}</select>`;
-  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)"><b>B</b></button><button type="button" data-fmt="link" title="Ссылка">🔗</button><button type="button" data-fmt="list" title="Список с пунктами">•</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
+  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)"><b>B</b></button><button type="button" data-fmt="dela" title="Шрифт Dela" style="font-family:'Dela Gothic One',Arial Black,Arial,sans-serif;">D</button><button type="button" data-fmt="link" title="Ссылка">🔗</button><button type="button" data-fmt="list" title="Список с пунктами">•</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
   else control = `<input data-field="${path}" type="${type}" value="${escapeAttr(value)}">`;
   return `<label class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</label>`;
 }
@@ -457,13 +485,13 @@ function renderBlockEditor() {
   const definition = getDefinition(block.type);
   let controls = "";
   if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
-  if (block.type === "text") controls = `${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Стиль списка", "content.listStyle", block.content.listStyle || "bullet", { options: [["bullet", "Маркеры"], ["number", "Цифры в кружках"]] })}${field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" })}`;
+  if (block.type === "text") controls = `${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Стиль списка", "content.listStyle", block.content.listStyle || "bullet", { options: [["bullet", "Маркеры"], ["number", "Цифры в кружках"]] })}${field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" })}<button class="email-button email-button--quiet" type="button" data-insert-image-after>+ Вставить картинку после текста</button>`;
   if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer)}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "image") controls = `${assetField(block)}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2, hint: "Виден, если картинки отключены" })}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl, { type: "url", hint: "При клике открывается весь блок" })}`;
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
-  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
+  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><button type="button" data-icon-dela="${index}" title="Шрифт Dela">D</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
   if (block.type === "ctaCard") controls = `${field("Тема", "variant", block.variant, { options: [["dark", "Тёмно-синяя"], ["dark-gradient", "Тёмно-синяя с пурпурным свечением"], ["light", "Светлая"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Пояснение", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "button") controls = `${field("Акцент", "variant", block.variant, { options: [["primary", "Основной"], ["secondary", "Спокойный"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
   if (block.type === "divider") controls = field("Интервал", "variant", block.variant, { options: [["s", "S — компактный"], ["m", "M — обычный"], ["l", "L — большой"], ["xl", "XL — очень большой"]] });
@@ -804,6 +832,48 @@ function buildVariants(text) {
   showScreen("variants");
 }
 
+function delaTexts() {
+  const result = new Set();
+  email.blocks.forEach((block) => Object.values(block.content || {}).forEach((value) => {
+    if (typeof value !== "string") return;
+    for (const match of value.matchAll(/%%([\s\S]*?)%%/g)) if (match[1].trim()) result.add(match[1].trim());
+  }));
+  return [...result];
+}
+
+async function renderDelaPng(text) {
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;left:-10000px;top:0;width:560px;padding:8px 0;pointer-events:none;";
+  host.innerHTML = `<div style="display:inline-block;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:32px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;color:#084E7D;">${escapeAttr(text)}</div>`;
+  document.body.append(host);
+  try {
+    if (document.fonts?.ready) await document.fonts.ready;
+    const element = host.firstElementChild;
+    const height = Math.max(24, Math.ceil(element.getBoundingClientRect().height));
+    const canvas = await window.DomExport.toCanvas(element, { width: 560, height, pixelRatio: 2, cacheBust: location.protocol !== "file:", backgroundColor: "transparent", fontFaces: location.protocol === "file:" ? [] : [{ family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" }] });
+    return canvasToPngBlob(canvas);
+  } finally { host.remove(); }
+}
+
+async function publishDelaAssets() {
+  const texts = delaTexts();
+  if (!texts.length) return {};
+  const config = window.CALLTOUCH_EMAIL_CONFIG || {};
+  if (!config.brandAssetUploadEndpoint) throw new Error("Для экспорта Dela нужна подключённая облачная функция.");
+  const map = {};
+  for (const [index, text] of texts.entries()) {
+    const blob = await renderDelaPng(text);
+    const headers = { "Content-Type": "application/json" };
+    if (config.uploadToken) headers["X-Generator-Token"] = config.uploadToken;
+    const response = await fetch(config.brandAssetUploadEndpoint, { method: "POST", headers, body: JSON.stringify({ imageBase64: await blobToBase64(blob), blockId: `dela-${index}`, kind: "dela" }) });
+    const raw = await response.json().catch(() => ({}));
+    const result = typeof raw.body === "string" ? JSON.parse(raw.body) : raw;
+    if (!response.ok || !result.url) throw new Error(result.error || "Не удалось загрузить фрагмент Dela.");
+    map[text] = result.url;
+  }
+  return map;
+}
+
 // Перед финальной проверкой догружает в облако всё неопубликованное:
 // бренд-блоки с устаревшим PNG и свои картинки без публичной ссылки.
 async function publishPendingAssets() {
@@ -855,6 +925,16 @@ async function openQualityDialog() {
     if (uploaded || failed.length) {
       uploadNote = `<section class="email-quality-group"><h3>Загрузка в облако</h3><ul>${uploaded ? `<li>Автоматически загружено изображений: ${uploaded}. Публичные ссылки уже подставлены в письмо.</li>` : ""}${failed.map((item) => `<li>${escapeAttr(item)}.</li>`).join("")}</ul></section>`;
     }
+  }
+  try {
+    if (delaTexts().length) {
+      showToast("Готовим фрагменты Dela…");
+      window.CALLTOUCH_DELA_ASSETS = await publishDelaAssets();
+    }
+  } catch (error) {
+    window.CALLTOUCH_DELA_ASSETS = {};
+    showToast(error.message || "Не удалось подготовить Dela.");
+    return;
   }
   const report = validateEmail(email);
   const html = renderEmailDocument(email, { preview: false });
@@ -989,7 +1069,10 @@ elements.blockEditor.addEventListener("click", async (event) => {
     const selected = textarea.value.slice(start, end);
     let replacement = "";
     if (fmtButton.dataset.fmt === "bold") {
-      replacement = `**${selected || "жирный текст"}**`;
+      const trimmed = selected.trim();
+      replacement = /^\*\*[\s\S]*\*\*$/.test(trimmed) ? trimmed.slice(2, -2) : `**${selected || "жирный текст"}**`;
+    } else if (fmtButton.dataset.fmt === "dela") {
+      replacement = `%%${selected || "текст Dela"}%%`;
     } else if (fmtButton.dataset.fmt === "list") {
       // Тоггл: если все выделенные строки уже пункты — снимаем маркеры, иначе добавляем.
       const lines = (selected || "пункт списка").split("\n");
@@ -1012,6 +1095,25 @@ elements.blockEditor.addEventListener("click", async (event) => {
       block.content.items.push({ heading: "Новое преимущество", body: "Короткое описание", iconId: ["send", "verify", "clock", "message"][block.content.items.length % 4] });
       commitChange({ rerenderEditor: true });
     }
+    return;
+  }
+  const insertImage = event.target.closest("[data-insert-image-after]");
+  if (insertImage) {
+    const block = getSelectedBlock();
+    if (block?.type === "text") {
+      const imageBlock = createBlock("image");
+      const index = email.blocks.findIndex((item) => item.id === block.id);
+      email.blocks.splice(index + 1, 0, imageBlock);
+      selectedBlockId = imageBlock.id;
+      commitChange({ rerenderEditor: true });
+    }
+    return;
+  }
+  const iconDela = event.target.closest("[data-icon-dela]");
+  if (iconDela) {
+    const block = getSelectedBlock();
+    const item = block?.content.items[Number(iconDela.dataset.iconDela)];
+    if (item) { const value = String(item.heading || "").trim(); const unwrapped = value.replace(/^%+|%+$/g, ""); item.heading = unwrapped !== value ? unwrapped : `%%${value || "Заголовок"}%%`; commitChange({ rerenderEditor: true }); }
     return;
   }
   const iconPick = event.target.closest("[data-icon-pick]");
