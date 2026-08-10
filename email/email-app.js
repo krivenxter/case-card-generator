@@ -762,7 +762,7 @@ async function renderBrandImagePng(block) {
         { family: "Museo Sans Cyrl", src: "fonts/museosanscyrl-500.woff2", format: "woff2", weight: "500" }
       ]
     });
-    return { blob: await canvasToPngBlob(canvas), width, height };
+    return canvasToPngBlob(canvas);
   } finally {
     host.remove();
   }
@@ -856,7 +856,7 @@ async function renderDelaPng(text) {
     const width = Math.min(560, Math.max(100, Math.ceil(element.getBoundingClientRect().width)));
     const height = Math.max(24, Math.ceil(element.getBoundingClientRect().height));
     const canvas = await window.DomExport.toCanvas(element, { width, height, pixelRatio: 2, cacheBust: location.protocol !== "file:", backgroundColor: "transparent", fontFaces: location.protocol === "file:" ? [] : [{ family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" }] });
-    return canvasToPngBlob(canvas);
+    return { blob: await canvasToPngBlob(canvas), width, height };
   } finally { host.remove(); }
 }
 
