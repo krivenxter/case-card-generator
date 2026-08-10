@@ -762,7 +762,7 @@ async function renderBrandImagePng(block) {
         { family: "Museo Sans Cyrl", src: "fonts/museosanscyrl-500.woff2", format: "woff2", weight: "500" }
       ]
     });
-    return canvasToPngBlob(canvas);
+    return { blob: await canvasToPngBlob(canvas), width, height };
   } finally {
     host.remove();
   }
@@ -855,7 +855,7 @@ async function renderDelaPng(text) {
     const element = host.firstElementChild;
     const width = Math.min(560, Math.max(100, Math.ceil(element.getBoundingClientRect().width)));
     const height = Math.max(24, Math.ceil(element.getBoundingClientRect().height));
-    const canvas = await window.DomExport.toCanvas(element, { width, height, pixelRatio: 1, cacheBust: location.protocol !== "file:", backgroundColor: "transparent", fontFaces: location.protocol === "file:" ? [] : [{ family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" }] });
+    const canvas = await window.DomExport.toCanvas(element, { width, height, pixelRatio: 2, cacheBust: location.protocol !== "file:", backgroundColor: "transparent", fontFaces: location.protocol === "file:" ? [] : [{ family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" }] });
     return canvasToPngBlob(canvas);
   } finally { host.remove(); }
 }
@@ -878,14 +878,14 @@ async function publishDelaAssets() {
   if (!config.brandAssetUploadEndpoint) throw new Error("Для экспорта Dela нужна подключённая облачная функция.");
   const map = {};
   for (const [index, text] of texts.entries()) {
-    const blob = await renderDelaPng(text);
+    const rendered = await renderDelaPng(text);
     const headers = { "Content-Type": "application/json" };
     if (config.uploadToken) headers["X-Generator-Token"] = config.uploadToken;
-    const response = await fetch(config.brandAssetUploadEndpoint, { method: "POST", headers, body: JSON.stringify({ imageBase64: await blobToBase64(blob), blockId: `dela-${index}`, kind: "dela" }) });
+    const response = await fetch(config.brandAssetUploadEndpoint, { method: "POST", headers, body: JSON.stringify({ imageBase64: await blobToBase64(rendered.blob), blockId: `dela-${index}`, kind: "dela" }) });
     const raw = await response.json().catch(() => ({}));
     const result = typeof raw.body === "string" ? JSON.parse(raw.body) : raw;
     if (!response.ok || !result.url) throw new Error(result.error || "Не удалось загрузить фрагмент Dela.");
-    map[text] = result.url;
+    map[text] = { url: result.url, width: rendered.width, height: rendered.height };
   }
   return map;
 }
