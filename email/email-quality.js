@@ -6,6 +6,7 @@ export function normalizeEmailDesign(email) {
   normalized.settings.theme = ["classic", "editorial"].includes(normalized.settings.theme) ? normalized.settings.theme : "classic";
   normalized.settings.logo = ["dark", "color"].includes(normalized.settings.logo) ? normalized.settings.logo : "dark";
   normalized.blocks = normalized.blocks.filter((block) => block?.type && block?.id).map((block) => {
+    block.settings = { ...(block.settings || {}), hidden: Boolean(block.settings?.hidden) };
     if (["imageText", "featureCard"].includes(block.type)) block.variant = ["image-left", "image-right"].includes(block.variant) ? block.variant : "image-left";
     if (block.type === "brandTitle") block.variant = ["light-cyan", "cyan", "navy", "purple", "magenta", "custom"].includes(block.variant) ? block.variant : "light-cyan";
     if (block.type === "brandScene") block.variant = ["navy-purple", "cyan-navy", "purple-cyan"].includes(block.variant) ? block.variant : "navy-purple";
@@ -21,6 +22,7 @@ export function validateEmail(email) {
   const warnings = ["Перед отправкой eNkod заменит {{link_view_in_browser}} и {{link_unsubscribe}}."];
   const ctaBlocks = [];
   email.blocks.forEach((block, index) => {
+    if (block.settings?.hidden) return;
     const label = `Блок ${index + 1}`;
     const content = block.content || {};
     if (["promo", "imageText", "brandTitle", "brandScene", "featureCard", "ctaCard"].includes(block.type) && !String(content.heading || "").trim()) errors.push(`${label}: пустой заголовок.`);

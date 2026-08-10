@@ -68,13 +68,17 @@ function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
 }
 
 function button(text, url, variant = "primary", path = "", preview = false) {
-  const background = variant === "secondary" ? `linear-gradient(90deg,${C.cyan},${C.navy})` : `linear-gradient(90deg,${C.magenta},${C.purple})`;
+  const background = variant === "secondary" ? `linear-gradient(90deg,${C.cyan},${C.brightnavy})` : `linear-gradient(90deg,${C.magenta},${C.purple})`;
   const fallback = variant === "secondary" ? C.navy : C.purple;
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${fallback}" style="background:${background};border-radius:999px;text-align:center;"><a href="${safeUrl(url)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${fontDisplay};font-size:15px;line-height:18px;font-weight:900;color:#ffffff;text-decoration:none;min-width:160px;"><span${editAttrs(preview, path)}>${rubleSafe(text || "Подробнее")}</span></a></td></tr></table>`;
 }
 
 function wrapBlock(block, content, background = "transparent", padding = "0 0 20px") {
   return `<tr data-block-id="${escapeHtml(block.id)}"><td style="padding:${padding};background:${background};">${content}</td></tr>`;
+}
+
+function hasText(value) {
+  return String(value || "").trim().length > 0;
 }
 
 function renderTitle(block, preview, darkText = false) {
@@ -85,11 +89,7 @@ function renderTitle(block, preview, darkText = false) {
   const hasHeading = String(heading || "").trim().length > 0;
   const hasSubtitle = block.variant !== "plain" && String(subtitle || "").trim().length > 0;
   // Пустой блок не оставляет пустоты: в экспорте его нет, в редакторе — тонкая заглушка для выбора.
-  if (!hasHeading && !hasSubtitle) {
-    return preview
-      ? wrapBlock(block, `<div style="padding:10px 14px;border:1px dashed rgba(8,78,125,.35);border-radius:12px;box-sizing:border-box;font-family:${fontBody};font-size:13px;color:${C.muted};">Пустой заголовок — заполните в панели слева или удалите блок</div>`, "transparent", "0 0 24px")
-      : "";
-  }
+  if (!hasHeading && !hasSubtitle) return "";
   const highlighted = (hasHeading && block.variant === "accent" && accent && heading.includes(accent)
     ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`)
     : rubleSafe(heading))
@@ -106,6 +106,7 @@ function renderTitle(block, preview, darkText = false) {
 }
 
 function renderText(block, preview, darkText = false) {
+  if (!hasText(block.content.body)) return "";
   const body = bodyText(block.content.body, darkText ? "#ffffff" : C.ink, 17, "content.body", preview);
   // Необязательная белая плашка с отступами под текстом.
   const inner = String(block.content.plate || "") === "1"
@@ -116,15 +117,18 @@ function renderText(block, preview, darkText = false) {
 
 function renderPromo(block, preview) {
   const content = block.content;
+  if (![content.eyebrow, content.heading, content.offer, content.body, content.ctaText, content.image?.exportUrl, content.image?.previewSource].some(hasText)) return "";
   const eyebrow = String(content.eyebrow || "").trim();
   const visual = img(content.image, content.heading, preview, 180, 16);
-  const lower = table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:18px;line-height:1.2;color:#ffffff;">${rubleSafe(content.offer || "")}</div>${bodyText(content.body, "#D6E8F2", 15, "content.body", preview)}`, "width:62%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${td(visual, "width:38%;padding:12px;vertical-align:middle;", 'class="stack-column"')}</tr>`);
-  const contentHtml = `${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;padding:9px 16px;background:${C.magenta};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};"><div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 28, "left", "content.heading", preview)}</div><div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>${content.ctaText ? `<div style="padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>`;
+  const hasLower = [content.offer, content.body, content.image?.exportUrl, content.image?.previewSource].some(hasText);
+  const lower = hasLower ? table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:18px;line-height:1.2;color:#ffffff;">${rubleSafe(content.offer || "")}</div>${bodyText(content.body, "#D6E8F2", 15, "content.body", preview)}`, visual ? "width:62%;padding:20px;vertical-align:middle;" : "width:100%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${visual ? td(visual, "width:38%;padding:12px;vertical-align:middle;", 'class="stack-column"') : ""}</tr>`) : "";
+  const contentHtml = `${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;padding:9px 16px;background:${C.magenta};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};">${hasText(content.heading) ? `<div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 28, "left", "content.heading", preview)}</div>` : ""}${hasLower ? `<div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>` : ""}${content.ctaText ? `<div style="padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>`;
   return wrapBlock(block, contentHtml, "transparent", "0 0 28px");
 }
 
 function renderImageBlock(block, preview) {
   const content = block.content;
+  if (!content.image?.previewSource && !content.image?.exportUrl) return "";
   const image = img(content.image, content.alt || content.image?.label, preview, 604, 18);
   const linked = content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" style="display:block;text-decoration:none;">${image}</a>` : image;
   return wrapBlock(block, linked, "transparent", "0 0 24px");
@@ -132,6 +136,7 @@ function renderImageBlock(block, preview) {
 
 function renderImageText(block, preview, feature = false) {
   const content = block.content;
+  if (![content.heading, content.body, content.linkText, content.image?.previewSource, content.image?.exportUrl].some(hasText)) return "";
   const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 190, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : 22}px;vertical-align:middle;`, 'class="stack-column"');
   const textCell = td(`${displayText(content.heading, C.ink, feature ? 19 : 23, "left", "content.heading", preview)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 15, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : 26}px;vertical-align:middle;`, 'class="stack-column"');
   const cells = block.variant === "image-right" ? textCell + imageCell : imageCell + textCell;
@@ -139,6 +144,7 @@ function renderImageText(block, preview, feature = false) {
 }
 
 function renderBrandScene(block, preview) {
+  if (!hasText(block.content.renderedUrl) && !hasText(block.content.heading) && !hasText(block.content.body)) return "";
   if (preview) return wrapBlock(block, renderBrandSceneMarkup(block, { preview: true, editable: true }), "transparent", "0 0 24px");
   const source = safeUrl(block.content.renderedUrl);
   const image = `<img src="${source}" width="${BRAND_SCENE_WIDTH}" alt="${escapeHtml(block.content.alt || block.content.heading || "Фирменный блок Calltouch")}" style="display:block;width:100%;max-width:${BRAND_SCENE_WIDTH}px;height:auto;border:0;outline:none;text-decoration:none;">`;
@@ -147,6 +153,7 @@ function renderBrandScene(block, preview) {
 }
 
 function renderBrandTitle(block, preview) {
+  if (!hasText(block.content.renderedUrl) && !hasText(block.content.heading)) return "";
   if (preview) return wrapBlock(block, renderBrandTitleMarkup(block, { editable: true }), "transparent", "0 0 24px");
   const source = safeUrl(block.content.renderedUrl);
   const image = `<img src="${source}" width="${BRAND_TITLE_WIDTH}" alt="${escapeHtml(block.content.heading || "Фирменный заголовок Calltouch")}" style="display:block;width:100%;max-width:${BRAND_TITLE_WIDTH}px;height:auto;border:0;outline:none;text-decoration:none;">`;
@@ -155,6 +162,7 @@ function renderBrandTitle(block, preview) {
 
 function renderIconGrid(block, preview) {
   const items = (block.content.items || []).slice(0, 6);
+  if (!items.some((item) => [item.heading, item.body, item.iconId].some(hasText))) return "";
   const icons = window.CALLTOUCH_ASSETS.essentials || {};
   const fallbackIds = ["send", "verify", "clock", "message", "send", "verify"];
   const rows = [];
@@ -172,6 +180,7 @@ function renderIconGrid(block, preview) {
 }
 
 function renderCtaCard(block, preview) {
+  if (![block.content.heading, block.content.subtitle, block.content.ctaText].some(hasText)) return "";
   const light = block.variant === "light";
   const background = light ? "#ffffff" : C.navy;
   const color = light ? C.navy : "#ffffff";
@@ -179,6 +188,7 @@ function renderCtaCard(block, preview) {
 }
 
 function renderButton(block, preview) {
+  if (!hasText(block.content.text)) return "";
   return wrapBlock(block, table(`<tr>${td(button(block.content.text, block.content.url, block.variant, "content.text", preview), "text-align:center;", 'align="center"')}</tr>`), "transparent", "0 0 24px");
 }
 
@@ -188,6 +198,7 @@ function renderDivider(block) {
 }
 
 export function renderBlock(block, preview, darkText = false) {
+  if (block.settings?.hidden) return "";
   if (block.type === "title") return renderTitle(block, preview, darkText);
   if (block.type === "text") return renderText(block, preview, darkText);
   if (block.type === "promo") return renderPromo(block, preview);

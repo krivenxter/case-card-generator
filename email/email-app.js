@@ -336,7 +336,8 @@ function bindPreviewSelection() {
 function renderBlockList() {
   elements.blockList.innerHTML = email.blocks.map((block, index) => {
     const definition = getDefinition(block.type);
-    return `<div class="email-block-row${block.id === selectedBlockId ? " is-selected" : ""}" draggable="true" data-block-id="${escapeAttr(block.id)}"><i class="email-block-row__grip" data-lucide="grip-vertical" aria-hidden="true"></i><div><strong>${escapeAttr(definition?.label || block.type)}</strong><small>${escapeAttr(block.content.heading || block.content.text || block.content.body || "Системный интервал")}</small></div><div class="email-block-row__actions"><button type="button" data-action="up" title="Выше" ${index === 0 ? "disabled" : ""}><i data-lucide="chevron-up"></i></button><button type="button" data-action="down" title="Ниже" ${index === email.blocks.length - 1 ? "disabled" : ""}><i data-lucide="chevron-down"></i></button><button type="button" data-action="duplicate" title="Дублировать"><i data-lucide="copy"></i></button><button type="button" data-action="delete" title="Удалить"><i data-lucide="trash-2"></i></button></div></div>`;
+    const hidden = Boolean(block.settings?.hidden);
+    return `<div class="email-block-row${block.id === selectedBlockId ? " is-selected" : ""}${hidden ? " is-hidden" : ""}" draggable="true" data-block-id="${escapeAttr(block.id)}"><i class="email-block-row__grip" data-lucide="grip-vertical" aria-hidden="true"></i><div><strong>${escapeAttr(definition?.label || block.type)}</strong><small>${hidden ? "Скрыт из письма" : escapeAttr(block.content.heading || block.content.text || block.content.body || "Системный интервал")}</small></div><div class="email-block-row__actions"><button type="button" data-action="up" title="Выше" ${index === 0 ? "disabled" : ""}><i data-lucide="chevron-up"></i></button><button type="button" data-action="down" title="Ниже" ${index === email.blocks.length - 1 ? "disabled" : ""}><i data-lucide="chevron-down"></i></button><button type="button" data-action="toggle-visibility" title="${hidden ? "Показать блок" : "Скрыть блок"}"><i data-lucide="${hidden ? "eye-off" : "eye"}"></i></button><button type="button" data-action="duplicate" title="Дублировать"><i data-lucide="copy"></i></button><button type="button" data-action="delete" title="Удалить"><i data-lucide="trash-2"></i></button></div></div>`;
   }).join("");
   iconRefresh(elements.blockList);
 }
@@ -783,6 +784,13 @@ elements.blockList.addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "up") return moveBlock(row.dataset.blockId, -1);
   if (action === "down") return moveBlock(row.dataset.blockId, 1);
+  if (action === "toggle-visibility") {
+    const block = email.blocks.find((item) => item.id === row.dataset.blockId);
+    if (!block) return;
+    block.settings = { ...(block.settings || {}), hidden: !block.settings?.hidden };
+    commitChange({ rerenderEditor: true });
+    return;
+  }
   if (action === "duplicate") return duplicateBlock(row.dataset.blockId);
   if (action === "delete") return deleteBlock(row.dataset.blockId);
   selectedBlockId = row.dataset.blockId;

@@ -99,6 +99,8 @@
 .email-block-list { display: grid; margin-top: 14px; gap: 7px; }
 .email-block-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; padding: 10px 8px; border: 1px solid var(--email-border); border-radius: 12px; background: #f8fafb; cursor: grab; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
 .email-block-row.is-selected { border-color: rgba(8,78,125,.45); background: var(--email-pale); }
+.email-block-row.is-hidden { opacity: .58; background: #f1f4f5; }
+.email-block-row.is-hidden strong { color: #68757b; }
 .email-block-row.is-dragging { opacity: .45; cursor: grabbing; }
 .email-block-row.is-drop-target { border-color: var(--email-cyan); transform: translateY(2px); }
 .email-block-row__grip { width: 16px; color: #a1adb2; }
