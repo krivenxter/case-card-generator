@@ -22,8 +22,8 @@
       <a class="is-active" href="email.html" aria-current="page">Рассылки</a>
     </nav>
     <div class="email-toolbar__actions">
-      <button class="email-button email-button--quiet" id="undoButton" type="button" disabled title="Отменить действие">↶</button>
-      <button class="email-button email-button--quiet" id="redoButton" type="button" disabled title="Повторить действие">↷</button>
+      <button class="email-button email-button--quiet email-history-button" id="undoButton" type="button" disabled title="Отменить действие" aria-label="Отменить действие"><i data-lucide="undo-2"></i></button>
+      <button class="email-button email-button--quiet email-history-button" id="redoButton" type="button" disabled title="Повторить действие" aria-label="Повторить действие"><i data-lucide="redo-2"></i></button>
       <button class="email-button email-button--quiet" id="exportDraftButton" type="button">Скачать шаблон</button>
       <button class="email-button email-button--quiet" id="importDraftButton" type="button">Загрузить шаблон</button>
       <input id="importDraftInput" type="file" accept="application/json,.json" hidden>

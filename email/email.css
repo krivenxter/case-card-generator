@@ -45,6 +45,8 @@
 .email-button--primary:hover { background: #063e64; }
 .email-button--quiet { color: #1f282c; border-color: var(--email-border); background: #fff; }
 .email-button--quiet:hover { background: #f4f8fa; }
+.email-history-button { width: 42px; min-width: 42px; padding: 0; }
+.email-history-button svg { width: 17px; height: 17px; }
 .email-button--normalize { display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; color: var(--email-navy); border-color: rgba(8,78,125,.18); background: var(--email-pale); }
 .email-button--normalize svg { width: 16px; }
 
