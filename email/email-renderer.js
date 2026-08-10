@@ -27,10 +27,10 @@ function assetSource(asset, preview) {
   return escapeHtml(preview ? asset.previewSource : asset.exportUrl);
 }
 
-function img(asset, alt, preview, width = 176) {
+function img(asset, alt, preview, width = 176, radius = 0) {
   const source = assetSource(asset, preview);
   if (!source) return "";
-  return `<img src="${source}" width="${width}" alt="${escapeHtml(alt || asset.label || "")}" style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">`;
+  return `<img src="${source}" width="${width}" alt="${escapeHtml(alt || asset.label || "")}" style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;${radius ? `border-radius:${radius}px;` : ""}">`;
 }
 
 function td(content, style = "", attributes = "") {
@@ -87,15 +87,21 @@ function renderText(block, preview, darkText = false) {
 
 function renderPromo(block, preview) {
   const content = block.content;
-  const visual = img(content.image, content.heading, preview, 180);
+  const visual = img(content.image, content.heading, preview, 180, 16);
   const lower = table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:18px;line-height:1.2;color:#ffffff;">${rubleSafe(content.offer || "")}</div>${bodyText(content.body, "#D6E8F2", 15, "content.body", preview)}`, "width:62%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${td(visual, "width:38%;padding:12px;vertical-align:middle;", 'class="stack-column"')}</tr>`);
   const contentHtml = `${content.eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;padding:9px 16px;background:${C.magenta};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;">${escapeHtml(content.eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};border-radius:0 28px 28px 28px;"><div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 28, "left", "content.heading", preview)}</div><div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>${content.ctaText ? `<div style="padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>`;
   return wrapBlock(block, contentHtml, "transparent", "0 0 28px");
 }
 
+function renderImageBlock(block, preview) {
+  const content = block.content;
+  const image = img(content.image, content.alt || content.image?.label, preview, 604, 18);
+  return wrapBlock(block, image, "transparent", "0 0 24px");
+}
+
 function renderImageText(block, preview, feature = false) {
   const content = block.content;
-  const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 190), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : 22}px;vertical-align:middle;`, 'class="stack-column"');
+  const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 190, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : 22}px;vertical-align:middle;`, 'class="stack-column"');
   const textCell = td(`${displayText(content.heading, C.ink, feature ? 19 : 23, "left", "content.heading", preview)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 15, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : 26}px;vertical-align:middle;`, 'class="stack-column"');
   const cells = block.variant === "image-right" ? textCell + imageCell : imageCell + textCell;
   return wrapBlock(block, table(`<tr>${cells}</tr>`, `background:#ffffff;border-radius:${feature ? 22 : 28}px;overflow:hidden;`), "transparent", `0 0 ${feature ? 12 : 20}px`);
@@ -149,6 +155,7 @@ function renderBlock(block, preview, darkText = false) {
   if (block.type === "title") return renderTitle(block, preview, darkText);
   if (block.type === "text") return renderText(block, preview, darkText);
   if (block.type === "promo") return renderPromo(block, preview);
+  if (block.type === "image") return renderImageBlock(block, preview);
   if (block.type === "imageText") return renderImageText(block, preview);
   if (block.type === "brandTitle") return renderBrandTitle(block, preview);
   if (block.type === "brandScene") return renderBrandScene(block, preview);

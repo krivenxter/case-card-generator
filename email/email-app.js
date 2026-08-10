@@ -13,7 +13,7 @@ const elements = {
   start: $("#startScreen"), variants: $("#variantScreen"), editor: $("#editorScreen"), pastePanel: $("#pastePanel"), importText: $("#importText"), fileInput: $("#importFileInput"),
   variantFrames: [$("#variantAFrame"), $("#variantBFrame")], preview: $("#emailPreview"), previewStage: $("#previewStage"), previewCanvas: $("#previewCanvas"), previewModeLabel: $("#previewModeLabel"), zoomIndicator: $("#zoomIndicator"),
   projectTitle: $("#projectTitle"), theme: $("#themeSelect"), blockList: $("#blockList"), blockEditor: $("#blockEditor"), footnoteList: $("#footnoteList"),
-  blockLibraryDialog: $("#blockLibraryDialog"), blockLibrary: $("#blockLibrary"), assetDialog: $("#assetDialog"), assetGrid: $("#assetGrid"), customAssetFile: $("#customAssetFile"), customAssetUrl: $("#customAssetUrl"),
+  blockLibraryDialog: $("#blockLibraryDialog"), blockLibrary: $("#blockLibrary"), assetDialog: $("#assetDialog"), assetGrid: $("#assetGrid"), customAssetFile: $("#customAssetFile"), customAssetFileName: $("#customAssetFileName"), customAssetUrl: $("#customAssetUrl"),
   qualityDialog: $("#qualityDialog"), qualityTitle: $("#qualityTitle"), qualityResults: $("#qualityResults"), codePreview: $("#codePreview"), copyButton: $("#copyHtmlButton"), downloadButton: $("#downloadHtmlButton"),
   saveStatus: $("#saveStatus"), toast: $("#emailToast")
 };
@@ -226,6 +226,7 @@ function renderBlockEditor() {
   if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
   if (block.type === "text") controls = field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" });
   if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer)}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
+  if (block.type === "image") controls = `${assetField(block)}${field("Описание картинки (alt)", "content.alt", block.content.alt, { rows: 2, hint: "Виден, если картинки отключены" })}`;
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
@@ -281,14 +282,16 @@ function resetCanvas() {
 }
 
 function syncPreviewHeight(previewDocument) {
-  const height = Math.max(previewDocument.body.scrollHeight, previewDocument.documentElement.scrollHeight, 720);
-  elements.preview.style.height = `${height}px`;
-  if (canvasState.fitMode) window.requestAnimationFrame(fitCanvas);
-  previewDocument.querySelectorAll("img").forEach((image) => image.addEventListener("load", () => {
-    const nextHeight = Math.max(previewDocument.body.scrollHeight, previewDocument.documentElement.scrollHeight, 720);
-    elements.preview.style.height = `${nextHeight}px`;
+  const measure = () => {
+    // scrollHeight не бывает меньше текущего вьюпорта iframe,
+    // поэтому перед замером сбрасываем высоту — иначе карточка не ужимается.
+    elements.preview.style.height = "0px";
+    const height = Math.max(previewDocument.body.scrollHeight, previewDocument.documentElement.scrollHeight);
+    elements.preview.style.height = `${height}px`;
     if (canvasState.fitMode) fitCanvas();
-  }, { once: true }));
+  };
+  measure();
+  previewDocument.querySelectorAll("img").forEach((image) => image.addEventListener("load", measure, { once: true }));
 }
 
 function startCanvasPan(clientX, clientY) {
@@ -395,6 +398,7 @@ function openAssetDialog(blockId, path = "content.image") {
   assetTargetPath = path;
   customPreviewSource = "";
   elements.customAssetFile.value = "";
+  elements.customAssetFileName.textContent = "Файл не выбран";
   elements.customAssetUrl.value = "";
   renderAssetGrid();
   elements.assetDialog.showModal();
@@ -680,13 +684,49 @@ elements.assetGrid.addEventListener("click", (event) => {
 elements.customAssetFile.addEventListener("change", () => {
   const file = elements.customAssetFile.files?.[0];
   if (!file) return;
+  elements.customAssetFileName.textContent = file.name;
   const reader = new FileReader();
   reader.addEventListener("load", () => { customPreviewSource = String(reader.result || ""); });
   reader.readAsDataURL(file);
 });
-$("#applyCustomAssetButton").addEventListener("click", () => {
-  const exportUrl = elements.customAssetUrl.value.trim();
-  applyAsset({ id: createId("asset"), label: elements.customAssetFile.files?.[0]?.name || "Своё изображение", previewSource: customPreviewSource || exportUrl, exportUrl, keywords: [] });
+async function uploadCustomAssetFile(file) {
+  const config = window.CALLTOUCH_EMAIL_CONFIG || {};
+  if (!config.brandAssetUploadEndpoint) throw new Error("Функция загрузки не подключена: укажите публичную ссылку вручную.");
+  const headers = { "Content-Type": "application/json" };
+  if (config.uploadToken) headers["X-Generator-Token"] = config.uploadToken;
+  const response = await fetch(config.brandAssetUploadEndpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ imageBase64: await blobToBase64(file), blockId: "custom", kind: "asset" })
+  });
+  const rawResult = await response.json().catch(() => ({}));
+  const result = typeof rawResult.body === "string" ? JSON.parse(rawResult.body) : rawResult;
+  if (!response.ok || !result.url) throw new Error(result.error || "Облако не вернуло ссылку на изображение.");
+  return result.url;
+}
+
+$("#applyCustomAssetButton").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const file = elements.customAssetFile.files?.[0];
+  let exportUrl = elements.customAssetUrl.value.trim();
+  if (file && !exportUrl) {
+    if (file.size > 2 * 1024 * 1024) {
+      showToast("Файл больше 2 МБ: сожмите его или укажите публичную ссылку.");
+      return;
+    }
+    button.disabled = true;
+    button.textContent = "Загружаем в облако…";
+    try {
+      exportUrl = await uploadCustomAssetFile(file);
+    } catch (error) {
+      showToast(error.message || "Не удалось загрузить изображение в облако.");
+      return;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Использовать";
+    }
+  }
+  applyAsset({ id: createId("asset"), label: file?.name || "Своё изображение", previewSource: customPreviewSource || exportUrl, exportUrl, keywords: [] });
 });
 
 $("#qualityButton").addEventListener("click", openQualityDialog);

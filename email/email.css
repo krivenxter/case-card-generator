@@ -134,7 +134,7 @@
 .email-workspace { min-width: 0; overflow: hidden; background-color: #e8edef; }
 .email-workspace__status { display: flex; height: 42px; padding: 0 18px; align-items: center; justify-content: space-between; color: #68757b; background: rgba(255,255,255,.8); font-size: 11px; }
 .email-preview-stage { height: calc(100% - 42px); padding: 28px; overflow: auto; box-sizing: border-box; }
-.email-preview-stage iframe { display: block; width: 760px; max-width: 100%; height: calc(100% - 2px); min-height: 700px; margin: 0 auto; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 18px 60px rgba(31,40,44,.16); transition: width .2s ease; }
+.email-preview-stage iframe { display: block; width: 760px; max-width: 100%; margin: 0 auto; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 18px 60px rgba(31,40,44,.16); transition: width .2s ease; }
 .email-preview-stage.is-mobile iframe { width: 390px; }
 
 @media (max-width: 560px) {
@@ -160,9 +160,14 @@
 .email-asset-card:hover { border-color: rgba(8,78,125,.4); background: var(--email-pale); }
 .email-asset-card img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 8px; background: #eef7fa; }
 .email-asset-card span { display: block; padding: 7px 2px 2px; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.email-custom-asset { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; margin-top: 18px; padding-top: 18px; gap: 9px; border-top: 1px solid var(--email-border); }
+.email-custom-asset { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; margin-bottom: 18px; padding-bottom: 18px; gap: 9px; border-bottom: 1px solid var(--email-border); }
 .email-custom-asset h3, .email-custom-asset p { grid-column: 1 / -1; margin: 0; }
 .email-custom-asset label { display: grid; gap: 5px; color: #68757b; font-size: 10px; font-weight: 700; }
+.email-file-input { position: relative; display: flex; align-items: center; min-height: 38px; padding: 4px 10px 4px 4px; gap: 10px; border: 1px solid var(--email-border); border-radius: 10px; background: #f8fafb; cursor: pointer; }
+.email-file-input input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.email-file-input__button { flex-shrink: 0; padding: 7px 14px; border-radius: 8px; background: var(--email-navy); color: #fff; font-size: 11px; font-weight: 700; }
+.email-file-input:hover .email-file-input__button { background: #0a5c94; }
+.email-file-input__name { overflow: hidden; color: #1f282c; font-size: 11px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .email-quality-dialog { width: min(680px, calc(100% - 32px)); }
 .email-quality-group { padding: 14px; border-radius: 12px; background: #f5f8f9; }
 .email-quality-group + .email-quality-group { margin-top: 10px; }
@@ -197,7 +202,6 @@
   .email-start__intro span, .email-variants > header span { font-size: 15px; }
   .email-global-fields { grid-template-columns: 1fr; }
   .email-preview-stage { padding: 12px; }
-  .email-preview-stage iframe { min-height: 760px; }
   .email-block-library form > div { grid-template-columns: 1fr; }
   .email-asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .email-custom-asset { grid-template-columns: 1fr; }
@@ -221,5 +225,5 @@
 .email-preview-stage.is-panning { cursor: grabbing; user-select: none; }
 .email-preview-canvas { display: grid; width: 100%; height: 100%; place-items: start center; transform-origin: 50% 0; transition: transform .12s ease-out; }
 .email-preview-stage.is-panning .email-preview-canvas { transition: none; }
-.email-preview-stage iframe { display: block; width: 760px; max-width: none; height: calc(100% - 2px); min-height: 700px; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 18px 60px rgba(31,40,44,.16); transition: width .2s ease; }
+.email-preview-stage iframe { display: block; width: 760px; max-width: none; margin: 0 auto; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 18px 60px rgba(31,40,44,.16); transition: width .2s ease; }
 .email-preview-stage.is-mobile iframe { width: 390px; }
