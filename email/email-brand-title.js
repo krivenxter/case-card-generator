@@ -1,5 +1,7 @@
+import { EMAIL_TOKENS } from "./email-model.js";
+
 const THEMES = Object.freeze({
-  "light-cyan": "#A8E2F5",
+  "light-cyan": EMAIL_TOKENS.colors.lightCyan,
   cyan: "#24B8DC",
   navy: "#084E7D",
   purple: "#9C2EDD",

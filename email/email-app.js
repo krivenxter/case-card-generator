@@ -15,7 +15,7 @@ const elements = {
   projectTitle: $("#projectTitle"), theme: $("#themeSelect"), blockList: $("#blockList"), blockEditor: $("#blockEditor"), footnoteList: $("#footnoteList"),
   blockLibraryDialog: $("#blockLibraryDialog"), blockLibrary: $("#blockLibrary"), assetDialog: $("#assetDialog"), assetGrid: $("#assetGrid"), customAssetFile: $("#customAssetFile"), customAssetFileName: $("#customAssetFileName"), customAssetUrl: $("#customAssetUrl"), customAssetPreview: $("#customAssetPreview"),
   qualityDialog: $("#qualityDialog"), qualityTitle: $("#qualityTitle"), qualityResults: $("#qualityResults"), codePreview: $("#codePreview"), copyButton: $("#copyHtmlButton"), downloadButton: $("#downloadHtmlButton"), linkDialog: $("#linkDialog"), linkDialogUrl: $("#linkDialogUrl"),
-  saveStatus: $("#saveStatus"), toast: $("#emailToast")
+  saveStatus: $("#saveStatus"), toast: $("#emailToast"), undoButton: $("#undoButton"), redoButton: $("#redoButton"), exportDraftButton: $("#exportDraftButton"), importDraftInput: $("#importDraftInput")
 };
 
 let email = null;
@@ -25,6 +25,8 @@ let assetTargetId = "";
 let assetTargetPath = "content.image";
 let customPreviewSource = "";
 let saveTimer = 0;
+let historyTimer = 0;
+const history = { undo: [], redo: [] };
 let previewTimer = 0;
 let draggedBlockId = "";
 let pendingPreviewScroll = null;
@@ -51,6 +53,8 @@ function persistSoon() {
   if (!email) return;
   elements.saveStatus.textContent = "Сохраняем…";
   window.clearTimeout(saveTimer);
+  window.clearTimeout(historyTimer);
+  historyTimer = window.setTimeout(() => pushHistory(), 350);
   saveTimer = window.setTimeout(() => {
     try {
       localStorage.setItem(EMAIL_STORAGE_KEY, JSON.stringify(email));
@@ -60,6 +64,70 @@ function persistSoon() {
       console.warn(error);
     }
   }, 260);
+}
+
+function pushHistory() {
+  if (!email) return;
+  const snapshot = JSON.stringify(email);
+  if (history.undo.at(-1) === snapshot) return;
+  history.undo.push(snapshot);
+  if (history.undo.length > 20) history.undo.shift();
+  history.redo = [];
+  syncHistoryButtons();
+}
+
+function syncHistoryButtons() {
+  if (elements.undoButton) elements.undoButton.disabled = history.undo.length < 2;
+  if (elements.redoButton) elements.redoButton.disabled = history.redo.length === 0;
+}
+
+function restoreHistorySnapshot(snapshot) {
+  email = cloneEmail(JSON.parse(snapshot));
+  selectedBlockId = email.blocks[0]?.id || "";
+  renderEditor();
+  persistSoon();
+  syncHistoryButtons();
+}
+
+function undo() {
+  if (history.undo.length < 2) return;
+  const current = history.undo.pop();
+  history.redo.push(current);
+  restoreHistorySnapshot(history.undo.at(-1));
+}
+
+function redo() {
+  const snapshot = history.redo.pop();
+  if (!snapshot) return;
+  history.undo.push(snapshot);
+  restoreHistorySnapshot(snapshot);
+}
+
+function downloadDraft() {
+  if (!email) return;
+  const blob = new Blob([JSON.stringify({ ...cloneEmail(email), exportedAt: new Date().toISOString() }, null, 2)], { type: "application/json;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${(email.meta.title || "письмо").replace(/[^а-яёa-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "письмо"}.json`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+async function importDraft(file) {
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    if (parsed?.version !== 1 || !Array.isArray(parsed.blocks)) throw new Error("Неверный формат шаблона");
+    enterEditor(parsed);
+    history.undo = [JSON.stringify(email)];
+    history.redo = [];
+    syncHistoryButtons();
+    showToast("Шаблон загружен.");
+  } catch (error) {
+    showToast(error.message || "Не удалось загрузить шаблон.");
+  } finally {
+    elements.importDraftInput.value = "";
+  }
 }
 
 function restoreEmail() {
@@ -93,6 +161,9 @@ function enterEditor(nextEmail) {
   selectedBlockId = email.blocks[0]?.id || "";
   showScreen("editor");
   renderEditor();
+  history.undo = [JSON.stringify(email)];
+  history.redo = [];
+  syncHistoryButtons();
   persistSoon();
 }
 
@@ -995,6 +1066,11 @@ $("#applyCustomAssetButton").addEventListener("click", async (event) => {
 $("#qualityButton").addEventListener("click", openQualityDialog);
 elements.copyButton.addEventListener("click", copyHtml);
 elements.downloadButton.addEventListener("click", downloadHtml);
+elements.undoButton.addEventListener("click", undo);
+elements.redoButton.addEventListener("click", redo);
+elements.exportDraftButton.addEventListener("click", downloadDraft);
+$("#importDraftButton").addEventListener("click", () => elements.importDraftInput.click());
+elements.importDraftInput.addEventListener("change", () => importDraft(elements.importDraftInput.files?.[0]));
 $("#newEmailButton").addEventListener("click", () => {
   if (!window.confirm("Начать новое письмо? Текущая работа будет удалена.")) return;
   localStorage.removeItem(EMAIL_STORAGE_KEY);
@@ -1025,6 +1101,10 @@ elements.previewStage.addEventListener("pointerdown", (event) => {
 window.addEventListener("pointermove", (event) => moveCanvasPan(event.clientX, event.clientY));
 window.addEventListener("pointerup", stopCanvasPan);
 window.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) {
+    if (event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
+    if (event.key.toLowerCase() === "y") { event.preventDefault(); redo(); return; }
+  }
   if (event.code !== "Space" || document.activeElement?.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) return;
   canvasState.spacePressed = true;
   elements.previewStage.classList.add("is-pan-ready");
