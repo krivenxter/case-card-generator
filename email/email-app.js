@@ -834,10 +834,13 @@ function buildVariants(text) {
 
 function delaTexts() {
   const result = new Set();
-  email.blocks.forEach((block) => Object.values(block.content || {}).forEach((value) => {
-    if (typeof value !== "string") return;
-    for (const match of value.matchAll(/%%([\s\S]*?)%%/g)) if (match[1].trim()) result.add(match[1].trim());
-  }));
+  const collect = (value) => {
+    if (typeof value === "string") {
+      for (const match of value.matchAll(/%%([\s\S]*?)%%/g)) if (match[1].trim()) result.add(match[1].trim());
+    } else if (Array.isArray(value)) value.forEach(collect);
+    else if (value && typeof value === "object") Object.values(value).forEach(collect);
+  };
+  email.blocks.forEach((block) => collect(block.content));
   return [...result];
 }
 
