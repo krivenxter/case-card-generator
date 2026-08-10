@@ -125,7 +125,8 @@ function renderPromo(block, preview) {
 function renderImageBlock(block, preview) {
   const content = block.content;
   const image = img(content.image, content.alt || content.image?.label, preview, 604, 18);
-  return wrapBlock(block, image, "transparent", "0 0 24px");
+  const linked = content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" style="display:block;text-decoration:none;">${image}</a>` : image;
+  return wrapBlock(block, linked, "transparent", "0 0 24px");
 }
 
 function renderImageText(block, preview, feature = false) {

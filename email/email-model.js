@@ -48,7 +48,7 @@ export function createBlock(type, overrides = {}) {
     text: { content: { plate: "", body: "Добавьте основной текст. Разделяйте абзацы пустой строкой, а пункты списка начинайте с дефиса." } },
     promo: { variant: "dark", content: { eyebrow: "Специальное предложение", heading: "Решение для роста бизнеса", offer: "0 ₽", body: "Расскажите об условиях предложения и главной выгоде.", ctaText: "Подключить", ctaUrl: "https://calltouch.ru/", image: asset } },
     imageText: { variant: "image-left", content: { heading: "Как это работает", body: "Коротко опишите продукт, сценарий или преимущество.", linkText: "Подробнее", linkUrl: "https://calltouch.ru/", image: asset } },
-    image: { content: { image: asset, alt: "" } },
+    image: { content: { image: asset, alt: "", linkUrl: "" } },
     brandTitle: { variant: "light-cyan", content: { heading: "ЗАГОЛОВОК DELA", backgroundColor: "#A8E2F5", textTone: "auto", renderedUrl: "", renderedSignature: "", renderedAt: "" } },
     brandScene: { variant: "navy-purple", content: { heading: "ЗАГОЛОВОК ФИРМЕННОГО БЛОКА", body: "— Первый важный тезис\n— Второй важный тезис\n— Третий важный тезис", alt: "Фирменный информационный блок Calltouch", linkUrl: "https://calltouch.ru/", image: asset, background: null, renderedUrl: "", renderedSignature: "", renderedAt: "" } },
     featureCard: { variant: "image-left", content: { heading: "Преимущество", body: "Объясните пользу одним коротким абзацем.", image: asset } },
