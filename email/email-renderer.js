@@ -53,8 +53,9 @@ function displayText(value, color = C.navy, size = 30, align = "left", path = ""
   return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;color:${color};text-align:${align};word-break:break-word;">${text}</div>`;
 }
 
-function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
+function bodyText(value, color = C.ink, size = 17, path = "", preview = false, listStyle = "bullet") {
   const lines = String(value || "").split("\n").filter(Boolean);
+  let listIndex = 0;
   const html = lines.map((line) => {
     const list = /^\s*[-–—•]\s*/.test(line);
     const text = rubleSafe(line.replace(/^\s*[-–—•]\s*/, ""))
@@ -62,7 +63,10 @@ function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
       .replace(/\\\*/g, "*")
       .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:#084E7D;">$1</a>');
     // Висячий отступ: переносы строк пункта выравниваются по тексту, а не под маркер.
-    return list ? `<div style="padding:0 0 8px 18px;text-indent:-15px;"><span style="color:${C.cyan};">•</span>&nbsp; ${text}</div>` : `<div style="padding:0 0 10px;">${text}</div>`;
+    if (!list) return `<div style="padding:0 0 10px;">${text}</div>`;
+    listIndex += 1;
+    const marker = listStyle === "number" ? `<span style="display:inline-block;width:22px;height:22px;margin-right:9px;border-radius:50%;background:${C.cyan};color:#ffffff;font-size:14px;line-height:22px;text-align:center;text-indent:0;">${listIndex}</span>` : `<span style="color:${C.cyan};">•</span>&nbsp;`;
+    return `<div style="display:flex;align-items:flex-start;padding:0 0 8px;"><span style="flex:0 0 auto;">${marker}</span><span>${text}</span></div>`;
   }).join("");
   return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};word-break:break-word;overflow-wrap:break-word;">${html}</div>`;
 }
@@ -107,7 +111,7 @@ function renderTitle(block, preview, darkText = false) {
 
 function renderText(block, preview, darkText = false) {
   if (!hasText(block.content.body)) return "";
-  const body = bodyText(block.content.body, darkText ? "#ffffff" : C.ink, 17, "content.body", preview);
+  const body = bodyText(block.content.body, darkText ? "#ffffff" : C.ink, 17, "content.body", preview, block.content.listStyle || "bullet");
   // Необязательная белая плашка с отступами под текстом.
   const inner = String(block.content.plate || "") === "1"
     ? `<div style="padding:22px;background:#ffffff;border-radius:22px;box-sizing:border-box;">${body}</div>`
@@ -182,9 +186,11 @@ function renderIconGrid(block, preview) {
 function renderCtaCard(block, preview) {
   if (![block.content.heading, block.content.subtitle, block.content.ctaText].some(hasText)) return "";
   const light = block.variant === "light";
-  const background = light ? "#ffffff" : C.navy;
+  const gradient = block.variant === "dark-gradient";
+  const background = light ? "#ffffff" : gradient ? `radial-gradient(circle at 100% 100%,${C.purple} 0%,rgba(156,46,221,.72) 20%,${C.navy} 64%)` : C.navy;
   const color = light ? C.navy : "#ffffff";
-  return wrapBlock(block, `<div style="padding:30px;background:${background};border-radius:28px;">${displayText(block.content.heading, color, 27, "left", "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview)}</div>`, "transparent", "0 0 24px");
+  const fallbackBackground = light ? "#ffffff" : C.navy;
+  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;">${displayText(block.content.heading, color, 27, "left", "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview)}</div>`, "transparent", "0 0 24px");
 }
 
 function renderButton(block, preview) {
@@ -232,7 +238,7 @@ export function renderEmailDocument(email, { preview = false } = {}) {
   const darkText = email.settings.theme === "editorial";
   const blocks = email.blocks.map((block) => renderBlock(block, preview, darkText)).join("");
   const footnotes = email.footnotes.map((note, index) => `<div data-footnote-id="${escapeHtml(note.id)}" data-footnote-edit style="padding:0 0 10px;font-family:${fontBody};font-size:13px;line-height:1.45;color:${C.muted};word-break:break-word;overflow-wrap:break-word;">${"*".repeat(index + 1)} ${escapeHtml(note.text)}</div>`).join("");
-  const mainContent = table(`${blocks}<tr><td style="padding:6px 0 0;font-family:${fontBody};font-size:16px;line-height:1.4;color:${darkText ? "#ffffff" : C.navy};text-align:center;">С уважением, Команда Calltouch</td></tr>`);
+  const mainContent = table(`${blocks}<tr><td style="padding:6px 0 0;font-family:${fontBody};font-size:16px;line-height:1.4;color:${darkText ? "#ffffff" : C.ink};text-align:center;">С уважением, Команда Calltouch</td></tr>`);
   const main = table(`<tr>${td(mainContent, "padding:28px;", 'class="email-main-pad"')}</tr>`, `background:${background};border-radius:30px;`, `bgcolor="${background}"`);
   const responsive = `@media only screen and (max-width:620px){.email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}.stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}h1{font-size:28px!important}[data-brand-title],[data-brand-scene]{width:100%!important}[data-brand-scene]{padding:22px!important}[data-brand-scene]>div:nth-of-type(2){padding:18px 100px 18px 18px!important}[data-brand-scene]>[aria-hidden="true"]{width:110px!important;height:110px!important;right:0!important}}`;
   const footnotesBlock = footnotes ? `<tr>${td(footerShell(footnotes, "padding:20px 0 8px;"), "")}</tr>` : "";
