@@ -111,7 +111,8 @@ function renderTitle(block, preview, darkText = false) {
 
 function renderText(block, preview, darkText = false) {
   if (!hasText(block.content.body)) return "";
-  const body = bodyText(block.content.body, darkText ? "#ffffff" : C.ink, 17, "content.body", preview, block.content.listStyle || "bullet");
+  const hasPlate = String(block.content.plate || "") === "1";
+  const body = bodyText(block.content.body, darkText && !hasPlate ? "#ffffff" : C.ink, 17, "content.body", preview, block.content.listStyle || "bullet");
   // Необязательная белая плашка с отступами под текстом.
   const inner = String(block.content.plate || "") === "1"
     ? `<div style="padding:22px;background:#ffffff;border-radius:22px;box-sizing:border-box;">${body}</div>`
