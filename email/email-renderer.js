@@ -47,7 +47,8 @@ function editAttrs(preview, path) {
 
 function displayText(value, color = C.navy, size = 30, align = "left", path = "", preview = false) {
   const text = rubleSafe(value)
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\\\*/g, "*")
     .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
   return `<div${editAttrs(preview, path)} style="font-family:${fontDisplay};font-size:${size}px;line-height:1.12;font-weight:900;color:${color};text-align:${align};word-break:break-word;">${text}</div>`;
 }
@@ -57,7 +58,8 @@ function bodyText(value, color = C.ink, size = 17, path = "", preview = false) {
   const html = lines.map((line) => {
     const list = /^\s*[-–—•]\s*/.test(line);
     const text = rubleSafe(line.replace(/^\s*[-–—•]\s*/, ""))
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\\\*/g, "*")
       .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:#084E7D;">$1</a>');
     // Висячий отступ: переносы строк пункта выравниваются по тексту, а не под маркер.
     return list ? `<div style="padding:0 0 8px 18px;text-indent:-15px;"><span style="color:${C.cyan};">•</span>&nbsp; ${text}</div>` : `<div style="padding:0 0 10px;">${text}</div>`;
@@ -91,7 +93,8 @@ function renderTitle(block, preview, darkText = false) {
   const highlighted = (hasHeading && block.variant === "accent" && accent && heading.includes(accent)
     ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`)
     : rubleSafe(heading))
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\\\*/g, "*")
     .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
   const headingHtml = hasHeading ? `<div${editAttrs(preview, "content.heading")} style="font-family:${fontDisplay};font-size:34px;line-height:1.1;font-weight:900;color:${textColor};word-break:break-word;">${highlighted}</div>` : "";
   const subtitleHtml = hasSubtitle ? `<div style="${hasHeading ? "padding-top:18px;" : ""}">${bodyText(subtitle, bodyColor, 17, "content.subtitle", preview)}</div>` : "";
