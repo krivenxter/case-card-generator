@@ -6,7 +6,7 @@ export const EMAIL_TOKENS = Object.freeze({
   spacing: Object.freeze({ s: 12, m: 20, l: 32, xl: 48 })
 });
 
-export const DELA_FONT_SIZES = Object.freeze({ inline: 17, cta: 27, promo: 28, brand: 31, brandTitle: 36 });
+export const DELA_FONT_SIZES = Object.freeze({ small: 16, large: 24 });
 
 export const SYSTEM_LINKS = Object.freeze({
   webVersion: "{{link_view_in_browser}}",
