@@ -201,7 +201,7 @@ function bindPreviewNodes(previewDocument) {
   if (!previewDocument.__editorBound) {
     previewDocument.__editorBound = true;
     const style = previewDocument.createElement("style");
-    style.textContent = `[data-block-id]{cursor:pointer;transition:filter .12s ease}[data-block-id]:hover{filter:brightness(.96)}[data-block-id].is-selected>td{outline:3px solid #24b8dc;outline-offset:0}[data-edit-path]{cursor:text;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}[data-edit-path]:hover,[data-edit-path]:focus{outline-color:rgba(36,184,220,.8);background:rgba(255,255,255,.08)}[data-edit-path]:focus{outline-width:2px}[data-rich] b,[data-rich] strong{font-weight:700}`;
+    style.textContent = `[data-block-id]{cursor:pointer;transition:filter .12s ease}[data-block-id]:hover{filter:brightness(.96)}[data-block-id].is-selected>td{outline:3px solid #24b8dc;outline-offset:0}[data-edit-path]{cursor:text;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}[data-edit-path]:hover,[data-edit-path]:focus{outline-color:rgba(36,184,220,.8);background:rgba(255,255,255,.08)}[data-edit-path]:focus{outline-width:2px}[data-rich] b,[data-rich] strong{font-weight:700}[data-rich] ul{margin:0;padding:0 0 0 16px}[data-rich] li{padding:0 0 8px}[data-rich] li::marker{color:#24B8DC}`;
     previewDocument.head.append(style);
     previewDocument.addEventListener("click", (event) => {
       const link = event.target.closest("a[href]");
@@ -210,6 +210,19 @@ function bindPreviewNodes(previewDocument) {
       showToast("Ссылки в предпросмотре не открываются.");
     }, true);
     ensureEditToolbar(previewDocument);
+    // Крестик удаления выбранного блока — в правом верхнем углу, чуть за пределами блока.
+    const deleteButton = previewDocument.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.id = "emailBlockDelete";
+    deleteButton.title = "Удалить блок";
+    deleteButton.textContent = "×";
+    deleteButton.style.cssText = "position:absolute;z-index:55;display:none;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:#084E7D;color:#fff;font:700 15px/24px Arial,sans-serif;text-align:center;cursor:pointer;box-shadow:0 4px 12px rgba(31,40,44,.3);";
+    previewDocument.body.append(deleteButton);
+    deleteButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (selectedBlockId) deleteBlock(selectedBlockId);
+    });
   }
   $$('[data-edit-path]', previewDocument).forEach((node) => {
     if (node.dataset.bound) return;
@@ -281,6 +294,7 @@ function updatePreviewBlock(block) {
   if (next) row.replaceWith(next);
   else row.remove();
   bindPreviewNodes(previewDocument);
+  bindPreviewSelection();
   syncPreviewHeight(previewDocument);
 }
 
@@ -292,6 +306,7 @@ function bindPreviewInteractions() {
     return;
   }
   bindPreviewNodes(previewDocument);
+  bindPreviewSelection();
   bindPreviewCanvasControls(previewDocument);
   syncPreviewHeight(previewDocument);
   if (pendingPreviewScroll) {
@@ -304,6 +319,18 @@ function bindPreviewSelection() {
   const previewDocument = elements.preview.contentDocument;
   if (!previewDocument) return;
   $$('[data-block-id]', previewDocument).forEach((node) => node.classList.toggle("is-selected", node.dataset.blockId === selectedBlockId));
+  const deleteButton = previewDocument.getElementById("emailBlockDelete");
+  if (deleteButton) {
+    const row = selectedBlockId ? previewDocument.querySelector(`[data-block-id="${selectedBlockId}"]`) : null;
+    if (!row) {
+      deleteButton.style.display = "none";
+    } else {
+      const rect = row.getBoundingClientRect();
+      deleteButton.style.display = "block";
+      deleteButton.style.left = `${rect.right + previewDocument.defaultView.scrollX - 10}px`;
+      deleteButton.style.top = `${rect.top + previewDocument.defaultView.scrollY - 10}px`;
+    }
+  }
 }
 
 function renderBlockList() {

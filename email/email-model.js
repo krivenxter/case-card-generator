@@ -1,7 +1,7 @@
 export const EMAIL_STORAGE_KEY = "calltouch-email-project-v1";
 
 export const EMAIL_TOKENS = Object.freeze({
-  colors: Object.freeze({ navy: "#084E7D", deepNavy: "#20293D", cyan: "#24B8DC", lightCyan: "#A8E2F5", pale: "#E1F5FB", white: "#FFFFFF", ink: "#1F282C", muted: "#68757B", purple: "#9C2EDD", magenta: "#D958E5" }),
+  colors: Object.freeze({ navy: "#084E7D", deepNavy: "#20293D", cyan: "#33bfe2", lightCyan: "#c1ecfb", pale: "#E1F5FB", white: "#FFFFFF", ink: "#1F282C", muted: "#68757B", purple: "#9C2EDD", magenta: "#D958E5" }),
   radius: Object.freeze({ small: 14, large: 28, pill: 999 }),
   spacing: Object.freeze({ s: 12, m: 20, l: 32, xl: 48 })
 });
