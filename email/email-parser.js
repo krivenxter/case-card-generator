@@ -3,7 +3,7 @@ import { createBlock, cloneEmail, createDefaultEmail } from "./email-model.js";
 const URL_RE = /https?:\/\/[^\s)]+/gi;
 const LABEL_RE = /^(тема|прехедер|прехидер|subject|preheader)\s*:\s*/i;
 const HEADING_RE = /^(что будем делать|обсудим|преимущества?.*|как .*\?|спецпредложение.*|.*акция.*|.*кешбэк.*|.*ассистент.*|подключить|узнать больше|открыть трансляцию)$/i;
-const CTA_RE = /^(подключить|узнать больше|открыть трансляцию|программа встречи|зарегистрироваться|оставить заявку)$/i;
+const CTA_RE = /^(подключить|узнать больше|открыть трансляцию|смотреть трансляцию|программа встречи|зарегистрироваться|оставить заявку)$/i;
 const CLOSING_RE = /^(?:старт(?:\s|$).*(?:онлайн|увидимся)|подключайтесь(?:\s|$)|смотрите(?:\s|$)|жд[её]м(?:\s|$)|до встречи(?:\s|$))/i;
 const WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
@@ -12,7 +12,12 @@ function cleanLine(value) {
 }
 
 function semanticText(value) {
-  return cleanLine(value).replace(/\*\*/g, "").replace(/__/g, "").trim();
+  return cleanLine(value).replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/gi, "$1").replace(/\*\*/g, "").replace(/__/g, "").trim();
+}
+
+function markdownLink(value) {
+  const match = String(value || "").match(/^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/i);
+  return match ? { label: match[1], url: match[2] } : null;
 }
 
 function normalizeKey(value) {
@@ -110,7 +115,10 @@ export function normalizeContent(parsed) {
     seen.add(key);
     return true;
   });
-  return { ...parsed, sections, title: parsed.title || "", ctaCandidate: findCtaCandidate(sections) };
+  const ctaCandidate = findCtaCandidate(sections);
+  const links = sections.flatMap((section) => [section.heading, section.body, ...section.list]).map(markdownLink).filter(Boolean);
+  const ctaLink = links.find((link) => CTA_RE.test(semanticText(link.label)) || /смотр|открыт|подключ|регист|заяв/i.test(link.label)) || null;
+  return { ...parsed, sections, title: parsed.title || "", ctaCandidate, ctaLink };
 }
 
 function findCtaCandidate(sections) {
@@ -137,7 +145,7 @@ function isLogistics(section) {
 }
 
 function isCtaSection(section, ctaCandidate) {
-  return !section.list.length && !section.body && normalizeKey(section.heading) === normalizeKey(ctaCandidate);
+  return !section.list.length && !section.body && (normalizeKey(section.heading) === normalizeKey(ctaCandidate) || CTA_RE.test(semanticText(section.heading)) || markdownLink(section.heading));
 }
 
 function importedImageBlocks(images) {
@@ -182,8 +190,14 @@ function addImportedTitle(blocks, content, subtitle = "") {
   if (content.title) blocks.push(createBlock("title", { variant: "plain", content: { heading: content.title, subtitle, accent: "" } }));
 }
 
-function addImportedCta(blocks, content, variant = "dark") {
-  if (content.ctaCandidate) addOnce(blocks, createBlock("ctaCard", { variant, content: { heading: content.ctaCandidate, subtitle: "", ctaText: "", ctaUrl: content.primaryUrl } }), content.ctaCandidate);
+function addImportedCta(blocks, content, variant = "dark-gradient") {
+  if (!content.ctaCandidate && !content.ctaLink) return;
+  const heading = content.ctaCandidate && !markdownLink(content.ctaCandidate) ? semanticText(content.ctaCandidate) : "";
+  if (content.ctaLink) {
+    addOnce(blocks, createBlock("ctaCard", { variant, content: { heading, subtitle: "", ctaText: content.ctaLink.label, ctaUrl: content.ctaLink.url } }), `${heading}|${content.ctaLink.url}`);
+  } else {
+    addOnce(blocks, createBlock("ctaCard", { variant, content: { heading, subtitle: "", ctaText: "", ctaUrl: content.primaryUrl } }), content.ctaCandidate);
+  }
 }
 
 export function buildLayoutVariantA(content, images = []) {
@@ -233,12 +247,31 @@ export async function readImportedFile(file) {
   if (!documentFile) throw new Error("В DOCX не найден текст документа.");
   const xml = await documentFile.async("string");
   const documentXml = new DOMParser().parseFromString(xml, "application/xml");
+  const relsFile = archive.file("word/_rels/document.xml.rels");
+  const relationships = {};
+  if (relsFile) {
+    const relsXml = new DOMParser().parseFromString(await relsFile.async("string"), "application/xml");
+    [...relsXml.getElementsByTagName("Relationship")].forEach((relation) => {
+      const id = relation.getAttribute("Id");
+      const target = relation.getAttribute("Target");
+      if (id && target && /^https?:\/\//i.test(target)) relationships[id] = target;
+    });
+  }
+  const readRun = (run) => {
+    const runText = [...run.getElementsByTagNameNS(WORD_NS, "t")].map((node) => node.textContent || "").join("");
+    if (!runText) return "";
+    const bold = run.getElementsByTagNameNS(WORD_NS, "b").length > 0 || run.getElementsByTagNameNS(WORD_NS, "bCs").length > 0;
+    return bold ? `**${runText}**` : runText;
+  };
   const text = [...documentXml.getElementsByTagNameNS(WORD_NS, "p")]
     .map((paragraph) => {
-      const value = [...paragraph.getElementsByTagNameNS(WORD_NS, "r")].map((run) => {
-        const runText = [...run.getElementsByTagNameNS(WORD_NS, "t")].map((node) => node.textContent || "").join("");
-        const bold = run.getElementsByTagNameNS(WORD_NS, "b").length > 0 || run.getElementsByTagNameNS(WORD_NS, "bCs").length > 0;
-        return bold && runText ? `**${runText}**` : runText;
+      const value = [...paragraph.childNodes].filter((node) => node.nodeType === 1).map((node) => {
+        if (node.localName === "hyperlink") {
+          const label = [...node.getElementsByTagNameNS(WORD_NS, "r")].map(readRun).join("");
+          const url = relationships[node.getAttribute("r:id") || node.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id")];
+          return url && label ? `[${label.replace(/\*\*/g, "")}](${url})` : label;
+        }
+        return node.localName === "r" ? readRun(node) : "";
       }).join("");
       const isNumbered = paragraph.getElementsByTagNameNS(WORD_NS, "numPr").length > 0;
       return isNumbered ? `- ${value}` : value;

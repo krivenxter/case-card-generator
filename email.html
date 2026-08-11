@@ -40,8 +40,8 @@
         <span>Вставьте контент — сетку, стили и адаптивность соберёт система.</span>
       </div>
       <div class="email-start__choices">
-        <button type="button" data-start-action="paste"><i data-lucide="clipboard-paste"></i><strong>Вставить текст</strong><span>Основной и самый быстрый способ</span><small>РЕКОМЕНДУЕМ</small></button>
-        <label class="email-start__file"><input id="importFileInput" type="file" accept=".docx,.txt"><i data-lucide="file-up"></i><strong>Загрузить DOCX / TXT</strong><span>Разберём заголовки, абзацы и списки</span></label>
+        <button type="button" data-start-action="paste"><i data-lucide="clipboard-paste"></i><strong>Вставить текст</strong><span>Основной и самый быстрый способ</span></button>
+        <label class="email-start__file"><input id="importFileInput" type="file" accept=".docx,.txt"><i data-lucide="file-up"></i><strong>Загрузить DOCX / TXT</strong><span>Разберём заголовки, абзацы и списки</span><small>РЕКОМЕНДУЕМ</small></label>
         <button type="button" data-start-action="manual"><i data-lucide="blocks"></i><strong>Собрать вручную</strong><span>Начать с безопасного базового письма</span></button>
       </div>
       <div class="email-import" id="pastePanel" hidden>
@@ -65,8 +65,8 @@
         <section class="email-sidebar__global">
           <div><p>ГЕНЕРАТОР РАССЫЛОК</p><h1 id="projectTitle">Новое письмо</h1></div>
           <div class="email-segmented" aria-label="Размер предпросмотра">
-            <button class="is-active" type="button" data-preview="desktop">Компьютер</button>
-            <button type="button" data-preview="mobile">Телефон</button>
+            <button class="is-active" type="button" data-preview="desktop"><i data-lucide="monitor"></i><span>Компьютер</span></button>
+            <button type="button" data-preview="mobile"><i data-lucide="smartphone"></i><span>Телефон</span></button>
           </div>
           <div class="email-global-fields">
             <label><span>Оформление</span><select id="themeSelect"><option value="classic">Светло-голубое</option><option value="editorial">Циановое</option></select></label>

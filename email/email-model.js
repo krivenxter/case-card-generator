@@ -60,7 +60,7 @@ export function createBlock(type, overrides = {}) {
       { heading: "Экономия времени", body: "Меньше ручной работы", iconId: "clock" },
       { heading: "Поддержка", body: "Команда всегда на связи", iconId: "message" }
     ] } },
-    ctaCard: { variant: "dark", content: { heading: "Попробуйте Calltouch прямо сейчас", subtitle: "Оставьте заявку — мы поможем выбрать решение.", ctaText: "Оставить заявку", ctaUrl: "https://calltouch.ru/" } },
+    ctaCard: { variant: "dark-gradient", content: { heading: "Попробуйте Calltouch прямо сейчас", subtitle: "Оставьте заявку — мы поможем выбрать решение.", ctaText: "Оставить заявку", ctaUrl: "https://calltouch.ru/" } },
     button: { variant: "primary", content: { text: "Подробнее", url: "https://calltouch.ru/" } },
     divider: { variant: "m", content: {} }
   };

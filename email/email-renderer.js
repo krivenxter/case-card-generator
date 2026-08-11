@@ -60,13 +60,13 @@ function delaMarkup(value, preview) {
   const asset = preview ? null : window.CALLTOUCH_DELA_ASSETS?.[text.trim()];
   const source = typeof asset === "string" ? asset : asset?.url;
   const width = typeof asset === "object" && asset?.width ? `width="${asset.width}"` : "";
-  return source ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(text)}" ${width} style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">` : `<span data-dela="1" style="font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;">${text}</span>`;
+  return source ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(text)}" ${width} style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">` : `<span data-dela="1" style="font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;white-space:pre-line;word-break:normal;overflow-wrap:normal;">${text}</span>`;
 }
 
 function bodyText(value, color = C.ink, size = 16, path = "", preview = false, listStyle = "bullet") {
-  const lines = String(value || "").split("\n").filter(Boolean);
+  const lines = String(value || "").split("\n").map((line) => line.trim()).filter(Boolean);
   let listIndex = 0;
-  const html = lines.map((line) => {
+  const html = lines.map((line, lineIndex) => {
     const numbered = listStyle === "number" && /^\s*\d+\s*/.test(line);
     const list = /^\s*[-–—•]\s*/.test(line) || numbered;
     const text = rubleSafe(line.replace(/^\s*[-–—•]\s*/, "").replace(numbered ? /^\s*\d+\s*/ : /$^/, ""))
@@ -75,10 +75,10 @@ function bodyText(value, color = C.ink, size = 16, path = "", preview = false, l
       .replace(/%%([\s\S]*?)%%/g, (_, inner) => delaMarkup(inner, preview))
       .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:#084E7D;">$1</a>');
     // Висячий отступ: переносы строк пункта выравниваются по тексту, а не под маркер.
-    if (!list) return `<div style="padding:0 0 16px;">${text}</div>`;
+    if (!list) return `<div style="padding:0 0 ${lineIndex === lines.length - 1 ? 0 : 16}px;">${text}</div>`;
     listIndex += 1;
     const marker = listStyle === "number" ? `<span style="display:inline-block;width:28px;height:28px;margin-right:16px;border-radius:50%;background:${C.cyan};color:#ffffff;font-size:16px;line-height:28px;text-align:center;text-indent:0;">${listIndex}</span>` : `<span style="color:${C.cyan};">•</span>&nbsp;`;
-    return `<div style="display:flex;align-items:flex-start;padding:0 0 12px;"><span style="flex:0 0 auto;">${marker}</span><span>${text}</span></div>`;
+    return `<div style="display:flex;align-items:flex-start;padding:0 0 ${lineIndex === lines.length - 1 ? 0 : 12}px;"><span style="flex:0 0 auto;">${marker}</span><span>${text}</span></div>`;
   }).join("");
   return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};word-break:break-word;overflow-wrap:break-word;">${html}</div>`;
 }
@@ -203,7 +203,7 @@ function renderCtaCard(block, preview) {
   const background = light ? "#ffffff" : gradient ? `radial-gradient(circle at 100% 100%,${C.purple} 0%,rgba(156,46,221,.72) 0%,${C.navy} 64%)` : C.navy;
   const color = light ? C.navy : "#ffffff";
   const fallbackBackground = light ? "#ffffff" : C.navy;
-  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;">${displayText(block.content.heading, color, 24, "left", "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${block.content.ctaText ? button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview) : ""}</div>`, "transparent", "0 0 24px");
+  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;">${displayText(block.content.heading, color, 24, "left", "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${block.content.ctaText ? `<div style="padding-top:22px;">${button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview)}</div>` : ""}</div>`, "transparent", "0 0 24px");
 }
 
 function renderButton(block, preview) {
@@ -245,7 +245,7 @@ function footerShell(content, padding = "") {
   return table(`<tr>${td(content, padding)}</tr>`, "width:604px;max-width:604px;margin:0 auto;", 'class="footer-shell" align="center"');
 }
 
-export function renderEmailDocument(email, { preview = false } = {}) {
+export function renderEmailDocument(email, { preview = false, mobile = false } = {}) {
   const logo = window.CALLTOUCH_ASSETS.logos.dark;
   const background = email.settings.theme === "editorial" ? C.cyan : C.lightCyan;
   const darkText = email.settings.theme === "editorial";
@@ -254,9 +254,12 @@ export function renderEmailDocument(email, { preview = false } = {}) {
   const mainContent = table(`${blocks}<tr><td style="padding:6px 0 0;font-family:${fontBody};font-size:16px;line-height:1.4;color:${darkText ? "#ffffff" : C.ink};text-align:center;">С уважением, Команда Calltouch</td></tr>`);
   const main = table(`<tr>${td(mainContent, "padding:28px;", 'class="email-main-pad"')}</tr>`, `background:${background};border-radius:30px;`, `bgcolor="${background}"`);
   const responsive = `@media only screen and (max-width:620px){.email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}.stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}h1{font-size:28px!important}[data-brand-title],[data-brand-scene]{width:100%!important}[data-brand-scene]{padding:22px!important}[data-brand-scene]>div:nth-of-type(2){padding:18px 100px 18px 18px!important}[data-brand-scene]>[aria-hidden="true"]{width:110px!important;height:110px!important;right:0!important}}`;
+  const mobileOverrides = mobile ? `<style>html,body{width:100%!important;min-width:0!important;max-width:100%!important;overflow-x:hidden!important}body{box-sizing:border-box!important}.email-shell,.footer-shell{width:100%!important;max-width:100%!important}.email-outer-pad,.email-main-pad{width:100%!important;max-width:100%!important;box-sizing:border-box!important}.email-outer-pad{padding-left:12px!important;padding-right:12px!important}.email-main-pad{padding:22px!important}.stack-column,.grid-column{display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important}[data-brand-title],[data-brand-scene]{width:100%!important;max-width:100%!important;box-sizing:border-box!important}img{max-width:100%!important;height:auto!important}</style>` : "";
   const footnotesBlock = footnotes ? `<tr>${td(footerShell(`<div style="text-align:center;">${footnotes}</div>`, "padding:20px 0 8px;"), "")}</tr>` : "";
   const unsubscribeBlock = `<tr>${td(footerShell(`<div style="font-family:${fontBody};font-size:14px;line-height:1.45;color:${C.muted};opacity:.72;text-align:center;">Чтобы перестать получать письма, достаточно просто <a href="${safeUrl(SYSTEM_LINKS.unsubscribe)}" style="color:${C.muted};text-decoration:underline;">отписаться</a>.</div>`, "padding:10px 0 4px;"), "")}</tr>`;
   const socialBlock = `<tr>${td(footerShell(renderSocial(preview), "padding:18px 0 10px;"), "")}</tr>`;
   const legalBlock = `<tr>${td(footerShell(`<div style="font-family:${fontBody};font-size:14px;line-height:1.45;color:${C.cyan};text-align:center;"><a href="${safeUrl(SYSTEM_LINKS.webVersion)}" style="color:${C.cyan};text-decoration:none;">Веб-версия</a></div>`, "padding:4px 0 30px;"), "")}</tr>`;
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>${escapeHtml(email.meta.title)}</title><style>${responsive}</style></head><body style="margin:0;padding:0;background:#ffffff;-webkit-text-size-adjust:100%;"><div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(email.meta.title)}</div>${table(`<tr>${td(table(`<tr>${td(`<a href="https://www.calltouch.ru/" target="_blank" style="display:inline-block;text-decoration:none;"><img src="${assetSource(logo, preview)}" width="220" height="39" alt="Calltouch" style="display:block;width:220px;max-width:100%;height:auto;border:0;margin:0 auto;"></a>`, "padding:28px 20px 22px;text-align:center;")}</tr><tr>${td(main, "padding:0 28px 28px;", 'class="email-outer-pad"')}</tr></table>`, "width:660px;max-width:660px;margin:0 auto;", 'class="email-shell" align="center"'), "padding:0;")}</tr>${footnotesBlock}${unsubscribeBlock}${socialBlock}${legalBlock}`)}</body></html>`;
+  const shellWidth = mobile ? "width:100%;max-width:100%;margin:0 auto;" : "width:660px;max-width:660px;margin:0 auto;";
+  const viewport = mobile ? "width=390,initial-scale=1" : "width=device-width,initial-scale=1";
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="${viewport}"><meta name="x-apple-disable-message-reformatting"><title>${escapeHtml(email.meta.title)}</title><style>${responsive}</style>${mobileOverrides}</head><body style="margin:0;padding:0;background:#ffffff;-webkit-text-size-adjust:100%;"><div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(email.meta.title)}</div>${table(`<tr>${td(table(`<tr>${td(`<a href="https://www.calltouch.ru/" target="_blank" style="display:inline-block;text-decoration:none;"><img src="${assetSource(logo, preview)}" width="220" height="39" alt="Calltouch" style="display:block;width:220px;max-width:100%;height:auto;border:0;margin:0 auto;"></a>`, "padding:28px 20px 22px;text-align:center;")}</tr><tr>${td(main, "padding:0 28px 28px;", 'class="email-outer-pad"')}</tr></table>`, shellWidth, 'class="email-shell" align="center"'), "padding:0;")}</tr>${footnotesBlock}${unsubscribeBlock}${socialBlock}${legalBlock}`)}</body></html>`;
 }

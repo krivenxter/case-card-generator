@@ -8,6 +8,17 @@ import { BRAND_TITLE_MIN_HEIGHT, BRAND_TITLE_WIDTH, brandTitleSignature, isBrand
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
 const escapeAttr = (value = "") => String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character]));
+const formatIconPaths = {
+  bold: '<path d="M6 4h5.5a3.5 3.5 0 0 1 0 7H6z"/><path d="M6 11h6.5a3.5 3.5 0 0 1 0 7H6z"/>',
+  dela: '<path d="M5 4h5a6 6 0 0 1 0 12H5z"/><path d="M5 10h4"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.1.1l1.8-1.8a5 5 0 0 0-7.1-7.1L10.7 5.3"/><path d="M14 11a5 5 0 0 0-7.1-.1l-1.8 1.8a5 5 0 0 0 7.1 7.1l1.1-1.1"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>',
+  break: '<path d="M5 5v7a4 4 0 0 0 4 4h10"/><path d="m15 13 4 3-4 3"/>',
+  typograph: '<path d="m12 3-1.2 3.1L8 7.3l2.8 1.2L12 11l1.2-2.5L16 7.3l-2.8-1.2z"/><path d="m19 13-.7 1.8-1.8.7 1.8.7.7 1.8.7-1.8 1.8-.7-1.8-.7z"/><path d="M5 15h4"/>'
+};
+function formatIcon(name) {
+  return `<svg class="email-format-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${formatIconPaths[name] || formatIconPaths.typograph}</svg>`;
+}
 
 const elements = {
   start: $("#startScreen"), variants: $("#variantScreen"), editor: $("#editorScreen"), pastePanel: $("#pastePanel"), importText: $("#importText"), fileInput: $("#importFileInput"),
@@ -184,7 +195,7 @@ function renderPreview({ preservePosition = true } = {}) {
   window.clearTimeout(previewTimer);
   if (preservePosition && elements.preview.contentWindow) pendingPreviewScroll = { x: elements.preview.contentWindow.scrollX, y: elements.preview.contentWindow.scrollY };
   previewTimer = window.setTimeout(() => {
-    elements.preview.srcdoc = renderEmailDocument(email, { preview: true });
+    elements.preview.srcdoc = renderEmailDocument(email, { preview: true, mobile: email.settings.preview === "mobile" });
     elements.preview.addEventListener("load", bindPreviewInteractions, { once: true });
   }, 80);
 }
@@ -219,13 +230,16 @@ function typographText(value, delaMode = false) {
     .replace(/\s+[–-]\s+/g, " — ")
     .replace(/(^|[\s(«])([А-Яа-яЁёA-Za-z])\s+(?=\S)/g, "$1$2\u00A0")
     .replace(/(\d)\s+(?=(?:₽|руб\.?|%|px|г\.|ч\.|мин\.|дн\.)\b)/gi, "$1\u00A0")
+    .replace(/чтобы\s+не\s+пропустить/giu, "чтобы\u00A0не\u00A0пропустить")
+    .replace(/(присоединяйтесь)\s+(к)\s+(ним)\s+(онлайн)/iu, "$1\u00A0$2\u00A0$3\u00A0$4")
+    .replace(/\n+[ \t\u00A0]*(?=Присоединяйтесь(?:\s|$))/iu, " ")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n");
   const isDelaText = delaMode || result.includes("%%");
   const lineBroken = isDelaText
     ? result
-        .replace(/([.!?])[\s\u00A0]+(?=[А-ЯЁA-Z])/g, "$1\n")
-        .replace(/(\d{1,2}[.:]\d{2}\.)[\s\u00A0]+(?=Увидимся\b)/iu, "$1\n")
+        .replace(/([.!?])[\s\u00A0]+(?=(?!Присоединяйтесь(?:[\s\u00A0]|$))[А-ЯЁA-Z])/g, "$1\n")
+        .replace(/(\d{1,2}[.:]\d{2}\.)[\s\u00A0]+(?=Увидимся(?:\s|$))/iu, "$1\n")
     : result;
   const orphanSafe = isDelaText
     ? lineBroken.replace(/(\S+)[ \t]+(\S+)[ \t]+(\S+)([.!?…]?)$/gm, "$1\u00A0$2\u00A0$3$4")
@@ -271,9 +285,9 @@ function askLinkUrl() {
 // Плавающая панель форматирования: жирный и ссылка для выделенного текста.
 function ensureEditToolbar(previewDocument) {
   const toolbar = previewDocument.createElement("div");
-  const buttonStyle = "min-width:26px;height:24px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:#fff;font:700 13px/1 Arial,sans-serif;cursor:pointer;";
+  const buttonStyle = "display:inline-flex;align-items:center;justify-content:center;width:28px;height:26px;padding:0;border:0;border-radius:6px;background:transparent;color:#fff;cursor:pointer;";
   toolbar.style.cssText = "position:absolute;z-index:60;display:none;gap:2px;padding:3px;border-radius:9px;background:#084E7D;box-shadow:0 8px 20px rgba(31,40,44,.3);";
-  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" style="${buttonStyle}">B</button><button type="button" data-cmd="dela" title="Шрифт Dela" style="${buttonStyle};font-family:'Dela Gothic One',Arial Black,Arial,sans-serif;">D</button><button type="button" data-cmd="link" title="Ссылка" style="${buttonStyle}">🔗</button><button type="button" data-cmd="list" title="Список с пунктами" style="${buttonStyle}">•</button><button type="button" data-cmd="break" title="Ручной перенос строки" style="${buttonStyle}">↵</button><button type="button" data-cmd="typograph" title="Типограф" style="${buttonStyle}">Т</button>`;
+  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" aria-label="Жирный" style="${buttonStyle}">${formatIcon("bold")}</button><button type="button" data-cmd="dela" title="Шрифт Dela" aria-label="Шрифт Dela" style="${buttonStyle}">${formatIcon("dela")}</button><button type="button" data-cmd="link" title="Ссылка" aria-label="Ссылка" style="${buttonStyle}">${formatIcon("link")}</button><button type="button" data-cmd="list" title="Список с пунктами" aria-label="Список с пунктами" style="${buttonStyle}">${formatIcon("list")}</button><button type="button" data-cmd="break" title="Ручной перенос строки" aria-label="Перенос строки" style="${buttonStyle}">${formatIcon("break")}</button><button type="button" data-cmd="typograph" title="Типограф" aria-label="Типограф" style="${buttonStyle}">${formatIcon("typograph")}</button>`;
   previewDocument.body.append(toolbar);
   toolbar.addEventListener("mousedown", (event) => event.preventDefault());
   let savedRange = null;
@@ -555,7 +569,7 @@ function renderBlockList() {
 function field(label, path, value, { type = "text", rows = 0, hint = "", options = null } = {}) {
   let control = "";
   if (options) control = `<select data-field="${path}">${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${value === optionValue ? " selected" : ""}>${optionLabel}</option>`).join("")}</select>`;
-  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)"><b>B</b></button><button type="button" data-fmt="dela" title="Шрифт Dela" style="font-family:'Dela Gothic One',Arial Black,Arial,sans-serif;">D</button><button type="button" data-fmt="link" title="Ссылка">🔗</button><button type="button" data-fmt="list" title="Список с пунктами">•</button><button type="button" data-fmt="break" title="Ручной перенос строки">↵</button><button type="button" data-fmt="typograph" title="Типограф">Т</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
+  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)" aria-label="Жирный">${formatIcon("bold")}</button><button type="button" data-fmt="dela" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button><button type="button" data-fmt="link" title="Ссылка" aria-label="Ссылка">${formatIcon("link")}</button><button type="button" data-fmt="list" title="Список с пунктами" aria-label="Список с пунктами">${formatIcon("list")}</button><button type="button" data-fmt="break" title="Ручной перенос строки" aria-label="Перенос строки">${formatIcon("break")}</button><button type="button" data-fmt="typograph" title="Типограф" aria-label="Типограф">${formatIcon("typograph")}</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
   else control = `<input data-field="${path}" type="${type}" value="${escapeAttr(value)}">`;
   return `<label class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</label>`;
 }
@@ -587,11 +601,12 @@ function renderBlockEditor() {
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
-  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><button type="button" data-icon-dela="${index}" title="Шрифт Dela">D</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
+  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><button type="button" data-icon-dela="${index}" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
   if (block.type === "ctaCard") controls = `${field("Тема", "variant", block.variant, { options: [["dark", "Тёмно-синяя"], ["dark-gradient", "Тёмно-синяя с пурпурным свечением"], ["light", "Светлая"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Пояснение", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "button") controls = `${field("Акцент", "variant", block.variant, { options: [["primary", "Основной"], ["secondary", "Спокойный"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
   if (block.type === "divider") controls = field("Интервал", "variant", block.variant, { options: [["s", "S — компактный"], ["m", "M — обычный"], ["l", "L — большой"], ["xl", "XL — очень большой"]] });
   elements.blockEditor.innerHTML = `<div class="email-block-editor__header"><h2>${escapeAttr(definition?.label || block.type)}</h2><span>ЗАЩИЩЁННЫЙ ВАРИАНТ</span></div>${controls}`;
+  iconRefresh(elements.blockEditor);
 }
 
 function renderFootnotes() {
@@ -601,6 +616,8 @@ function renderFootnotes() {
 function syncPreviewMode() {
   const mobile = email.settings.preview === "mobile";
   elements.previewStage.classList.toggle("is-mobile", mobile);
+  elements.preview.width = mobile ? 390 : 760;
+  elements.preview.style.width = `${mobile ? 390 : 760}px`;
   elements.previewModeLabel.textContent = mobile ? "Телефон · 390 px" : "Компьютер · 660 px";
   $$('[data-preview]').forEach((button) => button.classList.toggle("is-active", button.dataset.preview === email.settings.preview));
 }
@@ -951,7 +968,7 @@ async function renderDelaPng(text) {
   const style = delaStyle(text);
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:-10000px;top:0;width:560px;padding:8px 0;pointer-events:none;";
-  host.innerHTML = `<div style="display:inline-block;width:max-content;max-width:560px;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;white-space:pre-line;color:${style.color};">${escapeAttr(text)}</div>`;
+  host.innerHTML = `<div style="display:inline-block;width:max-content;max-width:560px;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:normal;overflow-wrap:normal;white-space:pre-line;color:${style.color};">${escapeAttr(text)}</div>`;
   document.body.append(host);
   try {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -1100,7 +1117,7 @@ elements.fileInput.addEventListener("change", () => importFile(elements.fileInpu
 $("#backToStartButton").addEventListener("click", () => showScreen("start"));
 $$('[data-variant]').forEach((button) => button.addEventListener("click", () => enterEditor(autoVariants[Number(button.dataset.variant)])));
 
-$$('[data-preview]').forEach((button) => button.addEventListener("click", () => { email.settings.preview = button.dataset.preview; syncPreviewMode(); persistSoon(); }));
+$$('[data-preview]').forEach((button) => button.addEventListener("click", () => { email.settings.preview = button.dataset.preview; syncPreviewMode(); renderPreview({ preservePosition: false }); persistSoon(); }));
 elements.theme.addEventListener("change", () => { email.settings.theme = elements.theme.value; commitChange(); });
 $("#normalizeButton").addEventListener("click", () => { email = typographEmail(normalizeEmailDesign(email)); commitChange({ rerenderEditor: true }); showToast("Письмо приведено в порядок: стили и типографика обновлены."); });
 

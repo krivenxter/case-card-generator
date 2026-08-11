@@ -85,9 +85,10 @@
 .email-editor { display: grid; grid-template-columns: 390px minmax(0, 1fr); height: 100%; overflow: hidden; }
 .email-sidebar { overflow-y: auto; border-right: 1px solid var(--email-border); background: #fff; }
 .email-sidebar > section { padding: 22px; border-bottom: 1px solid var(--email-border); }
-.email-sidebar__global > div:first-child h1 { margin: 0 0 18px; color: var(--email-navy); font: 400 20px/1.16 "Dela Gothic One", "Arial Black", sans-serif; text-transform: uppercase; }
+.email-sidebar__global > div:first-child h1 { margin: 0 0 18px; color: var(--email-navy); font: 400 18px/1.16 "Dela Gothic One", "Arial Black", sans-serif; text-transform: uppercase; }
 .email-segmented { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 10px; background: #edf2f4; }
-.email-segmented button { min-height: 34px; border: 0; border-radius: 8px; color: #68757b; background: transparent; font-weight: 700; cursor: pointer; }
+.email-segmented button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 8px; color: #68757b; background: transparent; font-weight: 700; cursor: pointer; }
+.email-segmented button svg { width: 17px; height: 17px; stroke-width: 1.8; }
 .email-segmented button.is-active { color: var(--email-navy); background: #fff; box-shadow: 0 1px 4px rgba(31,40,44,.12); }
 .email-global-fields { display: grid; grid-template-columns: 1fr; margin: 14px 0; gap: 8px; }
 .email-global-fields label, .email-field { display: grid; gap: 6px; }
@@ -110,7 +111,8 @@
 .email-block-row small { display: -webkit-box; margin-top: 3px; overflow: hidden; color: #7b878c; font-size: 10px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; word-break: break-word; }
 .email-format { display: grid; gap: 6px; }
 .email-format__bar { display: flex; gap: 4px; }
-.email-format__bar button { min-width: 28px; height: 24px; padding: 0 8px; border: 1px solid var(--email-border); border-radius: 7px; background: #fff; color: var(--email-navy); font-size: 12px; cursor: pointer; }
+.email-format__bar button { display: inline-flex; width: 32px; height: 30px; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--email-border); border-radius: 8px; background: #fff; color: var(--email-navy); cursor: pointer; }
+.email-format__bar button svg { width: 16px; height: 16px; stroke-width: 1.8; }
 .email-format__bar button:hover { background: var(--email-pale); }
 .email-icon-item__head { display: flex; align-items: center; justify-content: space-between; }
 .email-icon-item__head button { width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: #97a3a8; font-size: 14px; cursor: pointer; }
@@ -236,7 +238,8 @@
 .email-icon-auto svg { width: 15px; height: 15px; }
 .email-icon-heading-field { display: flex; gap: 6px; }
 .email-icon-heading-field input { min-width: 0; }
-.email-icon-heading-field button { width: 42px; border: 1px solid var(--email-border); border-radius: 8px; color: var(--email-navy); background: #fff; font: 400 15px/1 "Dela Gothic One", Arial Black, sans-serif; cursor: pointer; }
+.email-icon-heading-field button { display: inline-flex; width: 42px; align-items: center; justify-content: center; border: 1px solid var(--email-border); border-radius: 8px; color: var(--email-navy); background: #fff; cursor: pointer; }
+.email-icon-heading-field button svg { width: 17px; height: 17px; stroke-width: 1.8; }
 .email-icon-item strong { margin: 0 0 2px; color: var(--email-navy); font-size: 13px; }
 .email-icon-item input { min-width: 0; }
 .email-workspace__status { display: grid; grid-template-columns: 1fr auto 1fr; height: 46px; padding: 0 18px; align-items: center; color: #68757b; background: rgba(255,255,255,.88); border-bottom: 1px solid var(--email-border); font-size: 11px; }
