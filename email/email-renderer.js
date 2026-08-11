@@ -57,10 +57,10 @@ function displayText(value, color = C.navy, size = 24, align = "left", path = ""
 
 function delaMarkup(value, preview) {
   const text = String(value || "");
-  const asset = preview ? null : window.CALLTOUCH_DELA_ASSETS?.[text.trim()];
+  const asset = window.CALLTOUCH_DELA_ASSETS?.[text.trim()];
   const source = typeof asset === "string" ? asset : asset?.url;
   const width = typeof asset === "object" && asset?.width ? `width="${asset.width}"` : "";
-  return source ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(text)}" ${width} style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">` : `<span data-dela="1" style="font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;white-space:pre-line;word-break:normal;overflow-wrap:normal;">${text}</span>`;
+  return source ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(text)}" ${width} style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">` : `<span data-dela="1" style="display:inline-block;max-width:100%;box-sizing:border-box;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;white-space:pre-line;word-break:break-word;overflow-wrap:anywhere;">${text}</span>`;
 }
 
 function bodyText(value, color = C.ink, size = 16, path = "", preview = false, listStyle = "bullet") {

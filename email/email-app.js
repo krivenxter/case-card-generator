@@ -9,15 +9,15 @@ const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
 const escapeAttr = (value = "") => String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character]));
 const formatIconPaths = {
-  bold: '<path d="M6 4h5.5a3.5 3.5 0 0 1 0 7H6z"/><path d="M6 11h6.5a3.5 3.5 0 0 1 0 7H6z"/>',
-  dela: '<path d="M5 4h5a6 6 0 0 1 0 12H5z"/><path d="M5 10h4"/>',
-  link: '<path d="M10 13a5 5 0 0 0 7.1.1l1.8-1.8a5 5 0 0 0-7.1-7.1L10.7 5.3"/><path d="M14 11a5 5 0 0 0-7.1-.1l-1.8 1.8a5 5 0 0 0 7.1 7.1l1.1-1.1"/>',
-  list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>',
-  break: '<path d="M5 5v7a4 4 0 0 0 4 4h10"/><path d="m15 13 4 3-4 3"/>',
-  typograph: '<path d="m12 3-1.2 3.1L8 7.3l2.8 1.2L12 11l1.2-2.5L16 7.3l-2.8-1.2z"/><path d="m19 13-.7 1.8-1.8.7 1.8.7.7 1.8.7-1.8 1.8-.7-1.8-.7z"/><path d="M5 15h4"/>'
+  bold: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 0 8H6z"/><path d="M6 12h9a4 4 0 0 1 0 8H6z"/></g>',
+  dela: '<text x="2" y="19" font-family="Dela Gothic One,Arial Black,sans-serif" font-size="19" font-weight="400">D</text>',
+  link: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></g>',
+  list: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></g>',
+  break: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7a4 4 0 0 0 4 4h10"/><path d="m15 11 4 4-4 4"/></g>',
+  typograph: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M8 7h8M8 11h6"/></g>'
 };
 function formatIcon(name) {
-  return `<svg class="email-format-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${formatIconPaths[name] || formatIconPaths.typograph}</svg>`;
+  return `<svg class="email-format-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${formatIconPaths[name] || formatIconPaths.typograph}</svg>`;
 }
 
 const elements = {
@@ -59,7 +59,7 @@ function showToast(message) {
 }
 
 function iconRefresh() {
-  window.lucide?.createIcons({ attrs: { "stroke-width": 1.8 } });
+  window.lucide?.createIcons({ attrs: { "stroke-width": 2.35 } });
 }
 
 function persistSoon() {
@@ -1066,6 +1066,7 @@ async function openQualityDialog() {
     if (delaTexts().length) {
       showToast("Готовим фрагменты Dela…");
       window.CALLTOUCH_DELA_ASSETS = await publishDelaAssets();
+      renderPreview({ preservePosition: true });
     }
   } catch (error) {
     window.CALLTOUCH_DELA_ASSETS = {};
@@ -1204,14 +1205,18 @@ elements.blockEditor.addEventListener("click", async (event) => {
     const end = textarea.selectionEnd;
     const selected = textarea.value.slice(start, end);
     let replacement = "";
+    if (!selected.trim() && fmtButton.dataset.fmt !== "typograph") {
+      textarea.focus();
+      return;
+    }
     if (fmtButton.dataset.fmt === "bold") {
       const trimmed = selected.trim();
-      replacement = /^\*\*[\s\S]*\*\*$/.test(trimmed) ? trimmed.slice(2, -2) : `**${selected || "жирный текст"}**`;
+      replacement = /^\*\*[\s\S]*\*\*$/.test(trimmed) ? trimmed.slice(2, -2) : `**${selected}**`;
     } else if (fmtButton.dataset.fmt === "dela") {
-      replacement = `%%${selected || "текст Dela"}%%`;
+      replacement = `%%${selected}%%`;
     } else if (fmtButton.dataset.fmt === "list") {
       // Тоггл: если все выделенные строки уже пункты — снимаем маркеры, иначе добавляем.
-      const lines = (selected || "пункт списка").split("\n");
+      const lines = selected.split("\n");
       const allList = lines.every((line) => !line.trim() || /^\s*[-–—•]\s*/.test(line));
       replacement = lines.map((line) => allList ? line.replace(/^\s*[-–—•]\s*/, "") : line.trim() ? `- ${line}` : line).join("\n");
     } else if (fmtButton.dataset.fmt === "break") {
