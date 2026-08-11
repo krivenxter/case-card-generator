@@ -46,9 +46,9 @@ export function createBlock(type, overrides = {}) {
     settings: {}
   };
   const presets = {
-    title: { variant: "accent", content: { heading: "Заголовок письма", subtitle: "Коротко объясните, какую пользу получит читатель.", accent: "письма", plate: "" } },
+    title: { variant: "accent", content: { bigNumber: "", heading: "Заголовок письма", subtitle: "Коротко объясните, какую пользу получит читатель.", accent: "письма", plate: "" } },
     text: { content: { plate: "", listStyle: "bullet", body: "Добавьте основной текст. Разделяйте абзацы пустой строкой, а пункты списка начинайте с дефиса." } },
-    promo: { variant: "dark", content: { eyebrow: "Специальное предложение", eyebrowTone: "purple", heading: "Решение для роста бизнеса", offer: "0 ₽", body: "Расскажите об условиях предложения и главной выгоде.", bodySize: "14", ctaText: "Подключить", ctaUrl: "https://calltouch.ru/", linkUrl: "", gradient: true, image: asset } },
+    promo: { variant: "dark", content: { eyebrow: "Специальное предложение", eyebrowTone: "purple", bigNumber: "", heading: "Решение для роста бизнеса", offer: "0 ₽", body: "Расскажите об условиях предложения и главной выгоде.", bodySize: "14", ctaText: "Подключить", ctaUrl: "https://calltouch.ru/", linkUrl: "", gradient: true, image: asset } },
     imageText: { variant: "image-left", content: { heading: "Как это работает", body: "Коротко опишите продукт, сценарий или преимущество.", linkText: "Подробнее", linkUrl: "https://calltouch.ru/", image: asset } },
     image: { content: { image: asset, alt: "", linkUrl: "" } },
     brandTitle: { variant: "light-cyan", content: { heading: "ЗАГОЛОВОК DELA", backgroundColor: EMAIL_TOKENS.colors.lightCyan, textTone: "auto", renderedUrl: "", renderedSignature: "", renderedAt: "" } },

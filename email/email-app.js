@@ -14,6 +14,7 @@ const formatIconPaths = {
   link: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></g>',
   cyan: '<circle cx="12" cy="12" r="8" fill="#33bfe2"/>',
   purple: '<circle cx="12" cy="12" r="8" fill="#BA6DE7"/>',
+  pill: '<rect x="3" y="6" width="18" height="12" rx="6" fill="#33bfe2"/><path d="M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>',
   list: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></g>',
   break: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7a4 4 0 0 0 4 4h10"/><path d="m15 11 4 4-4 4"/></g>',
   typograph: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M8 7h8M8 11h6"/></g>'
@@ -218,6 +219,7 @@ function richToMarkdown(root) {
       const wrapped = inner.trim() ? `%%${inner}%%` : inner;
       return node.dataset.color ? `{{${node.dataset.color}|${wrapped}}}` : wrapped;
     }
+    if (node.dataset?.pill) return inner.trim() ? `{{pill|${inner}}}` : inner;
     if (node.dataset?.color) return inner.trim() ? `{{${node.dataset.color}|${inner}}}` : inner;
     if (tag === "a") return `[${inner}](${node.getAttribute("href") || ""})`;
     if (tag === "li") return `\n- ${inner}`;
@@ -228,10 +230,22 @@ function richToMarkdown(root) {
   return [...root.childNodes].map(walk).join("").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim();
 }
 
+function bindShortWords(value) {
+  const letters = "A-Za-zА-Яа-яЁё";
+  const pattern = new RegExp(`(^|[^${letters}0-9])((?:без|для|над|под|при|про)|[${letters}]{1,2})[ \\t]+(?=[${letters}0-9])`, "gimu");
+  let result = String(value || "");
+  let bound = result.replace(pattern, "$1$2\u00A0");
+  while (bound !== result) {
+    result = bound;
+    bound = result.replace(pattern, "$1$2\u00A0");
+  }
+  return result;
+}
+
 function typographText(value, delaMode = false) {
   const protectedParts = [];
   const source = String(value || "");
-  const protect = (text) => text.replace(/\{\{(?:cyan|purple)\|[\s\S]*?\}\}|%%[\s\S]*?%%|https?:\/\/[^\s)]+|\{\{[a-z0-9_]+\}\}/gi, (match) => `\u0000${protectedParts.push(match) - 1}\u0000`);
+  const protect = (text) => text.replace(/\{\{(?:cyan|purple|pill)\|[\s\S]*?\}\}|%%[\s\S]*?%%|https?:\/\/[^\s)]+|\{\{[a-z0-9_]+\}\}/gi, (match) => `\u0000${protectedParts.push(match) - 1}\u0000`);
   const restore = (text) => text.replace(/\u0000(\d+)\u0000/g, (_, index) => protectedParts[Number(index)]);
   const result = protect(source)
     .replace(/\.{3}/g, "…")
@@ -249,9 +263,12 @@ function typographText(value, delaMode = false) {
   const isDelaText = delaMode || source.includes("%%");
   const lineBroken = result;
   const orphanSafe = isDelaText
-    ? lineBroken.replace(/(\S+)[ \t]+(\S+)[ \t]+(\S+)([.!?…]?)$/gm, "$1\u00A0$2\u00A0$3$4")
+    ? lineBroken
     : lineBroken.replace(/(\S+)[ \t]+(\S+)([.!?…]?)$/gm, "$1\u00A0$2$3");
-  return restore(orphanSafe);
+  const restored = restore(orphanSafe);
+  if (!isDelaText) return bindShortWords(restored);
+  const normalized = restored.replace(/[\u00a0\u202f]/g, " ").replace(/\u2011/g, "-");
+  return bindShortWords(normalized);
 }
 
 function typographEmail(project) {
@@ -271,11 +288,21 @@ function typographEmail(project) {
 function brandDela(value) {
   const text = String(value || "").trim();
   if (!text || /%%[\s\S]*?%%/.test(text)) return text;
-  return `%%${text.replace(/\{\{(?:cyan|purple)\|([\s\S]*?)\}\}/g, "$1").replace(/\*\*/g, "")}%%`;
+  const source = text.replace(/\*\*/g, "");
+  const pattern = /\{\{(cyan|purple|pill)\|([\s\S]*?)\}\}/g;
+  let result = "";
+  let cursor = 0;
+  for (const match of source.matchAll(pattern)) {
+    if (match.index > cursor) result += `%%${source.slice(cursor, match.index)}%%`;
+    result += `{{${match[1]}|%%${match[2]}%%}}`;
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < source.length) result += `%%${source.slice(cursor)}%%`;
+  return result || `%%${source}%%`;
 }
 
 function hasBrandedDelaHeading(project) {
-  return project.blocks.some((block) => block.type === "brandTitle" || block.type === "brandScene" || /%%[\s\S]*?%%/.test(String(block.content?.heading || "")) || (block.content?.items || []).some((item) => /%%[\s\S]*?%%/.test(String(item.heading || ""))));
+  return project.blocks.some((block) => block.type === "brandTitle" || block.type === "brandScene" || /%%[\s\S]*?%%/.test(String(block.content?.bigNumber || "")) || /%%[\s\S]*?%%/.test(String(block.content?.heading || "")) || (block.content?.items || []).some((item) => /%%[\s\S]*?%%/.test(String(item.heading || ""))));
 }
 
 function brandEmail(project) {
@@ -283,6 +310,7 @@ function brandEmail(project) {
   branded.blocks.forEach((block) => {
     if (["brandTitle", "brandScene"].includes(block.type)) return;
     if (["title", "text"].includes(block.type) && String(block.content?.plate || "") !== "1") block.content.plate = "1";
+    if (block.content?.bigNumber) block.content.bigNumber = brandDela(block.content.bigNumber);
     if (block.content?.heading) block.content.heading = brandDela(block.content.heading);
     if (block.type === "promo" && block.content?.offer) block.content.offer = brandDela(block.content.offer);
     if (block.type === "iconGrid") block.content.items = (block.content.items || []).map((item) => ({ ...item, heading: brandDela(item.heading) }));
@@ -291,7 +319,7 @@ function brandEmail(project) {
 }
 
 function isRichEditNode(node) {
-  if (!/\.(body|subtitle|heading|offer)$/.test(node.dataset.editPath || "")) return false;
+  if (!/\.(body|subtitle|bigNumber|heading|offer)$/.test(node.dataset.editPath || "")) return false;
   const block = email.blocks.find((item) => item.id === node.closest("[data-block-id]")?.dataset.blockId);
   return Boolean(block) && !["brandTitle", "brandScene"].includes(block.type);
 }
@@ -316,7 +344,7 @@ function ensureEditToolbar(previewDocument) {
   const toolbar = previewDocument.createElement("div");
   const buttonStyle = "display:inline-flex;align-items:center;justify-content:center;width:28px;height:26px;padding:0;border:0;border-radius:6px;background:transparent;color:#fff;cursor:pointer;";
   toolbar.style.cssText = "position:absolute;z-index:60;display:none;gap:2px;padding:3px;border-radius:9px;background:#084E7D;box-shadow:0 8px 20px rgba(31,40,44,.3);";
-  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" aria-label="Жирный" style="${buttonStyle}">${formatIcon("bold")}</button><button type="button" data-cmd="dela" title="Шрифт Dela" aria-label="Шрифт Dela" style="${buttonStyle}">${formatIcon("dela")}</button><button type="button" data-cmd="cyan" title="Циановый текст" aria-label="Циановый текст" style="${buttonStyle}">${formatIcon("cyan")}</button><button type="button" data-cmd="purple" title="Пурпурный текст" aria-label="Пурпурный текст" style="${buttonStyle}">${formatIcon("purple")}</button><button type="button" data-cmd="link" title="Ссылка" aria-label="Ссылка" style="${buttonStyle}">${formatIcon("link")}</button><button type="button" data-cmd="list" title="Список с пунктами" aria-label="Список с пунктами" style="${buttonStyle}">${formatIcon("list")}</button><button type="button" data-cmd="break" title="Ручной перенос строки" aria-label="Перенос строки" style="${buttonStyle}">${formatIcon("break")}</button><button type="button" data-cmd="typograph" title="Типограф" aria-label="Типограф" style="${buttonStyle}">${formatIcon("typograph")}</button>`;
+  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" aria-label="Жирный" style="${buttonStyle}">${formatIcon("bold")}</button><button type="button" data-cmd="dela" title="Шрифт Dela" aria-label="Шрифт Dela" style="${buttonStyle}">${formatIcon("dela")}</button><button type="button" data-cmd="cyan" title="Циановый текст" aria-label="Циановый текст" style="${buttonStyle}">${formatIcon("cyan")}</button><button type="button" data-cmd="purple" title="Пурпурный текст" aria-label="Пурпурный текст" style="${buttonStyle}">${formatIcon("purple")}</button><button type="button" data-cmd="pill" title="Белый текст на голубой плашке" aria-label="Голубая плашка" style="${buttonStyle}">${formatIcon("pill")}</button><button type="button" data-cmd="link" title="Ссылка" aria-label="Ссылка" style="${buttonStyle}">${formatIcon("link")}</button><button type="button" data-cmd="list" title="Список с пунктами" aria-label="Список с пунктами" style="${buttonStyle}">${formatIcon("list")}</button><button type="button" data-cmd="break" title="Ручной перенос строки" aria-label="Перенос строки" style="${buttonStyle}">${formatIcon("break")}</button><button type="button" data-cmd="typograph" title="Типограф" aria-label="Типограф" style="${buttonStyle}">${formatIcon("typograph")}</button>`;
   previewDocument.body.append(toolbar);
   toolbar.addEventListener("mousedown", (event) => event.preventDefault());
   let savedRange = null;
@@ -324,6 +352,58 @@ function ensureEditToolbar(previewDocument) {
     const command = event.target.closest("[data-cmd]")?.dataset.cmd;
    if (!command) return;
    if (command === "bold") previewDocument.execCommand("bold");
+    if (command === "pill") {
+      const range = savedRange?.cloneRange();
+      const selected = range?.toString();
+      if (!range || !selected?.trim()) return;
+      const rangeElement = range.commonAncestorContainer?.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer?.parentElement;
+      const selectedPill = rangeElement?.closest("[data-pill]");
+      if (selectedPill?.textContent === selected) {
+        selectedPill.replaceWith(...selectedPill.childNodes);
+        selectedPill.closest("[data-rich]")?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatPill", data: null }));
+        return;
+      }
+      const delaParent = rangeElement?.closest("[data-dela]");
+      if (delaParent) {
+        const text = delaParent.textContent || "";
+        const start = text.indexOf(selected);
+        const offset = Math.max(0, start);
+        const colorParent = delaParent.parentElement?.dataset.color ? delaParent.parentElement : null;
+        const originalTone = colorParent?.dataset.color || "";
+        const editable = delaParent.closest("[data-rich]");
+        const makeDela = (value) => { const node = delaParent.cloneNode(false); node.textContent = value; return node; };
+        const withColor = (value, tone) => {
+          const node = makeDela(value);
+          if (!tone) return node;
+          const wrapper = previewDocument.createElement("span");
+          wrapper.dataset.color = tone;
+          wrapper.style.color = tone === "cyan" ? "#33bfe2" : "#BA6DE7";
+          wrapper.append(node);
+          return wrapper;
+        };
+        const withPill = (value) => {
+          const wrapper = previewDocument.createElement("span");
+          wrapper.dataset.pill = "1";
+          wrapper.style.cssText = "display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#fff;line-height:1;white-space:nowrap;";
+          wrapper.append(makeDela(value));
+          return wrapper;
+        };
+        const fragment = previewDocument.createDocumentFragment();
+        if (offset) fragment.append(withColor(text.slice(0, offset), originalTone));
+        fragment.append(withPill(start >= 0 ? selected : text));
+        if (offset + selected.length < text.length) fragment.append(withColor(text.slice(offset + selected.length), originalTone));
+        (colorParent?.textContent === text ? colorParent : delaParent).replaceWith(fragment);
+        editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatPill", data: null }));
+        return;
+      }
+      const span = previewDocument.createElement("span");
+      span.dataset.pill = "1";
+      span.style.cssText = "display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#fff;line-height:1;white-space:nowrap;";
+      span.append(range.extractContents());
+      range.insertNode(span);
+      span.closest("[data-rich]")?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatPill", data: null }));
+      return;
+    }
     if (command === "cyan" || command === "purple") {
       const range = savedRange?.cloneRange();
       const selected = range?.toString();
@@ -349,6 +429,7 @@ function ensureEditToolbar(previewDocument) {
         const offset = Math.max(0, start);
         const colorParent = delaParent.parentElement?.dataset.color ? delaParent.parentElement : null;
         const originalTone = colorParent?.dataset.color || "";
+        const selectedTone = originalTone === command ? "" : command;
         const editable = delaParent.closest("[data-rich]");
         const makeDela = (value) => { const node = delaParent.cloneNode(false); node.textContent = value; return node; };
         const withColor = (value, tone) => {
@@ -360,28 +441,35 @@ function ensureEditToolbar(previewDocument) {
           wrapper.append(node);
           return wrapper;
         };
-        const appendDela = (container, value, tone, splitWords = false) => {
-          if (!splitWords) { container.append(withColor(value, tone)); return; }
-          value.split(/(\s+)/).forEach((part) => {
-            if (!part) return;
-            container.append(/^\s+$/.test(part) ? previewDocument.createTextNode(part) : withColor(part, tone));
-          });
-        };
         const fragment = previewDocument.createDocumentFragment();
-        if (offset) appendDela(fragment, text.slice(0, offset), originalTone, true);
-        appendDela(fragment, selectedText, command, true);
-        if (offset + selectedText.length < text.length) appendDela(fragment, text.slice(offset + selectedText.length), originalTone, true);
+        if (offset) fragment.append(withColor(text.slice(0, offset), originalTone));
+        fragment.append(withColor(selectedText, selectedTone));
+        if (offset + selectedText.length < text.length) fragment.append(withColor(text.slice(offset + selectedText.length), originalTone));
         const target = colorParent?.textContent === text ? colorParent : delaParent;
         target.replaceWith(fragment);
         editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatColor", data: null }));
         return;
       }
-      const span = previewDocument.createElement("span");
-      span.dataset.color = command;
-      span.style.color = command === "cyan" ? "#33bfe2" : "#BA6DE7";
-      span.append(range.extractContents());
-      range.insertNode(span);
-      span.closest("[data-rich]")?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatColor", data: null }));
+      const editable = rangeElement?.closest("[data-rich]");
+      const startColor = (range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement)?.closest?.("[data-color]");
+      const endColor = (range.endContainer.nodeType === 1 ? range.endContainer : range.endContainer.parentElement)?.closest?.("[data-color]");
+      const fragment = range.extractContents();
+      const walker = previewDocument.createTreeWalker(fragment, previewDocument.defaultView.NodeFilter.SHOW_TEXT);
+      const textNodes = [];
+      while (walker.nextNode()) if (walker.currentNode.textContent.trim()) textNodes.push(walker.currentNode);
+      const sameParentTone = startColor && startColor === endColor && startColor.dataset.color === command;
+      const sameFragmentTone = textNodes.length > 0 && textNodes.every((node) => node.parentElement?.closest("[data-color]")?.dataset.color === command);
+      [...fragment.querySelectorAll("[data-color]")].reverse().forEach((node) => node.replaceWith(...node.childNodes));
+      if (sameParentTone || sameFragmentTone) {
+        range.insertNode(fragment);
+      } else {
+        const span = previewDocument.createElement("span");
+        span.dataset.color = command;
+        span.style.color = command === "cyan" ? "#33bfe2" : "#BA6DE7";
+        span.append(fragment);
+        range.insertNode(span);
+      }
+      editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatColor", data: null }));
       return;
     }
     if (command === "break") {
@@ -664,7 +752,7 @@ function renderBlockList() {
 function field(label, path, value, { type = "text", rows = 0, hint = "", options = null } = {}) {
   let control = "";
   if (options) control = `<select data-field="${path}">${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${value === optionValue ? " selected" : ""}>${optionLabel}</option>`).join("")}</select>`;
-  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)" aria-label="Жирный">${formatIcon("bold")}</button><button type="button" data-fmt="dela" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button><button type="button" data-fmt="cyan" title="Циановый текст" aria-label="Циановый текст">${formatIcon("cyan")}</button><button type="button" data-fmt="purple" title="Пурпурный текст" aria-label="Пурпурный текст">${formatIcon("purple")}</button><button type="button" data-fmt="link" title="Ссылка" aria-label="Ссылка">${formatIcon("link")}</button><button type="button" data-fmt="list" title="Список с пунктами" aria-label="Список с пунктами">${formatIcon("list")}</button><button type="button" data-fmt="break" title="Ручной перенос строки" aria-label="Перенос строки">${formatIcon("break")}</button><button type="button" data-fmt="typograph" title="Типограф" aria-label="Типограф">${formatIcon("typograph")}</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
+  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)" aria-label="Жирный">${formatIcon("bold")}</button><button type="button" data-fmt="dela" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button><button type="button" data-fmt="cyan" title="Циановый текст" aria-label="Циановый текст">${formatIcon("cyan")}</button><button type="button" data-fmt="purple" title="Пурпурный текст" aria-label="Пурпурный текст">${formatIcon("purple")}</button><button type="button" data-fmt="pill" title="Белый текст на голубой плашке" aria-label="Голубая плашка">${formatIcon("pill")}</button><button type="button" data-fmt="link" title="Ссылка" aria-label="Ссылка">${formatIcon("link")}</button><button type="button" data-fmt="list" title="Список с пунктами" aria-label="Список с пунктами">${formatIcon("list")}</button><button type="button" data-fmt="break" title="Ручной перенос строки" aria-label="Перенос строки">${formatIcon("break")}</button><button type="button" data-fmt="typograph" title="Типограф" aria-label="Типограф">${formatIcon("typograph")}</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
   else control = `<input data-field="${path}" type="${type}" value="${escapeAttr(value)}">`;
   return `<label class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</label>`;
 }
@@ -694,9 +782,9 @@ function renderBlockEditor() {
   }
   const definition = getDefinition(block.type);
   let controls = "";
-  if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
+  if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Крупная цифра", "content.bigNumber", block.content.bigNumber || "", { rows: 2, hint: "42 px · над заголовком" })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
   if (block.type === "text") controls = `${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Стиль списка", "content.listStyle", block.content.listStyle || "bullet", { options: [["bullet", "Маркеры"], ["number", "Цифры в кружках"]] })}${field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" })}<button class="email-button email-button--quiet" type="button" data-insert-image-after>+ Вставить картинку после текста</button>`;
-  if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Цвет лейбла", "content.eyebrowTone", block.content.eyebrowTone || "purple", { options: [["purple", "Фиолетовый"], ["cyan", "Голубой"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${field("Размер описания", "content.bodySize", block.content.bodySize || "14", { options: [["16", "Обычный · 16 px"], ["14", "Компактный · 14 px"]] })}${field("Фон", "content.gradient", block.content.gradient === false ? "false" : "true", { options: [["true", "Радиальный градиент"], ["false", "Тёмно-синий без градиента"]] })}${assetField(block)}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl || "", { type: "url", hint: "Кнопка остаётся отдельной ссылкой" })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
+  if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Цвет лейбла", "content.eyebrowTone", block.content.eyebrowTone || "purple", { options: [["purple", "Фиолетовый"], ["cyan", "Голубой"]] })}${field("Крупная цифра", "content.bigNumber", block.content.bigNumber || "", { rows: 2, hint: "42 px · над заголовком" })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${field("Размер описания", "content.bodySize", block.content.bodySize || "14", { options: [["16", "Обычный · 16 px"], ["14", "Компактный · 14 px"]] })}${field("Фон", "content.gradient", block.content.gradient === false ? "false" : "true", { options: [["true", "Радиальный градиент"], ["false", "Тёмно-синий без градиента"]] })}${assetField(block)}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl || "", { type: "url", hint: "Кнопка остаётся отдельной ссылкой" })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "image") controls = `${assetField(block)}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2, hint: "Виден, если картинки отключены" })}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl, { type: "url", hint: "При клике открывается весь блок" })}`;
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
@@ -1056,6 +1144,8 @@ function delaTexts() {
   const result = new Set();
   const grouped = new Set();
   email.blocks.forEach((block) => {
+    if (["title", "promo"].includes(block.type) && /%%[\s\S]*?%%/.test(String(block.content?.bigNumber || ""))) grouped.add(block.content.bigNumber);
+    if (block.type === "promo" && /%%[\s\S]*?%%/.test(String(block.content?.offer || ""))) grouped.add(block.content.offer);
     if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && /%%[\s\S]*?%%/.test(String(block.content?.heading || ""))) grouped.add(block.content.heading);
     (block.content?.items || []).forEach((item) => { if (/%%[\s\S]*?%%/.test(String(item.heading || ""))) grouped.add(item.heading); });
   });
@@ -1072,40 +1162,52 @@ function delaTexts() {
 }
 
 function isDelaGroup(text) {
-  return email.blocks.some((block) => (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && String(block.content?.heading || "") === text) || (block.content?.items || []).some((item) => String(item.heading || "") === text));
+  return email.blocks.some((block) => (["title", "promo"].includes(block.type) && String(block.content?.bigNumber || "") === text) || (block.type === "promo" && String(block.content?.offer || "") === text) || (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && String(block.content?.heading || "") === text) || (block.content?.items || []).some((item) => String(item.heading || "") === text));
+}
+
+function normalizeDelaWrapText(value) {
+  const keepBound = /^(?:без|для|над|под|при|про|[A-Za-zА-Яа-яЁё]{1,2})$/iu;
+  return String(value || "").replace(/\u2011/g, "-").replace(/([A-Za-zА-Яа-яЁё]+)[\u00a0\u202f]/gu, (match, word) => keepBound.test(word) ? match : `${word} `);
 }
 
 function delaGroupMarkup(value) {
   const source = String(value || "");
-  const pattern = /\{\{(cyan|purple)\|%%([\s\S]*?)%%\}\}|%%([\s\S]*?)%%/g;
+  const safe = normalizeDelaWrapText;
+  const pattern = /\{\{(cyan|purple|pill)\|%%([\s\S]*?)%%\}\}|%%([\s\S]*?)%%/g;
   let html = "";
   let cursor = 0;
   for (const match of source.matchAll(pattern)) {
-    html += escapeAttr(source.slice(cursor, match.index).replace(/\*\*/g, ""));
+    html += escapeAttr(safe(source.slice(cursor, match.index).replace(/\*\*/g, "")));
     html += match[1]
-      ? `<span style="color:${match[1] === "cyan" ? "#33bfe2" : "#BA6DE7"};">${escapeAttr(match[2])}</span>`
-      : escapeAttr(match[3]);
+      ? match[1] === "pill"
+        ? `<span style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#fff;line-height:1;white-space:nowrap;">${escapeAttr(safe(match[2]))}</span>`
+        : `<span style="color:${match[1] === "cyan" ? "#33bfe2" : "#BA6DE7"};">${escapeAttr(safe(match[2]))}</span>`
+      : escapeAttr(safe(match[3]));
     cursor = match.index + match[0].length;
   }
-  return html + escapeAttr(source.slice(cursor).replace(/\*\*/g, ""));
+  return html + escapeAttr(safe(source.slice(cursor).replace(/\*\*/g, "")));
 }
 
 function delaPlainText(value) {
-  return String(value || "").replace(/\{\{(?:cyan|purple)\|%%([\s\S]*?)%%\}\}/g, "$1").replace(/%%/g, "").replace(/\*\*/g, "");
+  return String(value || "").replace(/\{\{(?:cyan|purple|pill)\|%%([\s\S]*?)%%\}\}/g, "$1").replace(/\{\{pill\|([\s\S]*?)\}\}/g, "$1").replace(/%%/g, "").replace(/\*\*/g, "");
+}
+
+function comparableDelaText(value) {
+  return delaPlainText(value).replace(/[‐‑‒–—]/g, "-").replace(/\s+/g, " ").trim();
 }
 
 async function renderDelaPng(text) {
   const style = delaStyle(text);
   const group = isDelaGroup(text);
   const previewNode = group
-    ? [...(elements.preview.contentDocument?.querySelectorAll("[data-dela-text]") || [])].find((node) => node.textContent?.trim() === delaPlainText(text).trim())
-    : [...(elements.preview.contentDocument?.querySelectorAll("[data-dela]") || [])].find((node) => node.textContent?.trim() === text.trim());
+    ? [...(elements.preview.contentDocument?.querySelectorAll("[data-dela-text]") || [])].find((node) => comparableDelaText(node.dataset.delaValue || node.textContent) === comparableDelaText(text))
+    : [...(elements.preview.contentDocument?.querySelectorAll("[data-dela]") || [])].find((node) => comparableDelaText(node.dataset.delaValue || node.textContent) === comparableDelaText(text));
   const previewContentWidth = (group ? previewNode : previewNode?.closest("[data-rich]"))?.getBoundingClientRect().width || 560;
   const desktopRatio = email.settings.preview === "mobile" ? 660 / 390 : 1;
   const targetWidth = Math.min(560, Math.max(100, Math.ceil(previewContentWidth * desktopRatio)));
   const host = document.createElement("div");
   host.style.cssText = `position:fixed;left:-10000px;top:0;width:${targetWidth}px;padding:8px 0;pointer-events:none;`;
-  host.innerHTML = `<div style="display:${group ? "block;width:100%" : "inline-block;width:max-content;max-width:100%"};font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.2;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;overflow-wrap:anywhere;white-space:pre-line;color:${style.color};">${group ? delaGroupMarkup(text) : escapeAttr(text)}</div>`;
+  host.innerHTML = `<div style="display:${group ? "block;width:100%" : "inline-block;width:max-content;max-width:100%"};font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.2;font-weight:400;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance;word-break:normal;overflow-wrap:normal;hyphens:none;white-space:pre-line;color:${style.color};">${group ? delaGroupMarkup(text) : escapeAttr(normalizeDelaWrapText(text))}</div>`;
   document.body.append(host);
   try {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -1123,17 +1225,20 @@ function delaStyle(text) {
     const content = block.content || {};
     const contentText = JSON.stringify(content);
     const color = contentText.includes(`{{cyan|%%${text}%%}}`) ? "#33bfe2" : contentText.includes(`{{purple|%%${text}%%}}`) ? "#BA6DE7" : "";
+    const pill = contentText.includes(`{{pill|%%${text}%%}}`);
+    if (String(content.bigNumber || "") === text) return { size: 42, color: color || (block.type === "promo" || darkDefault ? "#ffffff" : "#084E7D") };
+    if (block.type === "promo" && String(content.offer || "") === text) return { size: 16, color: "#ffffff" };
     if (String(content.heading || "") === text) {
       const light = ["imageText", "featureCard", "iconGrid"].includes(block.type) || (block.type === "ctaCard" && block.variant === "light");
       const defaultColor = block.type === "title" ? (darkDefault ? "#ffffff" : "#084E7D") : light ? "#1F282C" : "#ffffff";
-      return { size: ["promo", "title", "ctaCard", "iconGrid"].includes(block.type) ? DELA_FONT_SIZES.large : DELA_FONT_SIZES.small, color: defaultColor };
+      return { size: ["imageText", "featureCard"].includes(block.type) ? DELA_FONT_SIZES.small : DELA_FONT_SIZES.large, color: defaultColor };
     }
     if ((content.items || []).some((item) => String(item.heading || "") === text)) return { size: DELA_FONT_SIZES.small, color: "#1F282C" };
-    if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || (block.variant === "light" ? "#084E7D" : "#ffffff") };
+    if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || (pill ? "#ffffff" : block.variant === "light" ? "#084E7D" : "#ffffff") };
     if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || "#ffffff" };
     if (block.type === "promo" && contentText.includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.small, color: color || "#ffffff" };
-    if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: DELA_FONT_SIZES.small, color: color || "#1F282C" };
-    if (contentText.includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.small, color: color || (darkDefault ? "#ffffff" : "#1F282C") };
+    if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: DELA_FONT_SIZES.small, color: color || (pill ? "#ffffff" : "#1F282C") };
+    if (contentText.includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.small, color: color || (pill || darkDefault ? "#ffffff" : "#1F282C") };
   }
   return { size: DELA_FONT_SIZES.small, color: darkDefault ? "#ffffff" : "#1F282C" };
 }
@@ -1383,12 +1488,16 @@ elements.blockEditor.addEventListener("click", async (event) => {
       const trimmed = selected.trim();
       replacement = /^\*\*[\s\S]*\*\*$/.test(trimmed) ? trimmed.slice(2, -2) : `**${selected}**`;
     } else if (fmtButton.dataset.fmt === "dela") {
-      const colored = selected.match(/^\{\{(cyan|purple)\|([\s\S]*)\}\}$/);
+      const colored = selected.match(/^\{\{(cyan|purple|pill)\|([\s\S]*)\}\}$/);
       replacement = colored ? `{{${colored[1]}|%%${colored[2]}%%}}` : `%%${selected}%%`;
     } else if (fmtButton.dataset.fmt === "cyan" || fmtButton.dataset.fmt === "purple") {
       const tone = fmtButton.dataset.fmt;
       const colored = selected.match(/^\{\{(cyan|purple)\|([\s\S]*)\}\}$/);
       replacement = colored?.[1] === tone ? colored[2] : `{{${tone}|${selected}}}`;
+    } else if (fmtButton.dataset.fmt === "pill") {
+      const pill = selected.match(/^\{\{pill\|([\s\S]*)\}\}$/);
+      const colored = selected.match(/^\{\{(?:cyan|purple)\|([\s\S]*)\}\}$/);
+      replacement = pill ? pill[1] : `{{pill|${colored ? colored[1] : selected}}}`;
     } else if (fmtButton.dataset.fmt === "list") {
       // Тоггл: если все выделенные строки уже пункты — снимаем маркеры, иначе добавляем.
       const lines = selected.split("\n");

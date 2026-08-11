@@ -3,7 +3,7 @@ import { isBrandTitlePublished } from "./email-brand-title.js";
 
 function visibleText(value = "") {
   return String(value)
-    .replace(/\{\{(?:cyan|purple)\|([\s\S]*?)\}\}/g, "$1")
+    .replace(/\{\{(?:cyan|purple|pill)\|([\s\S]*?)\}\}/g, "$1")
     .replace(/%%/g, "")
     .replace(/\*\*/g, "")
     .replace(/\[([^\]]+)]\(https:\/\/[^)\s]+\)/g, "$1");
@@ -13,6 +13,8 @@ function delaAssetKeys(email) {
   const keys = new Set();
   const grouped = new Set();
   email.blocks.forEach((block) => {
+    if (["title", "promo"].includes(block.type) && /%%[\s\S]*?%%/.test(String(block.content?.bigNumber || ""))) grouped.add(block.content.bigNumber);
+    if (block.type === "promo" && /%%[\s\S]*?%%/.test(String(block.content?.offer || ""))) grouped.add(block.content.offer);
     const heading = String(block.content?.heading || "");
     if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && /%%[\s\S]*?%%/.test(heading)) grouped.add(heading);
     (block.content?.items || []).forEach((item) => {

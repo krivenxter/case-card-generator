@@ -236,6 +236,7 @@ function sectionBlocks(content, editorial = false) {
       const benefits = section.list.slice(0, 6).map((item) => ({ ...splitBenefit(item), iconId: pickIconId(item) }));
       const hasLongBenefit = benefits.some((item) => semanticText(item.body).length > 110);
       if (hasLongBenefit) {
+        blocks.push(createBlock("title", { variant: "plain", content: { heading: section.heading, subtitle: "", accent: "", plate: "" } }));
         benefits.forEach((item, benefitIndex) => blocks.push(createBlock("imageText", { variant: benefitIndex % 2 ? "image-right" : "image-left", content: {
           heading: item.heading,
           body: item.body,

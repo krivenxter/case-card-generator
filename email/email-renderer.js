@@ -50,33 +50,40 @@ function editAttrs(preview, path) {
   return preview && path ? ` data-edit-path="${escapeHtml(path)}"` : "";
 }
 
-function displayText(value, color = C.navy, size = 24, align = "left", path = "", preview = false) {
+function displayText(value, color = C.navy, size = 24, align = "left", path = "", preview = false, delaSize = DELA_FONT_SIZES.large, weight = 700) {
   const hasDela = /%%[\s\S]*?%%/.test(String(value || ""));
-  const displaySize = hasDela ? Math.min(size, DELA_FONT_SIZES.large) : size;
+  const displaySize = hasDela ? Math.min(size, delaSize) : size;
   const groupAsset = hasDela && window.CALLTOUCH_DELA_ASSETS?.[String(value || "")];
   const groupSource = typeof groupAsset === "string" ? groupAsset : groupAsset?.url;
   const groupWidth = typeof groupAsset === "object" && groupAsset?.width ? `width="${groupAsset.width}"` : "";
   const text = groupSource
-    ? `<img src="${escapeHtml(groupSource)}" alt="${escapeHtml(delaPlainText(value))}" ${groupWidth} style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">`
+    ? `<img src="${escapeHtml(groupSource)}" alt="${escapeHtml(delaWrapText(delaPlainText(value)))}" ${groupWidth} style="display:block;width:100%;max-width:100%;height:auto;border:0;">`
     : inlineMarkup(value, preview, displaySize).replace(/\n/g, "<br>");
-  return `<div${editAttrs(preview, path)}${hasDela ? ' data-dela-text="1"' : ""} style="font-family:Arial,Helvetica,sans-serif;font-size:${displaySize}px;line-height:1.2;font-weight:700;color:${color};text-align:${align};word-break:break-word;">${text}</div>`;
+  return `<div${editAttrs(preview, path)}${hasDela ? ` data-dela-text="1" data-dela-value="${escapeHtml(delaWrapText(value))}"` : ""} style="font-family:Arial,Helvetica,sans-serif;font-size:${displaySize}px;line-height:1.2;font-weight:${weight};color:${color};text-align:${align};text-wrap:balance;word-break:${hasDela ? "normal" : "break-word"};overflow-wrap:${hasDela ? "normal" : "break-word"};hyphens:${hasDela ? "none" : "manual"};">${text}</div>`;
 }
 
 function delaPlainText(value = "") {
-  return String(value).replace(/\{\{(?:cyan|purple)\|%%([\s\S]*?)%%\}\}/g, "$1").replace(/%%/g, "").replace(/\*\*/g, "");
+  return String(value).replace(/\{\{(?:cyan|purple|pill)\|%%([\s\S]*?)%%\}\}/g, "$1").replace(/\{\{pill\|([\s\S]*?)\}\}/g, "$1").replace(/%%/g, "").replace(/\*\*/g, "");
+}
+
+function delaWrapText(value = "") {
+  const keepBound = /^(?:без|для|над|под|при|про|[A-Za-zА-Яа-яЁё]{1,2})$/iu;
+  return String(value).replace(/\u2011/g, "-").replace(/([A-Za-zА-Яа-яЁё]+)[\u00a0\u202f]/gu, (match, word) => keepBound.test(word) ? match : `${word} `);
 }
 
 function delaMarkup(value, preview, size = DELA_FONT_SIZES.small) {
   const text = String(value || "");
+  const safeText = delaWrapText(text);
   if (/^\s+$/.test(text)) return `<span data-dela-space="1" style="font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${size}px;line-height:1.2;">${escapeHtml(text)}</span>`;
   const asset = window.CALLTOUCH_DELA_ASSETS?.[text.trim()];
   const source = typeof asset === "string" ? asset : asset?.url;
   const width = typeof asset === "object" && asset?.width ? `width="${asset.width}"` : "";
-  return source ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(text)}" ${width} style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">` : `<span data-dela="1" style="display:inline;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${size}px;font-weight:400;letter-spacing:.02em;text-transform:uppercase;white-space:pre-line;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(text)}</span>`;
+  return source ? `<img data-dela="1" data-dela-value="${escapeHtml(safeText)}" src="${escapeHtml(source)}" alt="${escapeHtml(safeText)}" ${width} style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">` : `<span data-dela="1" data-dela-value="${escapeHtml(safeText)}" style="display:inline;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${size}px;font-weight:400;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance;white-space:pre-line;word-break:normal;overflow-wrap:normal;hyphens:none;">${escapeHtml(safeText)}</span>`;
 }
 
 function inlineMarkup(value, preview, delaSize = DELA_FONT_SIZES.small) {
   return rubleSafe(value)
+    .replace(/\{\{pill\|([\s\S]*?)\}\}/g, '<span data-pill="1" style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#ffffff;line-height:1;white-space:nowrap;">$1</span>')
     .replace(/\{\{(cyan|purple)\|([\s\S]*?)\}\}/g, (_, tone, inner) => `<span data-color="${tone}" style="color:${tone === "cyan" ? C.cyan : textPurple};">${inner}</span>`)
     .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\\\*/g, "*")
@@ -115,15 +122,16 @@ function hasText(value) {
 }
 
 function renderTitle(block, preview, darkText = false) {
-  const { heading, subtitle, accent } = block.content;
+  const { bigNumber, heading, subtitle, accent } = block.content;
   // На циановом оформлении текст без собственной подложки делаем белым.
   const textColor = darkText ? "#ffffff" : C.navy;
   const bodyColor = darkText ? "#ffffff" : C.ink;
   const hasHeading = String(heading || "").trim().length > 0;
+  const hasBigNumber = String(bigNumber || "").trim().length > 0;
   const hasSubtitle = block.variant !== "plain" && String(subtitle || "").trim().length > 0;
   // Пустой блок не оставляет пустоты: в экспорте его нет, в редакторе — тонкая заглушка для выбора.
-  if (!hasHeading && !hasSubtitle) return "";
-  const hasRichHeading = /%%[\s\S]*?%%|\{\{(?:cyan|purple)\|/.test(heading);
+  if (!hasBigNumber && !hasHeading && !hasSubtitle) return "";
+  const hasRichHeading = /%%[\s\S]*?%%|\{\{(?:cyan|purple|pill)\|/.test(heading);
   const highlighted = hasHeading && block.variant === "accent" && accent && heading.includes(accent) && !hasRichHeading
     ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`).replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>").replace(/\\\*/g, "*").replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>')
     : inlineMarkup(heading, preview, DELA_FONT_SIZES.large).replace(/\n/g, "<br>");
@@ -132,11 +140,12 @@ function renderTitle(block, preview, darkText = false) {
       ? displayText(heading, textColor, 24, "left", "content.heading", preview)
       : `<div${editAttrs(preview, "content.heading")} style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.2;font-weight:700;color:${textColor};word-break:break-word;">${highlighted}</div>`
     : "";
+  const bigNumberHtml = hasBigNumber ? `<div style="padding-bottom:${hasHeading ? "8px" : "0"};">${displayText(bigNumber, textColor, 42, "left", "content.bigNumber", preview, 42)}</div>` : "";
   const subtitleHtml = hasSubtitle ? `<div style="${hasHeading ? "padding-top:18px;" : ""}">${bodyText(subtitle, bodyColor, 16, "content.subtitle", preview)}</div>` : "";
   // Необязательная белая плашка с отступами под заголовком и подзаголовком.
   const inner = String(block.content.plate || "") === "1"
-    ? `<div style="padding:22px;background:#ffffff;border-radius:22px;box-sizing:border-box;">${headingHtml}${subtitleHtml}</div>`
-    : headingHtml + subtitleHtml;
+    ? `<div style="padding:22px;background:#ffffff;border-radius:22px;box-sizing:border-box;">${bigNumberHtml}${headingHtml}${subtitleHtml}</div>`
+    : bigNumberHtml + headingHtml + subtitleHtml;
   return wrapBlock(block, inner, "transparent", "4px 0 24px");
 }
 
@@ -153,17 +162,17 @@ function renderText(block, preview, darkText = false) {
 
 function renderPromo(block, preview) {
   const content = block.content;
-  if (![content.eyebrow, content.heading, content.offer, content.body, content.ctaText, content.image?.exportUrl, content.image?.previewSource].some(hasText)) return "";
+  if (![content.eyebrow, content.bigNumber, content.heading, content.offer, content.body, content.ctaText, content.image?.exportUrl, content.image?.previewSource].some(hasText)) return "";
   const eyebrow = String(content.eyebrow || "").trim();
   const eyebrowColor = content.eyebrowTone === "cyan" ? C.cyan : C.magenta;
   const visual = img(content.image, content.heading, preview, 216, 16, 1.1);
   const hasLower = [content.offer, content.body, content.image?.exportUrl, content.image?.previewSource].some(hasText);
-  const offerHtml = inlineMarkup(content.offer || "", preview);
+  const offerHtml = displayText(content.offer || "", "#ffffff", 16, "left", "content.offer", preview, DELA_FONT_SIZES.small, 400);
   const bodySize = String(content.bodySize) === "16" ? 16 : 14;
-  const lower = hasLower ? table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:16px;line-height:1.2;color:#ffffff;padding-bottom:${hasText(content.body) ? "10px" : "0"};">${offerHtml}</div>${bodyText(content.body, "#D6E8F2", bodySize, "content.body", preview)}`, visual ? "width:62%;padding:20px;vertical-align:middle;" : "width:100%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${visual ? td(visual, "width:38%;padding:12px 12px 12px 0;vertical-align:middle;", 'class="stack-column"') : ""}</tr>`) : "";
+  const lower = hasLower ? table(`<tr>${td(`${hasText(content.offer) ? `<div style="padding-bottom:${hasText(content.body) ? "10px" : "0"};">${offerHtml}</div>` : ""}${bodyText(content.body, "#D6E8F2", bodySize, "content.body", preview)}`, visual ? "width:62%;padding:20px;vertical-align:middle;" : "width:100%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${visual ? td(visual, "width:38%;padding:12px 12px 12px 0;vertical-align:middle;", 'class="stack-column"') : ""}</tr>`, "table-layout:fixed;") : "";
   const gradient = content.gradient === false || content.gradient === "false" ? C.navy : `radial-gradient(circle at 100% 100%,${C.purple} 0%,rgba(156,46,221,.72) 0%,${C.navy} 64%)`;
   const wholeLink = !preview && content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" aria-label="${escapeHtml(content.heading || content.eyebrow || "Открыть предложение")}" style="position:absolute;inset:0;z-index:1;display:block;text-decoration:none;">&nbsp;</a>` : "";
-  const contentHtml = `<div style="position:relative;">${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;max-width:80%;box-sizing:border-box;padding:9px 16px;background:${eyebrowColor};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};background:${gradient};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};">${hasText(content.heading) ? `<div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 24, "left", "content.heading", preview)}</div>` : ""}${hasLower ? `<div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>` : ""}${content.ctaText ? `<div style="position:relative;z-index:2;padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>${wholeLink}</div>`;
+  const contentHtml = `<div style="position:relative;">${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;max-width:80%;box-sizing:border-box;padding:9px 16px;background:${eyebrowColor};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;word-break:normal;overflow-wrap:normal;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};background:${gradient};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};">${hasText(content.bigNumber) ? `<div style="padding-bottom:${hasText(content.heading) ? "8px" : "18px"};">${displayText(content.bigNumber, "#ffffff", 42, "left", "content.bigNumber", preview, 42)}</div>` : ""}${hasText(content.heading) ? `<div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 24, "left", "content.heading", preview)}</div>` : ""}${hasLower ? `<div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>` : ""}${content.ctaText ? `<div style="position:relative;z-index:2;padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>${wholeLink}</div>`;
   return wrapBlock(block, contentHtml, "transparent", "0 0 28px");
 }
 
@@ -178,10 +187,10 @@ function renderImageBlock(block, preview) {
 function renderImageText(block, preview, feature = false) {
   const content = block.content;
   if (![content.heading, content.body, content.linkText, content.image?.previewSource, content.image?.exportUrl].some(hasText)) return "";
-  const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 190, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : 22}px;vertical-align:middle;`, 'class="stack-column"');
-  const textCell = td(`${displayText(content.heading, C.ink, 24, "left", "content.heading", preview)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 16, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : 26}px;vertical-align:middle;`, 'class="stack-column"');
-  const cells = block.variant === "image-right" ? textCell + imageCell : imageCell + textCell;
-  return wrapBlock(block, table(`<tr>${cells}</tr>`, `background:#ffffff;border-radius:${feature ? 22 : 28}px;overflow:hidden;`), "transparent", `0 0 ${feature ? 12 : 20}px`);
+  const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 190, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : 22}px;vertical-align:middle;direction:ltr;`, 'class="stack-column"');
+  const textCell = td(`${displayText(content.heading, C.ink, 24, "left", "content.heading", preview, DELA_FONT_SIZES.small)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 16, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : 26}px;vertical-align:middle;direction:ltr;`, 'class="stack-column"');
+  const direction = block.variant === "image-right" ? "rtl" : "ltr";
+  return wrapBlock(block, table(`<tr>${imageCell}${textCell}</tr>`, `direction:${direction};table-layout:fixed;background:#ffffff;border-radius:${feature ? 22 : 28}px;overflow:hidden;`, 'class="image-text-table"'), "transparent", `0 0 ${feature ? 12 : 20}px`);
 }
 
 function renderBrandScene(block, preview) {
@@ -284,8 +293,8 @@ export function renderEmailDocument(email, { preview = false, mobile = false } =
   const footnotes = email.footnotes.map((note, index) => `<div data-footnote-id="${escapeHtml(note.id)}" data-footnote-edit style="padding:0 0 10px;font-family:${fontBody};font-size:14px;line-height:1.45;color:${C.muted};opacity:.72;word-break:break-word;overflow-wrap:break-word;">${"*".repeat(index + 1)} ${footnoteMarkup(note.text)}</div>`).join("");
   const mainContent = table(`${blocks}<tr><td style="padding:6px 0 0;font-family:${fontBody};font-size:16px;line-height:1.4;color:${darkText ? "#ffffff" : C.ink};text-align:center;">С уважением, Команда Calltouch</td></tr>`);
   const main = table(`<tr>${td(mainContent, "padding:28px;", 'class="email-main-pad"')}</tr>`, `background:${background};border-radius:30px;`, `bgcolor="${background}"`);
-  const responsive = `@media only screen and (max-width:620px){.email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}.stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}.benefits-grid{table-layout:auto!important}.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}.benefits-grid td.grid-column--empty{display:none!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}h1{font-size:28px!important}[data-brand-title],[data-brand-scene]{width:100%!important}[data-brand-scene]{padding:22px!important}[data-brand-scene]>div:nth-of-type(2){padding:18px 100px 18px 18px!important}[data-brand-scene]>[aria-hidden="true"]{width:110px!important;height:110px!important;right:0!important}}`;
-  const mobileOverrides = mobile ? `<style>html,body{width:100%!important;min-width:0!important;max-width:100%!important;overflow-x:hidden!important}body{box-sizing:border-box!important}.email-shell,.footer-shell{width:100%!important;max-width:100%!important}.email-outer-pad,.email-main-pad{width:100%!important;max-width:100%!important;box-sizing:border-box!important}.email-outer-pad{padding-left:12px!important;padding-right:12px!important}.email-main-pad{padding:22px!important}.stack-column,.grid-column,.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important}.benefits-grid td.grid-column--empty{display:none!important}.benefits-grid{table-layout:auto!important}[data-brand-title],[data-brand-scene]{width:100%!important;max-width:100%!important;box-sizing:border-box!important}[data-dela],[data-dela-space],[data-dela-text]{font-size:14px!important;line-height:1.2!important}img{max-width:100%!important;height:auto!important}</style>` : "";
+  const responsive = `@media only screen and (max-width:620px){.email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}.image-text-table{direction:ltr!important}.stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}.benefits-grid{table-layout:auto!important}.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}.benefits-grid td.grid-column--empty{display:none!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}h1{font-size:28px!important}[data-brand-title],[data-brand-scene]{width:100%!important}[data-brand-scene]{padding:22px!important}[data-brand-scene]>div:nth-of-type(2){padding:18px 100px 18px 18px!important}[data-brand-scene]>[aria-hidden="true"]{width:110px!important;height:110px!important;right:0!important}}`;
+  const mobileOverrides = mobile ? `<style>html,body{width:100%!important;min-width:0!important;max-width:100%!important;overflow-x:hidden!important}body{box-sizing:border-box!important}.email-shell,.footer-shell{width:100%!important;max-width:100%!important}.email-outer-pad,.email-main-pad{width:100%!important;max-width:100%!important;box-sizing:border-box!important}.email-outer-pad{padding-left:12px!important;padding-right:12px!important}.email-main-pad{padding:22px!important}.image-text-table{direction:ltr!important}.stack-column,.grid-column,.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important}.benefits-grid td.grid-column--empty{display:none!important}.benefits-grid{table-layout:auto!important}[data-brand-title],[data-brand-scene]{width:100%!important;max-width:100%!important;box-sizing:border-box!important}[data-dela],[data-dela-space],[data-dela-text]{font-size:14px!important;line-height:1.2!important}img{max-width:100%!important;height:auto!important}</style>` : "";
   const footnotesBlock = footnotes ? `<tr>${td(footerShell(`<div style="text-align:center;">${footnotes}</div>`, "padding:20px 0 8px;"), "")}</tr>` : "";
   const unsubscribeBlock = `<tr>${td(footerShell(`<div style="font-family:${fontBody};font-size:14px;line-height:1.45;color:${C.muted};opacity:.72;text-align:center;">Чтобы перестать получать письма, достаточно просто <a href="${safeUrl(SYSTEM_LINKS.unsubscribe)}" style="color:${C.muted};text-decoration:underline;">отписаться</a>.</div>`, "padding:10px 0 4px;"), "")}</tr>`;
   const socialBlock = `<tr>${td(footerShell(renderSocial(preview), "padding:18px 0 10px;"), "")}</tr>`;
