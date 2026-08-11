@@ -230,9 +230,10 @@ function richToMarkdown(root) {
 
 function typographText(value, delaMode = false) {
   const protectedParts = [];
-  const protect = (text) => text.replace(/https?:\/\/[^\s)]+|\{\{[a-z0-9_]+\}\}/gi, (match) => `\u0000${protectedParts.push(match) - 1}\u0000`);
+  const source = String(value || "");
+  const protect = (text) => text.replace(/\{\{(?:cyan|purple)\|[\s\S]*?\}\}|%%[\s\S]*?%%|https?:\/\/[^\s)]+|\{\{[a-z0-9_]+\}\}/gi, (match) => `\u0000${protectedParts.push(match) - 1}\u0000`);
   const restore = (text) => text.replace(/\u0000(\d+)\u0000/g, (_, index) => protectedParts[Number(index)]);
-  const result = protect(String(value || ""))
+  const result = protect(source)
     .replace(/\.{3}/g, "…")
     .replace(/[ \t]+/g, " ")
     .replace(/\s+([,.;:!?])/g, "$1")
@@ -245,12 +246,8 @@ function typographText(value, delaMode = false) {
     .replace(/\n+[ \t\u00A0]*(?=Присоединяйтесь(?:\s|$))/iu, " ")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n");
-  const isDelaText = delaMode || result.includes("%%");
-  const lineBroken = isDelaText
-    ? result
-        .replace(/([.!?])[\s\u00A0]+(?=(?!Присоединяйтесь(?:[\s\u00A0]|$))[А-ЯЁA-Z])/g, "$1\n")
-        .replace(/(\d{1,2}[.:]\d{2}\.)[\s\u00A0]+(?=Увидимся(?:\s|$))/iu, "$1\n")
-    : result;
+  const isDelaText = delaMode || source.includes("%%");
+  const lineBroken = result;
   const orphanSafe = isDelaText
     ? lineBroken.replace(/(\S+)[ \t]+(\S+)[ \t]+(\S+)([.!?…]?)$/gm, "$1\u00A0$2\u00A0$3$4")
     : lineBroken.replace(/(\S+)[ \t]+(\S+)([.!?…]?)$/gm, "$1\u00A0$2$3");
@@ -287,6 +284,7 @@ function brandEmail(project) {
     if (["brandTitle", "brandScene"].includes(block.type)) return;
     if (["title", "text"].includes(block.type) && String(block.content?.plate || "") !== "1") block.content.plate = "1";
     if (block.content?.heading) block.content.heading = brandDela(block.content.heading);
+    if (block.type === "promo" && block.content?.offer) block.content.offer = brandDela(block.content.offer);
     if (block.type === "iconGrid") block.content.items = (block.content.items || []).map((item) => ({ ...item, heading: brandDela(item.heading) }));
   });
   return branded;
@@ -451,10 +449,16 @@ function ensureEditToolbar(previewDocument) {
         const rangeElement = range?.commonAncestorContainer?.nodeType === 1 ? range.commonAncestorContainer : range?.commonAncestorContainer?.parentElement;
         const delaParent = selectedElement?.closest("[data-dela]") || rangeElement?.closest("[data-dela]");
         if (delaParent) {
-          const parent = delaParent.parentNode;
-          while (delaParent.firstChild) parent.insertBefore(delaParent.firstChild, delaParent);
-          delaParent.remove();
-          parent?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward", data: null }));
+          const editable = delaParent.closest("[data-rich]");
+          const block = email.blocks.find((item) => item.id === editable?.closest("[data-block-id]")?.dataset.blockId);
+          if (block && editable?.dataset.editPath) {
+            const plain = richToMarkdown(editable).replace(/%%([\s\S]*?)%%/g, "$1");
+            setPath(block, editable.dataset.editPath, plain);
+            updatePreviewBlock(block);
+            renderBlockList();
+            renderBlockEditor();
+            persistSoon();
+          }
           return;
         }
         if (range) {
@@ -665,6 +669,11 @@ function field(label, path, value, { type = "text", rows = 0, hint = "", options
   return `<label class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</label>`;
 }
 
+function buttonTonePicker(value) {
+  const current = value === "secondary" ? "secondary" : "primary";
+  return `<div class="email-button-tone-picker"><span>Цвет кнопки</span><div role="radiogroup" aria-label="Цвет кнопки"><button type="button" role="radio" data-button-tone="primary" aria-checked="${current === "primary"}" class="${current === "primary" ? "is-active" : ""}"><i class="email-tone-dot email-tone-dot--purple"></i>Фиолетовый</button><button type="button" role="radio" data-button-tone="secondary" aria-checked="${current === "secondary"}" class="${current === "secondary" ? "is-active" : ""}"><i class="email-tone-dot email-tone-dot--cyan"></i>Голубой</button></div></div>`;
+}
+
 function assetField(block, path = "content.image", label = "Изображение") {
   const asset = path.split(".").reduce((value, key) => value?.[key], block);
   return `<div class="email-asset-field"><span>${label}</span><button class="email-asset-trigger" type="button" data-asset-target="${escapeAttr(block.id)}" data-asset-path="${escapeAttr(path)}"><img src="${escapeAttr(asset?.previewSource || "visuals/Calltouch-1.png")}" alt=""><span>${escapeAttr(asset?.label || "Выбрать изображение")}</span></button></div>`;
@@ -687,14 +696,14 @@ function renderBlockEditor() {
   let controls = "";
   if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
   if (block.type === "text") controls = `${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Стиль списка", "content.listStyle", block.content.listStyle || "bullet", { options: [["bullet", "Маркеры"], ["number", "Цифры в кружках"]] })}${field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" })}<button class="email-button email-button--quiet" type="button" data-insert-image-after>+ Вставить картинку после текста</button>`;
-  if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${field("Размер описания", "content.bodySize", block.content.bodySize || "14", { options: [["16", "Обычный · 16 px"], ["14", "Компактный · 14 px"]] })}${field("Фон", "content.gradient", block.content.gradient === false ? "false" : "true", { options: [["true", "Радиальный градиент"], ["false", "Тёмно-синий без градиента"]] })}${assetField(block)}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
+  if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Цвет лейбла", "content.eyebrowTone", block.content.eyebrowTone || "purple", { options: [["purple", "Фиолетовый"], ["cyan", "Голубой"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${field("Размер описания", "content.bodySize", block.content.bodySize || "14", { options: [["16", "Обычный · 16 px"], ["14", "Компактный · 14 px"]] })}${field("Фон", "content.gradient", block.content.gradient === false ? "false" : "true", { options: [["true", "Радиальный градиент"], ["false", "Тёмно-синий без градиента"]] })}${assetField(block)}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl || "", { type: "url", hint: "Кнопка остаётся отдельной ссылкой" })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "image") controls = `${assetField(block)}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2, hint: "Виден, если картинки отключены" })}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl, { type: "url", hint: "При клике открывается весь блок" })}`;
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
-  if (block.type === "iconGrid") controls = `${field("Заголовок блока", "content.heading", block.content.heading || "", { rows: 2 })}<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><button type="button" data-icon-dela="${index}" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
+  if (block.type === "iconGrid") controls = `${field("Заголовок блока", "content.heading", block.content.heading || "", { rows: 2 })}${field("Сетка преимуществ", "content.columns", block.content.columns || "2", { options: [["2", "По 2 в ряд"], ["1", "По 1 на всю ширину"]] })}<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><button type="button" data-icon-dela="${index}" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
   if (block.type === "ctaCard") controls = `${field("Тема", "variant", block.variant, { options: [["dark", "Тёмно-синяя"], ["dark-gradient", "Тёмно-синяя с пурпурным свечением"], ["light", "Светлая"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Пояснение", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
-  if (block.type === "button") controls = `${field("Акцент", "variant", block.variant, { options: [["primary", "Основной"], ["secondary", "Спокойный"]] })}${field("Выравнивание", "content.align", block.content.align || "center", { options: [["center", "По центру"], ["left", "По левому краю"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
+  if (block.type === "button") controls = `${buttonTonePicker(block.variant)}${field("Выравнивание", "content.align", block.content.align || "center", { options: [["center", "По центру"], ["left", "По левому краю"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
   if (block.type === "divider") controls = field("Интервал", "variant", block.variant, { options: [["s", "S — компактный"], ["m", "M — обычный"], ["l", "L — большой"], ["xl", "XL — очень большой"]] });
   elements.blockEditor.innerHTML = `<div class="email-block-editor__header"><h2>${escapeAttr(definition?.label || block.type)}</h2><span>ЗАЩИЩЁННЫЙ ВАРИАНТ</span></div>${controls}`;
   iconRefresh(elements.blockEditor);
@@ -1045,8 +1054,15 @@ function buildVariants(source) {
 
 function delaTexts() {
   const result = new Set();
+  const grouped = new Set();
+  email.blocks.forEach((block) => {
+    if (/%%[\s\S]*?%%/.test(String(block.content?.heading || ""))) grouped.add(block.content.heading);
+    (block.content?.items || []).forEach((item) => { if (/%%[\s\S]*?%%/.test(String(item.heading || ""))) grouped.add(item.heading); });
+  });
+  grouped.forEach((text) => result.add(text));
   const collect = (value) => {
     if (typeof value === "string") {
+      if (grouped.has(value)) return;
       for (const match of value.matchAll(/%%([\s\S]*?)%%/g)) if (match[1].trim()) result.add(match[1].trim());
     } else if (Array.isArray(value)) value.forEach(collect);
     else if (value && typeof value === "object") Object.values(value).forEach(collect);
@@ -1055,16 +1071,41 @@ function delaTexts() {
   return [...result];
 }
 
+function isDelaGroup(text) {
+  return email.blocks.some((block) => String(block.content?.heading || "") === text || (block.content?.items || []).some((item) => String(item.heading || "") === text));
+}
+
+function delaGroupMarkup(value) {
+  const source = String(value || "");
+  const pattern = /\{\{(cyan|purple)\|%%([\s\S]*?)%%\}\}|%%([\s\S]*?)%%/g;
+  let html = "";
+  let cursor = 0;
+  for (const match of source.matchAll(pattern)) {
+    html += escapeAttr(source.slice(cursor, match.index).replace(/\*\*/g, ""));
+    html += match[1]
+      ? `<span style="color:${match[1] === "cyan" ? "#33bfe2" : "#BA6DE7"};">${escapeAttr(match[2])}</span>`
+      : escapeAttr(match[3]);
+    cursor = match.index + match[0].length;
+  }
+  return html + escapeAttr(source.slice(cursor).replace(/\*\*/g, ""));
+}
+
+function delaPlainText(value) {
+  return String(value || "").replace(/\{\{(?:cyan|purple)\|%%([\s\S]*?)%%\}\}/g, "$1").replace(/%%/g, "").replace(/\*\*/g, "");
+}
+
 async function renderDelaPng(text) {
   const style = delaStyle(text);
-  const previewNode = [...(elements.preview.contentDocument?.querySelectorAll("[data-dela]") || [])]
-    .find((node) => node.textContent?.trim() === text.trim());
-  const previewContentWidth = previewNode?.closest("[data-rich]")?.getBoundingClientRect().width || 560;
+  const group = isDelaGroup(text);
+  const previewNode = group
+    ? [...(elements.preview.contentDocument?.querySelectorAll("[data-dela-text]") || [])].find((node) => node.textContent?.trim() === delaPlainText(text).trim())
+    : [...(elements.preview.contentDocument?.querySelectorAll("[data-dela]") || [])].find((node) => node.textContent?.trim() === text.trim());
+  const previewContentWidth = (group ? previewNode : previewNode?.closest("[data-rich]"))?.getBoundingClientRect().width || 560;
   const desktopRatio = email.settings.preview === "mobile" ? 660 / 390 : 1;
   const targetWidth = Math.min(560, Math.max(100, Math.ceil(previewContentWidth * desktopRatio)));
   const host = document.createElement("div");
   host.style.cssText = `position:fixed;left:-10000px;top:0;width:${targetWidth}px;padding:8px 0;pointer-events:none;`;
-  host.innerHTML = `<div style="display:inline-block;width:max-content;max-width:100%;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;overflow-wrap:anywhere;white-space:pre-line;color:${style.color};">${escapeAttr(text)}</div>`;
+  host.innerHTML = `<div style="display:${group ? "block;width:100%" : "inline-block;width:max-content;max-width:100%"};font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.2;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;overflow-wrap:anywhere;white-space:pre-line;color:${style.color};">${group ? delaGroupMarkup(text) : escapeAttr(text)}</div>`;
   document.body.append(host);
   try {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -1082,6 +1123,12 @@ function delaStyle(text) {
     const content = block.content || {};
     const contentText = JSON.stringify(content);
     const color = contentText.includes(`{{cyan|%%${text}%%}}`) ? "#33bfe2" : contentText.includes(`{{purple|%%${text}%%}}`) ? "#BA6DE7" : "";
+    if (String(content.heading || "") === text) {
+      const light = ["imageText", "featureCard", "iconGrid"].includes(block.type) || (block.type === "ctaCard" && block.variant === "light");
+      const defaultColor = block.type === "title" ? (darkDefault ? "#ffffff" : "#084E7D") : light ? "#1F282C" : "#ffffff";
+      return { size: ["promo", "title", "ctaCard", "iconGrid"].includes(block.type) ? DELA_FONT_SIZES.large : DELA_FONT_SIZES.small, color: defaultColor };
+    }
+    if ((content.items || []).some((item) => String(item.heading || "") === text)) return { size: DELA_FONT_SIZES.small, color: "#1F282C" };
     if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || (block.variant === "light" ? "#084E7D" : "#ffffff") };
     if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || "#ffffff" };
     if (block.type === "promo" && contentText.includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.small, color: color || "#ffffff" };
@@ -1174,7 +1221,7 @@ async function openQualityDialog() {
     return;
   }
   const report = validateEmail(email);
-  const brandingWarning = hasBrandedDelaHeading(email) ? "" : `<section class="email-quality-group"><h3>Брендинг</h3><ul><li>В письме нет Dela-заголовков. Добавьте фирменную подачу перед отправкой.</li></ul><button class="email-button email-button--brand" type="button" data-brand-and-publish>Забрендировать</button></section>`;
+  const brandingWarning = hasBrandedDelaHeading(email) ? "" : `<section class="email-quality-group"><h3>Брендинг</h3><ul><li>В письме нет Dela-заголовков. Добавьте фирменную подачу перед отправкой.</li></ul><button class="email-button email-button--brand" type="button" data-brand-and-publish>Забрендировать заголовки</button></section>`;
   const html = renderEmailDocument(email, { preview: false });
   elements.qualityTitle.textContent = report.errors.length ? `Нужно исправить: ${report.errors.length}` : report.warnings.length ? `Нужно проверить: ${report.warnings.length}` : "Письмо готово ✓";
   elements.qualityResults.innerHTML = `${uploadNote}${brandingWarning}${report.errors.length ? `<section class="email-quality-group"><h3>Ошибки</h3><ul>${report.errors.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${report.warnings.length ? `<section class="email-quality-group"><h3>Предупреждения</h3><ul>${report.warnings.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${!report.errors.length && !report.warnings.length ? `<section class="email-quality-group"><h3>Критических проблем не найдено</h3><ul><li>Проверьте ссылки и отправьте тестовое письмо в вашей системе рассылок.</li></ul></section>` : ""}`;
@@ -1310,6 +1357,15 @@ elements.blockEditor.addEventListener("change", (event) => {
   persistSoon();
 });
 elements.blockEditor.addEventListener("click", async (event) => {
+  const toneButton = event.target.closest("[data-button-tone]");
+  if (toneButton) {
+    const block = getSelectedBlock();
+    if (block?.type === "button" && block.variant !== toneButton.dataset.buttonTone) {
+      block.variant = toneButton.dataset.buttonTone;
+      commitChange({ rerenderEditor: true });
+    }
+    return;
+  }
   // Кнопки форматирования в боковой панели: оборачивают выделенный текст в markdown.
   const fmtButton = event.target.closest("[data-fmt]");
   if (fmtButton) {

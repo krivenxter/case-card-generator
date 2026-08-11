@@ -9,6 +9,29 @@ function visibleText(value = "") {
     .replace(/\[([^\]]+)]\(https:\/\/[^)\s]+\)/g, "$1");
 }
 
+function delaAssetKeys(email) {
+  const keys = new Set();
+  const grouped = new Set();
+  email.blocks.forEach((block) => {
+    const heading = String(block.content?.heading || "");
+    if (/%%[\s\S]*?%%/.test(heading)) grouped.add(heading);
+    (block.content?.items || []).forEach((item) => {
+      const itemHeading = String(item.heading || "");
+      if (/%%[\s\S]*?%%/.test(itemHeading)) grouped.add(itemHeading);
+    });
+  });
+  grouped.forEach((value) => keys.add(value));
+  const collect = (value) => {
+    if (typeof value === "string") {
+      if (grouped.has(value)) return;
+      for (const match of value.matchAll(/%%([\s\S]*?)%%/g)) if (match[1].trim()) keys.add(match[1].trim());
+    } else if (Array.isArray(value)) value.forEach(collect);
+    else if (value && typeof value === "object") Object.values(value).forEach(collect);
+  };
+  email.blocks.forEach((block) => collect(block.content));
+  return [...keys];
+}
+
 export function normalizeEmailDesign(email) {
   const normalized = JSON.parse(JSON.stringify(email));
   normalized.settings.theme = ["classic", "editorial"].includes(normalized.settings.theme) ? normalized.settings.theme : "classic";
@@ -29,12 +52,10 @@ export function validateEmail(email) {
   const errors = [];
   const warnings = ["Перед отправкой eNkod заменит {{link_view_in_browser}} и {{link_unsubscribe}}."];
   const ctaBlocks = [];
-  let delaFragments = 0;
   email.blocks.forEach((block, index) => {
     if (block.settings?.hidden) return;
     const label = `Блок ${index + 1}`;
     const content = block.content || {};
-    delaFragments += Object.values(content).filter((value) => typeof value === "string").reduce((count, value) => count + (value.match(/%%[\s\S]*?%%/g) || []).length, 0);
     if (["promo", "imageText", "brandTitle", "brandScene", "featureCard", "ctaCard"].includes(block.type) && !String(content.heading || "").trim()) errors.push(`${label}: пустой заголовок.`);
     if (visibleText(content.heading).length > 120) warnings.push(`${label}: заголовок длиннее 120 символов.`);
     if (String(content.body || "").length > 900) warnings.push(`${label}: текстовый блок слишком длинный.`);
@@ -52,8 +73,10 @@ export function validateEmail(email) {
   });
   if (!email.blocks.length) errors.push("В письме нет пользовательских блоков.");
   if (ctaBlocks.length > 3) warnings.push("В письме больше трёх конкурирующих CTA.");
-  const delaReady = delaFragments > 0 && typeof window !== "undefined" && Object.keys(window.CALLTOUCH_DELA_ASSETS || {}).length >= delaFragments;
-  if (delaFragments && !delaReady) warnings.push(`Фрагментов Dela: ${delaFragments}. В текущей версии они отображаются HTML-шрифтом; для идеальной совместимости с почтовыми клиентами потребуется PNG-режим.`);
+  const delaKeys = delaAssetKeys(email);
+  const assets = typeof window !== "undefined" ? window.CALLTOUCH_DELA_ASSETS || {} : {};
+  const missingDela = delaKeys.filter((key) => !assets[key]);
+  if (missingDela.length) warnings.push(`Не удалось подготовить Dela-PNG: ${missingDela.length}. Нажмите «Проверить и экспортировать» ещё раз.`);
   if (email.blocks.some((block) => block.type === "promo") && email.blocks[0]?.type === "button") warnings.push("Основная кнопка стоит раньше заголовка.");
   return { errors, warnings };
 }

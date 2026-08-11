@@ -53,13 +53,22 @@ function editAttrs(preview, path) {
 function displayText(value, color = C.navy, size = 24, align = "left", path = "", preview = false) {
   const hasDela = /%%[\s\S]*?%%/.test(String(value || ""));
   const displaySize = hasDela ? Math.min(size, DELA_FONT_SIZES.large) : size;
-  const text = inlineMarkup(value, preview, displaySize).replace(/\n/g, "<br>");
-  return `<div${editAttrs(preview, path)}${hasDela ? ' data-dela-text="1"' : ""} style="font-family:Arial,Helvetica,sans-serif;font-size:${displaySize}px;line-height:${hasDela ? "1.12" : "1.2"};font-weight:700;color:${color};text-align:${align};word-break:break-word;">${text}</div>`;
+  const groupAsset = hasDela && window.CALLTOUCH_DELA_ASSETS?.[String(value || "")];
+  const groupSource = typeof groupAsset === "string" ? groupAsset : groupAsset?.url;
+  const groupWidth = typeof groupAsset === "object" && groupAsset?.width ? `width="${groupAsset.width}"` : "";
+  const text = groupSource
+    ? `<img src="${escapeHtml(groupSource)}" alt="${escapeHtml(delaPlainText(value))}" ${groupWidth} style="display:inline-block;max-width:100%;height:auto;vertical-align:middle;border:0;">`
+    : inlineMarkup(value, preview, displaySize).replace(/\n/g, "<br>");
+  return `<div${editAttrs(preview, path)}${hasDela ? ' data-dela-text="1"' : ""} style="font-family:Arial,Helvetica,sans-serif;font-size:${displaySize}px;line-height:1.2;font-weight:700;color:${color};text-align:${align};word-break:break-word;">${text}</div>`;
+}
+
+function delaPlainText(value = "") {
+  return String(value).replace(/\{\{(?:cyan|purple)\|%%([\s\S]*?)%%\}\}/g, "$1").replace(/%%/g, "").replace(/\*\*/g, "");
 }
 
 function delaMarkup(value, preview, size = DELA_FONT_SIZES.small) {
   const text = String(value || "");
-  if (/^\s+$/.test(text)) return `<span data-dela-space="1" style="font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${size}px;line-height:1.12;">${escapeHtml(text)}</span>`;
+  if (/^\s+$/.test(text)) return `<span data-dela-space="1" style="font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${size}px;line-height:1.2;">${escapeHtml(text)}</span>`;
   const asset = window.CALLTOUCH_DELA_ASSETS?.[text.trim()];
   const source = typeof asset === "string" ? asset : asset?.url;
   const width = typeof asset === "object" && asset?.width ? `width="${asset.width}"` : "";
@@ -144,13 +153,15 @@ function renderPromo(block, preview) {
   const content = block.content;
   if (![content.eyebrow, content.heading, content.offer, content.body, content.ctaText, content.image?.exportUrl, content.image?.previewSource].some(hasText)) return "";
   const eyebrow = String(content.eyebrow || "").trim();
+  const eyebrowColor = content.eyebrowTone === "cyan" ? C.cyan : C.magenta;
   const visual = img(content.image, content.heading, preview, 216, 16, 1.1);
   const hasLower = [content.offer, content.body, content.image?.exportUrl, content.image?.previewSource].some(hasText);
   const offerHtml = inlineMarkup(content.offer || "", preview);
   const bodySize = String(content.bodySize) === "16" ? 16 : 14;
   const lower = hasLower ? table(`<tr>${td(`<div${editAttrs(preview, "content.offer")} style="font-family:${fontDisplay};font-size:16px;line-height:1.2;color:#ffffff;padding-bottom:${hasText(content.body) ? "10px" : "0"};">${offerHtml}</div>${bodyText(content.body, "#D6E8F2", bodySize, "content.body", preview)}`, visual ? "width:62%;padding:20px;vertical-align:middle;" : "width:100%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${visual ? td(visual, "width:38%;padding:12px 12px 12px 0;vertical-align:middle;", 'class="stack-column"') : ""}</tr>`) : "";
   const gradient = content.gradient === false || content.gradient === "false" ? C.navy : `radial-gradient(circle at 100% 100%,${C.purple} 0%,rgba(156,46,221,.72) 0%,${C.navy} 64%)`;
-  const contentHtml = `${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;max-width:80%;box-sizing:border-box;padding:9px 16px;background:${C.magenta};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};background:${gradient};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};">${hasText(content.heading) ? `<div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 24, "left", "content.heading", preview)}</div>` : ""}${hasLower ? `<div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>` : ""}${content.ctaText ? `<div style="padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>`;
+  const wholeLink = !preview && content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" aria-label="${escapeHtml(content.heading || content.eyebrow || "Открыть предложение")}" style="position:absolute;inset:0;z-index:1;display:block;text-decoration:none;">&nbsp;</a>` : "";
+  const contentHtml = `<div style="position:relative;">${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;max-width:80%;box-sizing:border-box;padding:9px 16px;background:${eyebrowColor};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};background:${gradient};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};">${hasText(content.heading) ? `<div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 24, "left", "content.heading", preview)}</div>` : ""}${hasLower ? `<div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>` : ""}${content.ctaText ? `<div style="position:relative;z-index:2;padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>${wholeLink}</div>`;
   return wrapBlock(block, contentHtml, "transparent", "0 0 28px");
 }
 
@@ -190,13 +201,14 @@ function renderBrandTitle(block, preview) {
 
 function renderIconGrid(block, preview) {
   const items = (block.content.items || []).slice(0, 6);
+  const columns = block.content.columns === "1" ? 1 : 2;
   if (!items.some((item) => [item.heading, item.body, item.iconId].some(hasText))) return "";
   const icons = window.CALLTOUCH_ASSETS.essentials || {};
   const fallbackIds = ["send", "verify", "clock", "message", "send", "verify"];
   const rows = [];
   // Размеры иконки с подложкой: картинка 35px, паддинг плашки 10px, радиус 14px.
-  for (let start = 0; start < items.length; start += 2) {
-    const rowItems = items.slice(start, start + 2);
+  for (let start = 0; start < items.length; start += columns) {
+    const rowItems = items.slice(start, start + columns);
     rows.push(`<tr class="benefits-row">${rowItems.map((item, index) => {
       const icon = icons[item.iconId] || icons[fallbackIds[start + index]];
       // Подложка под иконку — залитая ячейка таблицы: в старом Outlook border-radius
@@ -204,9 +216,9 @@ function renderIconGrid(block, preview) {
       const iconMarkup = icon ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${C.pale}" style="background:${C.pale};border-radius:14px;padding:10px;"><img src="${assetSource(icon, preview)}" width="35" height="35" alt="${escapeHtml(icon.label)}" style="display:block;width:35px;height:35px;border:0;"></td></tr></table>` : "";
       const heading = String(item.heading || "").replace(/\*\*/g, "");
       const body = String(item.body || "").replace(/\*\*/g, "");
-      const span = rowItems.length === 1 ? 2 : 1;
+      const span = columns === 1 ? 2 : 1;
       return td(`${iconMarkup}<div style="padding-top:13px;">${displayText(heading, C.ink, 16, "left", `content.items.${start + index}.heading`, preview)}</div>${body ? `<div style="padding-top:5px;">${bodyText(body, C.ink, 16, `content.items.${start + index}.body`, preview)}</div>` : ""}`, `width:${span === 2 ? "100" : "50"}%;padding:18px;vertical-align:top;`, `class="grid-column" colspan="${span}"`);
-    }).join("")}</tr>`);
+    }).join("")}${columns === 2 && rowItems.length === 1 ? td("", "width:50%;padding:0;", 'class="grid-column grid-column--empty" aria-hidden="true"') : ""}</tr>`);
   }
   const heading = hasText(block.content.heading) ? `<tr><td colspan="2" style="padding:22px 22px 0;">${displayText(block.content.heading, C.ink, 24, "left", "content.heading", preview)}</td></tr>` : "";
   return wrapBlock(block, table(`${heading}${rows.join("")}`, "background:#ffffff;border-radius:28px;overflow:hidden;table-layout:fixed;", 'class="benefits-grid"'), "transparent", "0 0 24px");
@@ -270,8 +282,8 @@ export function renderEmailDocument(email, { preview = false, mobile = false } =
   const footnotes = email.footnotes.map((note, index) => `<div data-footnote-id="${escapeHtml(note.id)}" data-footnote-edit style="padding:0 0 10px;font-family:${fontBody};font-size:14px;line-height:1.45;color:${C.muted};opacity:.72;word-break:break-word;overflow-wrap:break-word;">${"*".repeat(index + 1)} ${footnoteMarkup(note.text)}</div>`).join("");
   const mainContent = table(`${blocks}<tr><td style="padding:6px 0 0;font-family:${fontBody};font-size:16px;line-height:1.4;color:${darkText ? "#ffffff" : C.ink};text-align:center;">С уважением, Команда Calltouch</td></tr>`);
   const main = table(`<tr>${td(mainContent, "padding:28px;", 'class="email-main-pad"')}</tr>`, `background:${background};border-radius:30px;`, `bgcolor="${background}"`);
-  const responsive = `@media only screen and (max-width:620px){.email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}.stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}.benefits-grid{table-layout:auto!important}.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}h1{font-size:28px!important}[data-brand-title],[data-brand-scene]{width:100%!important}[data-brand-scene]{padding:22px!important}[data-brand-scene]>div:nth-of-type(2){padding:18px 100px 18px 18px!important}[data-brand-scene]>[aria-hidden="true"]{width:110px!important;height:110px!important;right:0!important}}`;
-  const mobileOverrides = mobile ? `<style>html,body{width:100%!important;min-width:0!important;max-width:100%!important;overflow-x:hidden!important}body{box-sizing:border-box!important}.email-shell,.footer-shell{width:100%!important;max-width:100%!important}.email-outer-pad,.email-main-pad{width:100%!important;max-width:100%!important;box-sizing:border-box!important}.email-outer-pad{padding-left:12px!important;padding-right:12px!important}.email-main-pad{padding:22px!important}.stack-column,.grid-column,.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important}.benefits-grid{table-layout:auto!important}[data-brand-title],[data-brand-scene]{width:100%!important;max-width:100%!important;box-sizing:border-box!important}[data-dela],[data-dela-space],[data-dela-text]{font-size:14px!important;line-height:1.12!important}img{max-width:100%!important;height:auto!important}</style>` : "";
+  const responsive = `@media only screen and (max-width:620px){.email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}.stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}.benefits-grid{table-layout:auto!important}.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}.benefits-grid td.grid-column--empty{display:none!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}h1{font-size:28px!important}[data-brand-title],[data-brand-scene]{width:100%!important}[data-brand-scene]{padding:22px!important}[data-brand-scene]>div:nth-of-type(2){padding:18px 100px 18px 18px!important}[data-brand-scene]>[aria-hidden="true"]{width:110px!important;height:110px!important;right:0!important}}`;
+  const mobileOverrides = mobile ? `<style>html,body{width:100%!important;min-width:0!important;max-width:100%!important;overflow-x:hidden!important}body{box-sizing:border-box!important}.email-shell,.footer-shell{width:100%!important;max-width:100%!important}.email-outer-pad,.email-main-pad{width:100%!important;max-width:100%!important;box-sizing:border-box!important}.email-outer-pad{padding-left:12px!important;padding-right:12px!important}.email-main-pad{padding:22px!important}.stack-column,.grid-column,.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important}.benefits-grid td.grid-column--empty{display:none!important}.benefits-grid{table-layout:auto!important}[data-brand-title],[data-brand-scene]{width:100%!important;max-width:100%!important;box-sizing:border-box!important}[data-dela],[data-dela-space],[data-dela-text]{font-size:14px!important;line-height:1.2!important}img{max-width:100%!important;height:auto!important}</style>` : "";
   const footnotesBlock = footnotes ? `<tr>${td(footerShell(`<div style="text-align:center;">${footnotes}</div>`, "padding:20px 0 8px;"), "")}</tr>` : "";
   const unsubscribeBlock = `<tr>${td(footerShell(`<div style="font-family:${fontBody};font-size:14px;line-height:1.45;color:${C.muted};opacity:.72;text-align:center;">Чтобы перестать получать письма, достаточно просто <a href="${safeUrl(SYSTEM_LINKS.unsubscribe)}" style="color:${C.muted};text-decoration:underline;">отписаться</a>.</div>`, "padding:10px 0 4px;"), "")}</tr>`;
   const socialBlock = `<tr>${td(footerShell(renderSocial(preview), "padding:18px 0 10px;"), "")}</tr>`;

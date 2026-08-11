@@ -50,8 +50,8 @@
 .email-button--normalize { display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; color: var(--email-navy); border-color: rgba(8,78,125,.18); background: var(--email-pale); }
 .email-button--normalize svg { width: 16px; }
 .email-brand-actions { display: grid; gap: 10px; }
-.email-button--brand { display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; color: #fff; border: 0; background: linear-gradient(100deg, #084e7d, #0073ef 52%, #9c2edd); box-shadow: 0 8px 18px rgba(8,78,125,.2); }
-.email-button--brand:hover { filter: brightness(1.06); }
+.email-button--brand { display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; color: var(--email-navy); border-color: rgba(8,78,125,.18); background: var(--email-pale); }
+.email-button--brand:hover { background: #d8f2fb; }
 .email-button--brand svg { width: 16px; }
 
 .email-app { height: calc(100vh - 73px); overflow: auto; }
@@ -104,6 +104,14 @@
 .email-theme-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(8,78,125,.12); }
 .email-theme-dot--classic { background: #c1ecfb; }
 .email-theme-dot--editorial { background: #33bfe2; }
+.email-button-tone-picker { display:grid; gap:6px; margin:0 0 12px; }
+.email-button-tone-picker > span { color:#68757b; font-size:11px; font-weight:700; }
+.email-button-tone-picker > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.email-button-tone-picker button { display:flex; min-height:42px; align-items:center; justify-content:center; gap:7px; padding:8px; border:1px solid var(--email-border); border-radius:10px; color:#68757b; background:#f7f9fa; font:700 11px/1.2 "Museo Sans Cyrl",Arial,sans-serif; cursor:pointer; }
+.email-button-tone-picker button.is-active { border-color:var(--email-cyan); color:var(--email-navy); background:#fff; box-shadow:0 0 0 2px rgba(36,184,220,.14); }
+.email-tone-dot { width:12px; height:12px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(8,78,125,.12); }
+.email-tone-dot--purple { background:#9c2edd; }
+.email-tone-dot--cyan { background:#33bfe2; }
 .email-global-fields select, .email-field input, .email-field textarea, .email-field select, .email-footnote-row textarea, .email-custom-asset input { width: 100%; min-height: 40px; padding: 9px 10px; border: 1px solid var(--email-border); border-radius: 9px; box-sizing: border-box; color: #1f282c; background: #f7f9fa; font: 13px/1.45 "Museo Sans Cyrl", Arial, sans-serif; }
 .email-field textarea, .email-footnote-row textarea { resize: vertical; }
 .email-field input[type="color"] { padding: 5px; cursor: pointer; }
