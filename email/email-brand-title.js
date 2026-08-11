@@ -2,14 +2,14 @@ import { DELA_FONT_SIZES, EMAIL_TOKENS } from "./email-model.js";
 
 const THEMES = Object.freeze({
   "light-cyan": EMAIL_TOKENS.colors.lightCyan,
-  cyan: "#24B8DC",
-  navy: "#084E7D",
-  purple: "#9C2EDD",
-  magenta: "#D958E5"
+  cyan: EMAIL_TOKENS.colors.cyan,
+  navy: EMAIL_TOKENS.colors.navy,
+  purple: EMAIL_TOKENS.colors.purple,
+  magenta: EMAIL_TOKENS.colors.magenta
 });
 
-const DARK_TEXT = "#084E7D";
-const LIGHT_TEXT = "#FFFFFF";
+const DARK_TEXT = EMAIL_TOKENS.colors.navy;
+const LIGHT_TEXT = EMAIL_TOKENS.colors.white;
 
 export const BRAND_TITLE_WIDTH = 604;
 export const BRAND_TITLE_MIN_HEIGHT = 104;

@@ -1,9 +1,9 @@
-import { DELA_FONT_SIZES } from "./email-model.js";
+import { DELA_FONT_SIZES, EMAIL_TOKENS } from "./email-model.js";
 
 const THEMES = Object.freeze({
   "navy-purple": { outer: "linear-gradient(125deg,#064b79 0%,#075482 42%,#a52bd9 100%)", inner: "linear-gradient(110deg,rgba(255,255,255,.18),rgba(255,255,255,.08))" },
-  "cyan-navy": { outer: "linear-gradient(125deg,#20b8dc 0%,#0877a7 45%,#06466f 100%)", inner: "rgba(5,71,119,.72)" },
-  "purple-cyan": { outer: "linear-gradient(125deg,#932bd5 0%,#5358c9 48%,#20b8dc 100%)", inner: "rgba(31,40,44,.36)" }
+  "cyan-navy": { outer: `linear-gradient(125deg,${EMAIL_TOKENS.colors.cyan} 0%,#0877a7 45%,#06466f 100%)`, inner: "rgba(5,71,119,.72)" },
+  "purple-cyan": { outer: `linear-gradient(125deg,#932bd5 0%,#5358c9 48%,${EMAIL_TOKENS.colors.cyan} 100%)`, inner: "rgba(31,40,44,.36)" }
 });
 
 export const BRAND_SCENE_WIDTH = 604;

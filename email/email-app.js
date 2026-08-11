@@ -1,4 +1,4 @@
-import { BLOCK_DEFINITIONS, DELA_FONT_SIZES, EMAIL_STORAGE_KEY, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
+import { BLOCK_DEFINITIONS, DELA_FONT_SIZES, EMAIL_STORAGE_KEY, EMAIL_TOKENS, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
 import { buildAutoVariants, readImportedFile } from "./email-parser.js";
 import { renderEmailDocument, renderBlock } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
@@ -9,13 +9,14 @@ import { delaSegments, forceDelaMarkup, hasDelaMarkup, normalizeRichMarkup, pars
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
 const escapeAttr = (value = "") => String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character]));
+const EMAIL_COLORS = EMAIL_TOKENS.colors;
 const formatIconPaths = {
   bold: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 0 8H6z"/><path d="M6 12h9a4 4 0 0 1 0 8H6z"/></g>',
   dela: '<text x="2" y="19" font-family="Dela Gothic One,Arial Black,sans-serif" font-size="19" font-weight="400">D</text>',
   link: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></g>',
-  cyan: '<circle cx="12" cy="12" r="8" fill="#33bfe2"/>',
-  purple: '<circle cx="12" cy="12" r="8" fill="#BA6DE7"/>',
-  pill: '<rect x="3" y="6" width="18" height="12" rx="6" fill="#33bfe2"/><path d="M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>',
+  cyan: `<circle cx="12" cy="12" r="8" fill="${EMAIL_COLORS.cyan}"/>`,
+  purple: `<circle cx="12" cy="12" r="8" fill="${EMAIL_COLORS.purpleText}"/>`,
+  pill: `<rect x="3" y="6" width="18" height="12" rx="6" fill="${EMAIL_COLORS.cyan}"/><path d="M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
   list: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></g>',
   break: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7a4 4 0 0 0 4 4h10"/><path d="m15 11 4 4-4 4"/></g>',
   typograph: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M8 7h8M8 11h6"/></g>'
@@ -79,7 +80,8 @@ const history = { undo: [], redo: [] };
 const iconAutoTimers = new Map();
 let previewTimer = 0;
 let delaPreviewTimer = 0;
-let delaPreviewBusy = false;
+let delaPreviewPromise = null;
+let previewModeRequest = 0;
 let draggedBlockId = "";
 let pendingPreviewScroll = null;
 let onboardingStep = 0;
@@ -436,14 +438,14 @@ function ensureEditToolbar(previewDocument) {
           if (!tone) return node;
           const wrapper = previewDocument.createElement("span");
           wrapper.dataset.color = tone;
-          wrapper.style.color = tone === "cyan" ? "#33bfe2" : "#BA6DE7";
+          wrapper.style.color = tone === "cyan" ? EMAIL_COLORS.cyan : EMAIL_COLORS.purpleText;
           wrapper.append(node);
           return wrapper;
         };
         const withPill = (value) => {
           const wrapper = previewDocument.createElement("span");
           wrapper.dataset.pill = "1";
-          wrapper.style.cssText = "display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#fff;line-height:1;white-space:nowrap;";
+          wrapper.style.cssText = `display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:${EMAIL_COLORS.cyan};color:#fff;line-height:1;white-space:nowrap;`;
           wrapper.append(makeDela(value));
           return wrapper;
         };
@@ -457,7 +459,7 @@ function ensureEditToolbar(previewDocument) {
       }
       const span = previewDocument.createElement("span");
       span.dataset.pill = "1";
-      span.style.cssText = "display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#fff;line-height:1;white-space:nowrap;";
+      span.style.cssText = `display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:${EMAIL_COLORS.cyan};color:#fff;line-height:1;white-space:nowrap;`;
       span.append(range.extractContents());
       range.insertNode(span);
       span.closest("[data-rich]")?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatPill", data: null }));
@@ -475,7 +477,7 @@ function ensureEditToolbar(previewDocument) {
           selectedColor.replaceWith(...selectedColor.childNodes);
         } else {
           selectedColor.dataset.color = command;
-          selectedColor.style.color = command === "cyan" ? "#33bfe2" : "#BA6DE7";
+          selectedColor.style.color = command === "cyan" ? EMAIL_COLORS.cyan : EMAIL_COLORS.purpleText;
         }
         editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatColor", data: null }));
         return;
@@ -496,7 +498,7 @@ function ensureEditToolbar(previewDocument) {
           if (!tone) return node;
           const wrapper = previewDocument.createElement("span");
           wrapper.dataset.color = tone;
-          wrapper.style.color = tone === "cyan" ? "#33bfe2" : "#BA6DE7";
+          wrapper.style.color = tone === "cyan" ? EMAIL_COLORS.cyan : EMAIL_COLORS.purpleText;
           wrapper.append(node);
           return wrapper;
         };
@@ -524,7 +526,7 @@ function ensureEditToolbar(previewDocument) {
       } else {
         const span = previewDocument.createElement("span");
         span.dataset.color = command;
-        span.style.color = command === "cyan" ? "#33bfe2" : "#BA6DE7";
+        span.style.color = command === "cyan" ? EMAIL_COLORS.cyan : EMAIL_COLORS.purpleText;
         span.append(fragment);
         range.insertNode(span);
       }
@@ -654,7 +656,7 @@ function bindPreviewNodes(previewDocument) {
   if (!previewDocument.__editorBound) {
     previewDocument.__editorBound = true;
     const style = previewDocument.createElement("style");
-    style.textContent = `[data-block-id]{cursor:pointer;transition:filter .12s ease}[data-block-id]:hover{filter:brightness(.96)}[data-block-id].is-selected>td{outline:3px solid #24b8dc;outline-offset:0}[data-edit-path]{cursor:text;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}[data-edit-path]:hover,[data-edit-path]:focus{outline-color:rgba(36,184,220,.8);background:rgba(255,255,255,.08)}[data-edit-path]:focus{outline-width:2px}[data-rich] b,[data-rich] strong{font-weight:700}[data-rich] ul{margin:0;padding:0 0 0 16px}[data-rich] li{padding:0 0 8px}[data-rich] li::marker{color:#24B8DC}`;
+    style.textContent = `[data-block-id]{cursor:pointer;transition:filter .12s ease}[data-block-id]:hover{filter:brightness(.96)}[data-block-id].is-selected>td{outline:3px solid ${EMAIL_COLORS.cyan};outline-offset:0}[data-edit-path]{cursor:text;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}[data-edit-path]:hover,[data-edit-path]:focus{outline-color:${EMAIL_COLORS.cyan};background:rgba(255,255,255,.08)}[data-edit-path]:focus{outline-width:2px}[data-rich] b,[data-rich] strong{font-weight:700}[data-rich] ul{margin:0;padding:0 0 0 16px}[data-rich] li{padding:0 0 8px}[data-rich] li::marker{color:${EMAIL_COLORS.cyan}}`;
     previewDocument.head.append(style);
     previewDocument.addEventListener("click", (event) => {
       const link = event.target.closest("a[href]");
@@ -1232,10 +1234,11 @@ function normalizeDelaWrapText(value) {
 
 function delaGroupMarkup(value) {
   const safe = normalizeDelaWrapText;
+  const delaInlineStyle = "font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:inherit;font-weight:400;letter-spacing:.02em;text-transform:uppercase;";
   return parseRichMarkup(value).map((run) => {
     let html = escapeAttr(safe(run.text));
-    if (run.tone) html = `<span style="color:${run.tone === "cyan" ? "#33bfe2" : "#BA6DE7"};">${html}</span>`;
-    if (run.pill) html = `<span style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#fff;line-height:1;white-space:nowrap;">${html}</span>`;
+    if (run.tone) html = `<span style="${delaInlineStyle}color:${run.tone === "cyan" ? EMAIL_COLORS.cyan : EMAIL_COLORS.purpleText};">${html}</span>`;
+    if (run.pill) html = `<span style="${delaInlineStyle}display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:${EMAIL_COLORS.cyan};color:#fff;line-height:1;white-space:nowrap;">${html}</span>`;
     return html;
   }).join("");
 }
@@ -1271,31 +1274,34 @@ function scheduleDelaPreviewAssets(delay = 450) {
   delaPreviewTimer = window.setTimeout(() => prepareDelaPreviewAssets(), delay);
 }
 
-async function prepareDelaPreviewAssets() {
+async function prepareDelaPreviewAssets({ refreshPreview = true } = {}) {
   if (!email) return;
-  if (delaPreviewBusy) {
-    scheduleDelaPreviewAssets();
-    return;
-  }
+  if (delaPreviewPromise) await delaPreviewPromise;
   const current = window.CALLTOUCH_DELA_ASSETS || {};
   const missing = delaTexts().filter((text) => !current[text]);
   if (!missing.length) return;
-  delaPreviewBusy = true;
-  let measureFrame;
-  try {
-    measureFrame = await createDelaMeasureFrame();
-    const map = { ...current };
-    for (const text of missing) {
-      const rendered = await renderDelaPng(text, measureFrame.contentDocument);
-      if (delaTexts().includes(text)) map[text] = { url: URL.createObjectURL(rendered.blob), width: rendered.width, height: rendered.height, local: true };
+  const task = (async () => {
+    let measureFrame;
+    try {
+      measureFrame = await createDelaMeasureFrame();
+      const map = { ...current };
+      for (const text of missing) {
+        const rendered = await renderDelaPng(text, measureFrame.contentDocument);
+        if (delaTexts().includes(text)) map[text] = { url: URL.createObjectURL(rendered.blob), width: rendered.width, height: rendered.height, local: true };
+      }
+      window.CALLTOUCH_DELA_ASSETS = map;
+      if (refreshPreview) renderPreview({ preservePosition: true });
+    } catch (error) {
+      console.warn("Не удалось подготовить локальное Dela-превью", error);
+    } finally {
+      measureFrame?.remove();
     }
-    window.CALLTOUCH_DELA_ASSETS = map;
-    renderPreview({ preservePosition: true });
-  } catch (error) {
-    console.warn("Не удалось подготовить локальное Dela-превью", error);
+  })();
+  delaPreviewPromise = task;
+  try {
+    await task;
   } finally {
-    measureFrame?.remove();
-    delaPreviewBusy = false;
+    if (delaPreviewPromise === task) delaPreviewPromise = null;
   }
 }
 
@@ -1327,7 +1333,7 @@ function delaStyle(text) {
     const content = block.content || {};
     const values = markupValues(content);
     const run = values.flatMap((value) => delaSegments(value)).find((item) => item.text.trim() === text);
-    const color = run?.tone === "cyan" ? "#33bfe2" : run?.tone === "purple" ? "#BA6DE7" : "";
+    const color = run?.tone === "cyan" ? EMAIL_COLORS.cyan : run?.tone === "purple" ? EMAIL_COLORS.purpleText : "";
     const pill = Boolean(run?.pill);
     const contains = (value) => delaSegments(value).some((item) => item.text.trim() === text);
     if (forceDelaMarkup(content.bigNumber) === text) return { size: 42, color: color || (block.type === "promo" || darkDefault ? "#ffffff" : "#084E7D") };
@@ -1480,11 +1486,17 @@ elements.fileInput.addEventListener("change", () => importFile(elements.fileInpu
 $("#backToStartButton").addEventListener("click", () => showScreen("start"));
 $$('[data-variant]').forEach((button) => button.addEventListener("click", () => enterEditor(autoVariants[Number(button.dataset.variant)])));
 
-$$('[data-preview]').forEach((button) => button.addEventListener("click", () => {
-  email.settings.preview = button.dataset.preview;
+$$('[data-preview]').forEach((button) => button.addEventListener("click", async () => {
+  const nextPreview = button.dataset.preview;
+  const request = ++previewModeRequest;
+  if (nextPreview === "mobile" && email.settings.preview !== "mobile" && delaTexts().length) {
+    showToast("Готовим мобильное Dela-превью…");
+    await prepareDelaPreviewAssets({ refreshPreview: false });
+    if (request !== previewModeRequest) return;
+  }
+  email.settings.preview = nextPreview;
   syncPreviewMode();
   renderPreview({ preservePosition: false });
-  if (email.settings.preview === "mobile") scheduleDelaPreviewAssets(100);
   persistSoon();
 }));
 elements.themePicker.addEventListener("click", (event) => {

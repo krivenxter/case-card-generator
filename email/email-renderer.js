@@ -4,7 +4,7 @@ import { BRAND_TITLE_WIDTH, renderBrandTitleMarkup } from "./email-brand-title.j
 import { forceDelaMarkup, hasDelaMarkup, normalizeRichMarkup, richPlainText } from "./email-rich-text.js";
 
 const C = EMAIL_TOKENS.colors;
-const textPurple = "#BA6DE7";
+const textPurple = C.purpleText;
 const fontBody = "Arial, Helvetica, sans-serif";
 const fontDisplay = "Arial, Helvetica, sans-serif";
 
@@ -91,7 +91,7 @@ function delaMarkup(value, preview, size = DELA_FONT_SIZES.small) {
 function inlineMarkup(value, preview, delaSize = DELA_FONT_SIZES.small) {
   return rubleSafe(normalizeRichMarkup(value))
     .replace(/\{\{dela\|([\s\S]*?)\}\}/g, (_, inner) => delaMarkup(inner, preview, delaSize))
-    .replace(/\{\{pill\|([\s\S]*?)\}\}/g, '<span data-pill="1" style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#ffffff;line-height:1;white-space:nowrap;">$1</span>')
+    .replace(/\{\{pill\|([\s\S]*?)\}\}/g, (_, inner) => `<span data-pill="1" style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:${C.cyan};color:#ffffff;line-height:1;white-space:nowrap;">${inner}</span>`)
     .replace(/\{\{(cyan|purple)\|([\s\S]*?)\}\}/g, (_, tone, inner) => `<span data-color="${tone}" style="color:${tone === "cyan" ? C.cyan : textPurple};">${inner}</span>`)
     .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\\\*/g, "*")
@@ -115,7 +115,7 @@ function bodyText(value, color = C.ink, size = 16, path = "", preview = false, l
 }
 
 function button(text, url, variant = "primary", path = "", preview = false, align = "left") {
-  const background = variant === "secondary" ? `linear-gradient(90deg,${C.cyan},${C.brightnavy})` : `linear-gradient(90deg,${C.magenta},${C.purple})`;
+  const background = variant === "secondary" ? C.cyan : `linear-gradient(90deg,${C.magenta},${C.purple})`;
   const fallback = variant === "secondary" ? C.navy : C.purple;
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;margin:0 ${align === "center" ? "auto" : "0"};"><tr><td bgcolor="${fallback}" style="background:${background};border-radius:999px;text-align:center;"><a href="${safeUrl(url)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${fontDisplay};font-size:16px;line-height:20px;font-weight:900;color:#ffffff;text-decoration:none;min-width:160px;"><span${editAttrs(preview, path)}>${rubleSafe(text || "Подробнее")}</span></a></td></tr></table>`;
 }
@@ -283,8 +283,9 @@ export function renderBlock(block, preview, darkText = false) {
 
 function renderSocial(preview) {
   const social = window.CALLTOUCH_ASSETS.social;
+  const socialFilter = preview ? "" : "filter:brightness(0) saturate(100%) invert(72%) sepia(75%) saturate(1738%) hue-rotate(155deg) brightness(77%) contrast(145%);";
   const links = Object.values(social).map((item) => {
-    const icon = item.previewSource || item.exportUrl ? `<img src="${escapeHtml(preview ? item.previewSource : item.exportUrl)}" width="31" height="31" alt="${escapeHtml(item.label)}" style="display:block;width:31px;height:31px;border:0;filter:brightness(0) saturate(100%) invert(53%) sepia(79%) saturate(1100%) hue-rotate(157deg) brightness(91%);">` : `<span style="display:block;width:31px;height:31px;border-radius:50%;background:${C.cyan};font-family:${fontBody};font-size:10px;line-height:31px;color:#ffffff;text-align:center;">MAX</span>`;
+    const icon = item.previewSource || item.exportUrl ? `<img src="${escapeHtml(preview ? item.previewSource : item.exportUrl)}" width="31" height="31" alt="${escapeHtml(item.label)}" style="display:block;width:31px;height:31px;border:0;${socialFilter}">` : `<span style="display:block;width:31px;height:31px;border-radius:50%;background:${C.cyan};font-family:${fontBody};font-size:10px;line-height:31px;color:#ffffff;text-align:center;">MAX</span>`;
     return td(`<a href="${safeUrl(item.url)}" target="_blank" style="display:block;padding:0 7px;text-decoration:none;">${icon}</a>`, "width:45px;");
   }).join("");
   return table(`<tr>${td("Подписывайтесь на нас", `font-family:${fontBody};font-size:14px;color:${C.muted};opacity:.72;text-align:center;padding-bottom:10px;`)}</tr><tr>${td(`<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 auto;"><tr>${links}</tr></table>`, "text-align:center;")}</tr>`, "width:100%;margin:0 auto;text-align:center;", 'align="center"');
