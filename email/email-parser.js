@@ -1,100 +1,231 @@
 import { createBlock, cloneEmail, createDefaultEmail } from "./email-model.js";
 
-export function parseDocument(source) {
-  const normalized = String(source || "").replace(/\r\n?/g, "\n").trim();
-  if (!normalized) return { title: "", sections: [], urls: [] };
-  const groups = normalized.split(/\n\s*\n/).map((group) => group.split("\n").map((line) => line.trim()).filter(Boolean)).filter(Boolean);
-  const lines = groups.flat();
-  const title = lines.find((line) => !isList(line) && !isUrl(line)) || lines[0] || "";
-  const urls = lines.flatMap((line) => line.match(/https?:\/\/[^\s)]+/g) || []);
-  const sections = groups.map((group) => {
-    const list = group.filter(isList).map((line) => line.replace(/^\s*(?:[-–—•*]|\d+[.)])\s*/, ""));
-    const plain = group.filter((line) => !isList(line) && !isUrl(line));
-    const heading = plain[0] && plain[0].length <= 72 ? plain[0] : "";
-    const bodyLines = heading ? plain.slice(1) : plain;
-    return { heading, body: bodyLines.join("\n"), list, urls: group.flatMap((line) => line.match(/https?:\/\/[^\s)]+/g) || []) };
-  });
-  return { title, sections, urls };
+const URL_RE = /https?:\/\/[^\s)]+/gi;
+const LABEL_RE = /^(тема|прехедер|прехидер|subject|preheader)\s*:\s*/i;
+const HEADING_RE = /^(что будем делать|обсудим|преимущества?.*|как .*\?|спецпредложение.*|.*акция.*|.*кешбэк.*|.*ассистент.*|подключить|узнать больше|открыть трансляцию)$/i;
+const CTA_RE = /^(подключить|узнать больше|открыть трансляцию|программа встречи|зарегистрироваться|оставить заявку)$/i;
+const CLOSING_RE = /^(?:старт(?:\s|$).*(?:онлайн|увидимся)|подключайтесь(?:\s|$)|смотрите(?:\s|$)|жд[её]м(?:\s|$)|до встречи(?:\s|$))/i;
+const WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+function cleanLine(value) {
+  return String(value || "").replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").trim();
+}
+
+function semanticText(value) {
+  return cleanLine(value).replace(/\*\*/g, "").replace(/__/g, "").trim();
+}
+
+function normalizeKey(value) {
+  return semanticText(value).toLowerCase().replace(/[«»"'.,:;!?()\[\]{}]/g, "").replace(/\s+/g, " ");
 }
 
 function isList(line) {
-  return /^\s*(?:[-–—•*]|\d+[.)])\s+/.test(line);
+  return /^\s*(?:[-–—•]\s+|\*\s+|\d+[.)]\s+)/.test(line);
+}
+
+function listValue(line) {
+  return cleanLine(line).replace(/^\s*(?:[-–—•]\s+|\*\s+|\d+[.)]\s+)/, "");
 }
 
 function isUrl(line) {
-  return /^https?:\/\/\S+$/.test(line);
+  return /^https?:\/\/\S+$/i.test(line);
+}
+
+function isHeading(line, index, lines) {
+  const plain = semanticText(line);
+  if (!plain || isList(line) || isUrl(line) || LABEL_RE.test(plain)) return false;
+  if (CTA_RE.test(plain) || CLOSING_RE.test(plain)) return true;
+  if (HEADING_RE.test(plain)) return true;
+  if (/:$/.test(plain)) return true;
+  const next = lines[index + 1] || "";
+  return plain.length <= 72 && next && !isList(line) && !/[.!?;]$/.test(plain) && /[А-ЯЁA-Z]/.test(plain);
+}
+
+function withoutHeadingColon(value) {
+  return cleanLine(value).replace(/:(?=\*{2}$)|:$/, "");
+}
+
+export function parseDocument(source) {
+  const lines = String(source || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/(тема\s*:\s*.+?)(?=(?:прехедер|прехидер|preheader)\s*:)/gi, "$1\n")
+    .split("\n")
+    .map(cleanLine)
+    .filter(Boolean);
+  const urls = [...new Set(lines.flatMap((line) => line.match(URL_RE) || []))];
+  const meta = { subject: "", preheader: "" };
+  const contentLines = [];
+  const footnotes = [];
+  lines.forEach((line) => {
+    const match = line.match(LABEL_RE);
+    if (match) {
+      const value = line.slice(match[0].length).trim();
+      if (/тема|subject/i.test(match[1])) meta.subject = value;
+      else meta.preheader = value;
+    } else if (/^\*(?!\*)\S/.test(line)) {
+      footnotes.push(line);
+    } else {
+      const inlineSection = line.match(/^([^:]{2,72}):\s+(.+)$/) || line.match(/^((?:место|дата и время|с собой))\s+[—–-]\s+(.+)$/i);
+      if (inlineSection) contentLines.push(`${inlineSection[1]}:`, inlineSection[2]);
+      else contentLines.push(line);
+    }
+  });
+
+  const sections = [];
+  let current = { heading: "", body: [], list: [], urls: [] };
+  const push = () => {
+    if (current.heading || current.body.length || current.list.length) sections.push({ ...current, body: current.body.join("\n") });
+    current = { heading: "", body: [], list: [], urls: [] };
+  };
+  contentLines.forEach((line, index) => {
+    if (isHeading(line, index, contentLines)) {
+      if (current.heading || current.body.length || current.list.length) push();
+      current.heading = withoutHeadingColon(line);
+      return;
+    }
+    if (isList(line)) current.list.push(listValue(line));
+    else if (current.heading && /что будем делать|обсудим|преимств/i.test(semanticText(current.heading)) && (/;$/.test(line) || current.list.length)) current.list.push(line);
+    else {
+      current.body.push(line);
+      current.urls.push(...(line.match(URL_RE) || []));
+    }
+  });
+  push();
+
+  const title = meta.subject || "";
+  const intro = sections.find((section) => !section.heading && section.body)?.body || "";
+  return { title: title.slice(0, 180), preheader: meta.preheader, intro, sections, footnotes, urls, primaryUrl: urls[0] || "{{cta_url}}" };
 }
 
 export function normalizeContent(parsed) {
-  const sections = parsed.sections.filter((section, index) => index > 0 || section.heading !== parsed.title || section.body || section.list.length);
-  return {
-    title: parsed.title.slice(0, 180) || "Заголовок письма",
-    intro: sections.find((section) => section.body)?.body || "",
-    sections,
-    primaryUrl: parsed.urls[0] || "{{cta_url}}",
-    ctaCandidate: findCtaCandidate(sections)
-  };
+  const seen = new Set();
+  const sections = parsed.sections.map((section) => ({
+    ...section,
+    heading: cleanLine(section.heading),
+    body: cleanLine(section.body),
+    list: section.list.map(cleanLine).filter(Boolean)
+  })).filter((section) => {
+    const key = normalizeKey([section.heading, section.body, ...section.list].join("|"));
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { ...parsed, sections, title: parsed.title || "", ctaCandidate: findCtaCandidate(sections) };
 }
 
 function findCtaCandidate(sections) {
-  const candidates = sections.flatMap((section) => [section.heading, ...section.list]).filter(Boolean);
-  return candidates.reverse().find((line) => line.length <= 34 && /узна|подключ|заяв|регистр|получ|попроб|смотр|читать/i.test(line)) || "Узнать больше";
+  const candidates = sections.flatMap((section) => [section.heading, section.body, ...section.list]).filter(Boolean);
+  return candidates.find((line) => CTA_RE.test(semanticText(line)) || CLOSING_RE.test(semanticText(line)) || /^(зарегистр|попробовать)/i.test(semanticText(line)))
+    || candidates.find((line) => semanticText(line).length <= 70 && /подключ|заяв|регистр|получ|попроб|смотр|читать|открыть/i.test(semanticText(line)))
+    || "";
+}
+
+function sectionText(section) {
+  return [section.heading, section.body, section.list.map((item) => `- ${item}`).join("\n")].filter(Boolean).join("\n\n");
+}
+
+function isOfferSection(section) {
+  return /акци|спецпредлож|кешбэк|0\s*₽|бесплатн|без затрат/i.test(semanticText(`${section.heading} ${section.body}`));
+}
+
+function isBenefitsSection(section) {
+  return /преимуществ|поможет|почему|что будем делать|обсудим/i.test(semanticText(section.heading)) && section.list.length >= 2;
+}
+
+function isLogistics(section) {
+  return /^(место|дата и время)$/i.test(semanticText(section.heading));
+}
+
+function isCtaSection(section, ctaCandidate) {
+  return !section.list.length && !section.body && normalizeKey(section.heading) === normalizeKey(ctaCandidate);
+}
+
+function importedImageBlocks(images) {
+  return images.map((image, index) => createBlock("image", { id: `imported-image-${index + 1}`, content: { image, alt: image.label || `Изображение ${index + 1}`, linkUrl: "" } }));
 }
 
 function sectionBlocks(content, editorial = false) {
-  const assetList = window.CALLTOUCH_ASSETS.visuals;
-  const sourceSections = content.sections.filter((section) => section.heading !== content.title).slice(0, 4);
-  if (!sourceSections.length && content.intro) return [createBlock("text", { content: { body: content.intro } })];
-  return sourceSections.map((section, index) => {
-    const body = [section.body, section.list.map((item) => `— ${item}`).join("\n")].filter(Boolean).join("\n");
-    if (editorial) {
-      return createBlock(index % 2 ? "featureCard" : "imageText", {
-        variant: index % 2 ? "image-right" : "image-left",
-        content: { heading: section.heading || `Раздел ${index + 1}`, body: body || "Добавьте описание.", image: assetList[index % assetList.length] }
-      });
+  const assetList = window.CALLTOUCH_ASSETS.visuals || [];
+  const blocks = [];
+  const used = new Set();
+  const logistics = content.sections.filter(isLogistics);
+  content.sections.forEach((section, index) => {
+    const text = sectionText(section);
+    const key = normalizeKey(text);
+    if (!text || used.has(key)) return;
+    used.add(key);
+    if (!section.heading && section.body === content.intro) return;
+    if (isCtaSection(section, content.ctaCandidate)) return;
+    if (isLogistics(section)) return;
+    if (isOfferSection(section)) {
+      blocks.push(createBlock("promo", { variant: "dark", content: { eyebrow: section.heading || "Специальное предложение", heading: section.heading || content.title, offer: section.list[0] || "", body: section.body, ctaText: content.ctaCandidate, ctaUrl: content.primaryUrl, image: assetList[0] } }));
+    } else if (!editorial && isBenefitsSection(section)) {
+      blocks.push(createBlock("text", { content: { plate: "1", listStyle: "number", body: sectionText(section) } }));
+    } else if (editorial) {
+      blocks.push(createBlock("text", { content: { plate: index % 2 ? "1" : "", listStyle: section.list.length ? "bullet" : "bullet", body: text } }));
+    } else {
+      blocks.push(createBlock("text", { content: { body: text } }));
     }
-    if (section.list.length >= 2) {
-      const items = section.list.slice(0, 4).map((item, itemIndex) => ({ heading: item.length < 44 ? item : `Преимущество ${itemIndex + 1}`, body: item.length < 44 ? "" : item }));
-      while (items.length < 4) items.push({ heading: "", body: "" });
-      return createBlock("iconGrid", { content: { items } });
-    }
-    return createBlock("featureCard", { variant: index % 2 ? "image-right" : "image-left", content: { heading: section.heading || `Раздел ${index + 1}`, body: body || "Добавьте описание.", image: assetList[index % assetList.length] } });
   });
+  if (!editorial && logistics.length) {
+    blocks.push(createBlock("iconGrid", { content: { items: logistics.slice(0, 4).map((section) => ({ heading: section.heading, body: section.body, iconId: /дата/i.test(semanticText(section.heading)) ? "clock" : "house" })) } }));
+  }
+  return blocks;
 }
 
-export function buildLayoutVariantA(content) {
+function addOnce(blocks, block, key) {
+  if (!key) return;
+  if (!blocks.some((item) => normalizeKey(item.content?.heading || item.content?.body) === normalizeKey(key))) blocks.push(block);
+}
+
+function addImportedTitle(blocks, content, subtitle = "") {
+  if (content.title) blocks.push(createBlock("title", { variant: "plain", content: { heading: content.title, subtitle, accent: "" } }));
+}
+
+function addImportedCta(blocks, content, variant = "dark") {
+  if (content.ctaCandidate) addOnce(blocks, createBlock("ctaCard", { variant, content: { heading: content.ctaCandidate, subtitle: "", ctaText: "", ctaUrl: content.primaryUrl } }), content.ctaCandidate);
+}
+
+export function buildLayoutVariantA(content, images = []) {
   const email = createDefaultEmail();
-  email.meta.title = content.title;
-  email.blocks = [
-    createBlock("title", { variant: "accent", content: { heading: content.title, subtitle: content.intro, accent: "" } }),
-    createBlock("promo", { variant: "dark", content: { eyebrow: "Calltouch", heading: content.title, body: content.intro || "Главное предложение письма", offer: "", ctaText: content.ctaCandidate, ctaUrl: content.primaryUrl, image: window.CALLTOUCH_ASSETS.visuals[0] } }),
-    ...sectionBlocks(content, false),
-    createBlock("ctaCard", { content: { heading: content.ctaCandidate, subtitle: "Узнайте подробности на сайте Calltouch.", ctaText: content.ctaCandidate, ctaUrl: content.primaryUrl } })
-  ];
+  email.meta.title = content.title || "Письмо";
+  email.meta.preheader = content.preheader;
+  email.footnotes = (content.footnotes || []).map((text, index) => ({ id: `imported-footnote-${index + 1}`, text: text.replace(/^\*+\s*/, "") }));
+  const blocks = [];
+  addImportedTitle(blocks, content, content.intro);
+  blocks.push(...importedImageBlocks(images));
+  if (!content.title && content.intro) blocks.push(createBlock("text", { content: { body: content.intro } }));
+  sectionBlocks(content, false).forEach((block) => addOnce(blocks, block, block.content?.heading || block.content?.body));
+  addImportedCta(blocks, content);
+  email.blocks = blocks;
   return email;
 }
 
-export function buildLayoutVariantB(content) {
+export function buildLayoutVariantB(content, images = []) {
   const email = createDefaultEmail();
   email.settings.theme = "editorial";
-  email.meta.title = content.title;
-  email.blocks = [
-    createBlock("title", { variant: "plain", content: { heading: content.title, subtitle: "", accent: "" } }),
-    ...(content.intro ? [createBlock("text", { content: { body: content.intro } })] : []),
-    ...sectionBlocks(content, true),
-    createBlock("button", { content: { text: content.ctaCandidate, url: content.primaryUrl } })
-  ];
+  email.meta.title = content.title || "Письмо";
+  email.meta.preheader = content.preheader;
+  email.footnotes = (content.footnotes || []).map((text, index) => ({ id: `imported-footnote-${index + 1}`, text: text.replace(/^\*+\s*/, "") }));
+  const blocks = [];
+  addImportedTitle(blocks, content);
+  blocks.push(...importedImageBlocks(images));
+  if (!content.title && content.intro) blocks.push(createBlock("text", { content: { body: content.intro, plate: "1" } }));
+  sectionBlocks(content, true).forEach((block) => addOnce(blocks, block, block.content?.heading || block.content?.body));
+  addImportedCta(blocks, content, "light");
+  email.blocks = blocks;
   return email;
 }
 
-export function buildAutoVariants(text) {
-  const content = normalizeContent(parseDocument(text));
-  return [buildLayoutVariantA(content), buildLayoutVariantB(content)].map(cloneEmail);
+export function buildAutoVariants(source) {
+  const payload = typeof source === "string" ? { text: source, images: [] } : source;
+  const content = normalizeContent(parseDocument(payload.text));
+  return [buildLayoutVariantA(content, payload.images || []), buildLayoutVariantB(content, payload.images || [])].map(cloneEmail);
 }
 
 export async function readImportedFile(file) {
   const extension = file.name.split(".").pop()?.toLowerCase();
-  if (extension === "txt") return file.text();
+  if (extension === "txt") return { text: await file.text(), images: [] };
   if (extension !== "docx") throw new Error("Поддерживаются только DOCX и TXT.");
   if (!window.JSZip) throw new Error("Модуль чтения DOCX не загрузился.");
   const archive = await window.JSZip.loadAsync(await file.arrayBuffer());
@@ -102,12 +233,26 @@ export async function readImportedFile(file) {
   if (!documentFile) throw new Error("В DOCX не найден текст документа.");
   const xml = await documentFile.async("string");
   const documentXml = new DOMParser().parseFromString(xml, "application/xml");
-  return [...documentXml.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "p")]
+  const text = [...documentXml.getElementsByTagNameNS(WORD_NS, "p")]
     .map((paragraph) => {
-      const text = [...paragraph.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "t")].map((node) => node.textContent || "").join("");
-      const isNumbered = paragraph.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "numPr").length > 0;
-      return isNumbered ? `- ${text}` : text;
+      const value = [...paragraph.getElementsByTagNameNS(WORD_NS, "r")].map((run) => {
+        const runText = [...run.getElementsByTagNameNS(WORD_NS, "t")].map((node) => node.textContent || "").join("");
+        const bold = run.getElementsByTagNameNS(WORD_NS, "b").length > 0 || run.getElementsByTagNameNS(WORD_NS, "bCs").length > 0;
+        return bold && runText ? `**${runText}**` : runText;
+      }).join("");
+      const isNumbered = paragraph.getElementsByTagNameNS(WORD_NS, "numPr").length > 0;
+      return isNumbered ? `- ${value}` : value;
     })
+    .map(cleanLine)
     .filter(Boolean)
-    .join("\n\n");
+    .join("\n");
+  const mimeByExtension = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+  const images = await Promise.all(Object.keys(archive.files)
+    .filter((path) => /^word\/media\//i.test(path))
+    .map(async (path, index) => {
+      const imageExtension = path.split(".").pop()?.toLowerCase();
+      const base64 = await archive.file(path).async("base64");
+      return { id: `imported-docx-image-${index + 1}`, label: `Изображение из ${file.name}`, previewSource: `data:${mimeByExtension[imageExtension] || "application/octet-stream"};base64,${base64}`, exportUrl: "" };
+    }));
+  return { text, images };
 }

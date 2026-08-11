@@ -54,7 +54,7 @@
 .email-start, .email-variants { min-height: 100%; padding: 72px clamp(22px, 6vw, 96px); box-sizing: border-box; background: radial-gradient(circle at 85% 10%, rgba(36,184,220,.16), transparent 34%), #f5f8f9; }
 .email-start__intro, .email-variants > header { max-width: 760px; margin: 0 auto 42px; text-align: center; }
 .email-start__intro p, .email-variants > header p, .email-dialog header p, .email-sidebar__global p { margin: 0 0 10px; color: var(--email-cyan); font-size: 12px; font-weight: 900; letter-spacing: .16em; }
-.email-start h1, .email-variants h1 { margin: 0; color: var(--email-navy); font: 400 clamp(38px, 6vw, 72px)/.98 "Dela Gothic One", "Arial Black", sans-serif; }
+.email-start h1, .email-variants h1 { margin: 0; color: var(--email-navy); font: 400 clamp(38px, 4vw, 72px)/.98 "Dela Gothic One", "Arial Black", sans-serif; }
 .email-start__intro span, .email-variants > header span { display: block; margin-top: 18px; color: #68757b; font-size: 18px; line-height: 1.5; }
 .email-start__choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1040px; margin: 0 auto; gap: 18px; }
 .email-start__choices button, .email-start__file { position: relative; display: flex; min-height: 230px; padding: 28px; flex-direction: column; align-items: flex-start; gap: 12px; border: 1px solid var(--email-border); border-radius: 22px; color: #1f282c; background: #fff; text-align: left; cursor: pointer; box-shadow: 0 16px 44px rgba(31,40,44,.06); transition: transform .16s ease, border-color .16s ease; }
@@ -71,7 +71,7 @@
 
 .email-variants { padding-top: 44px; }
 .email-variants > header { margin-bottom: 28px; }
-.email-variants h1 { font-size: clamp(34px, 5vw, 58px); }
+.email-variants h1 { font-size: clamp(32px, 4vw, 52px); }
 .email-variants__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 1120px; margin: 0 auto; gap: 22px; }
 .email-variants article { position: relative; padding: 24px; border: 1px solid var(--email-border); border-radius: 24px; background: #fff; }
 .email-variants article h2 { margin: 14px 0 7px; color: var(--email-navy); font: 400 24px/1 "Dela Gothic One", "Arial Black", sans-serif; }

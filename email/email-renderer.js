@@ -50,7 +50,8 @@ function displayText(value, color = C.navy, size = 24, align = "left", path = ""
     .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\\\*/g, "*")
     .replace(/%%([\s\S]*?)%%/g, (_, inner) => delaMarkup(inner, preview))
-    .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+    .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>')
+    .replace(/\n/g, "<br>");
   return `<div${editAttrs(preview, path)} style="font-family:Arial,Helvetica,sans-serif;font-size:${size}px;line-height:1.2;font-weight:700;color:${color};text-align:${align};word-break:break-word;">${text}</div>`;
 }
 
@@ -202,7 +203,7 @@ function renderCtaCard(block, preview) {
   const background = light ? "#ffffff" : gradient ? `radial-gradient(circle at 100% 100%,${C.purple} 0%,rgba(156,46,221,.72) 0%,${C.navy} 64%)` : C.navy;
   const color = light ? C.navy : "#ffffff";
   const fallbackBackground = light ? "#ffffff" : C.navy;
-  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;">${displayText(block.content.heading, color, 24, "left", "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview)}</div>`, "transparent", "0 0 24px");
+  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;">${displayText(block.content.heading, color, 24, "left", "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${block.content.ctaText ? button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview) : ""}</div>`, "transparent", "0 0 24px");
 }
 
 function renderButton(block, preview) {

@@ -207,6 +207,46 @@ function richToMarkdown(root) {
   return [...root.childNodes].map(walk).join("").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim();
 }
 
+function typographText(value, delaMode = false) {
+  const protectedParts = [];
+  const protect = (text) => text.replace(/https?:\/\/[^\s)]+|\{\{[a-z0-9_]+\}\}/gi, (match) => `\u0000${protectedParts.push(match) - 1}\u0000`);
+  const restore = (text) => text.replace(/\u0000(\d+)\u0000/g, (_, index) => protectedParts[Number(index)]);
+  const result = protect(String(value || ""))
+    .replace(/\.{3}/g, "…")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/([,;:!?])(?=\S)/g, "$1 ")
+    .replace(/\s+[–-]\s+/g, " — ")
+    .replace(/(^|[\s(«])([А-Яа-яЁёA-Za-z])\s+(?=\S)/g, "$1$2\u00A0")
+    .replace(/(\d)\s+(?=(?:₽|руб\.?|%|px|г\.|ч\.|мин\.|дн\.)\b)/gi, "$1\u00A0")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n");
+  const isDelaText = delaMode || result.includes("%%");
+  const lineBroken = isDelaText
+    ? result
+        .replace(/([.!?])[\s\u00A0]+(?=[А-ЯЁA-Z])/g, "$1\n")
+        .replace(/(\d{1,2}[.:]\d{2}\.)[\s\u00A0]+(?=Увидимся\b)/iu, "$1\n")
+    : result;
+  const orphanSafe = isDelaText
+    ? lineBroken.replace(/(\S+)[ \t]+(\S+)[ \t]+(\S+)([.!?…]?)$/gm, "$1\u00A0$2\u00A0$3$4")
+    : lineBroken.replace(/(\S+)[ \t]+(\S+)([.!?…]?)$/gm, "$1\u00A0$2$3");
+  return restore(orphanSafe);
+}
+
+function typographEmail(project) {
+  const normalized = cloneEmail(project);
+  const walk = (value, key = "") => {
+    if (typeof value === "string") return /(?:url|source|signature|renderedat|^id$)/i.test(key) ? value : typographText(value);
+    if (Array.isArray(value)) return value.map((item) => walk(item));
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, walk(childValue, childKey)]));
+    return value;
+  };
+  normalized.meta = walk(normalized.meta);
+  normalized.blocks = walk(normalized.blocks);
+  normalized.footnotes = walk(normalized.footnotes);
+  return normalized;
+}
+
 function isRichEditNode(node) {
   if (!/\.(body|subtitle|heading)$/.test(node.dataset.editPath || "")) return false;
   const block = email.blocks.find((item) => item.id === node.closest("[data-block-id]")?.dataset.blockId);
@@ -233,14 +273,70 @@ function ensureEditToolbar(previewDocument) {
   const toolbar = previewDocument.createElement("div");
   const buttonStyle = "min-width:26px;height:24px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:#fff;font:700 13px/1 Arial,sans-serif;cursor:pointer;";
   toolbar.style.cssText = "position:absolute;z-index:60;display:none;gap:2px;padding:3px;border-radius:9px;background:#084E7D;box-shadow:0 8px 20px rgba(31,40,44,.3);";
-  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" style="${buttonStyle}">B</button><button type="button" data-cmd="dela" title="Шрифт Dela" style="${buttonStyle};font-family:'Dela Gothic One',Arial Black,Arial,sans-serif;">D</button><button type="button" data-cmd="link" title="Ссылка" style="${buttonStyle}">🔗</button><button type="button" data-cmd="list" title="Список с пунктами" style="${buttonStyle}">•</button>`;
+  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" style="${buttonStyle}">B</button><button type="button" data-cmd="dela" title="Шрифт Dela" style="${buttonStyle};font-family:'Dela Gothic One',Arial Black,Arial,sans-serif;">D</button><button type="button" data-cmd="link" title="Ссылка" style="${buttonStyle}">🔗</button><button type="button" data-cmd="list" title="Список с пунктами" style="${buttonStyle}">•</button><button type="button" data-cmd="break" title="Ручной перенос строки" style="${buttonStyle}">↵</button><button type="button" data-cmd="typograph" title="Типограф" style="${buttonStyle}">Т</button>`;
   previewDocument.body.append(toolbar);
   toolbar.addEventListener("mousedown", (event) => event.preventDefault());
   let savedRange = null;
   toolbar.addEventListener("click", async (event) => {
     const command = event.target.closest("[data-cmd]")?.dataset.cmd;
-    if (!command) return;
-    if (command === "bold") previewDocument.execCommand("bold");
+   if (!command) return;
+   if (command === "bold") previewDocument.execCommand("bold");
+    if (command === "break") {
+      const range = savedRange?.cloneRange();
+      if (range) {
+        range.deleteContents();
+        const lineBreak = previewDocument.createElement("br");
+        range.insertNode(lineBreak);
+        range.setStartAfter(lineBreak);
+        range.collapse(true);
+        const selection = previewDocument.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        const editable = lineBreak.parentElement?.closest("[data-rich]");
+        editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertLineBreak", data: null }));
+      }
+      return;
+    }
+    if (command === "typograph") {
+      const range = savedRange?.cloneRange();
+      const selected = range?.toString() || "";
+      if (range && selected) {
+        const editable = (range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement)?.closest("[data-rich]");
+        const editedBlock = email.blocks.find((item) => item.id === editable?.closest("[data-block-id]")?.dataset.blockId);
+        const editPath = editable?.dataset.editPath;
+        const currentValue = editedBlock && editPath ? editPath.split(".").reduce((value, key) => value?.[key], editedBlock) : "";
+        if (typeof currentValue === "string" && currentValue.includes("%%")) {
+          setPath(editedBlock, editPath, typographText(currentValue, true));
+          updatePreviewBlock(editedBlock);
+          renderBlockList();
+          renderBlockEditor();
+          return;
+        }
+        const selection = previewDocument.getSelection();
+        const selectedElement = selection?.anchorNode?.nodeType === 1 ? selection.anchorNode : selection?.anchorNode?.parentElement;
+        const rangeElement = range.commonAncestorContainer?.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer?.parentElement;
+        const delaParent = selectedElement?.closest("[data-dela]") || rangeElement?.closest("[data-dela]");
+        const strongParent = selectedElement?.closest("strong,b") || rangeElement?.closest("strong,b");
+        range.deleteContents();
+        const formatted = delaParent ? previewDocument.createElement("span") : strongParent ? previewDocument.createElement("strong") : null;
+        if (formatted) {
+          if (delaParent) {
+            formatted.dataset.dela = "1";
+            formatted.style.cssText = "font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;";
+          }
+          formatted.textContent = typographText(selected, Boolean(delaParent));
+          range.insertNode(formatted);
+        } else {
+          range.insertNode(previewDocument.createTextNode(typographText(selected)));
+        }
+        editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: selected }));
+        if (editedBlock) {
+          updatePreviewBlock(editedBlock);
+          renderBlockList();
+          renderBlockEditor();
+        }
+      }
+    }
     if (command === "dela") {
       const selection = previewDocument.getSelection();
       const selected = selection?.toString().trim();
@@ -283,7 +379,7 @@ function ensureEditToolbar(previewDocument) {
     const selection = previewDocument.getSelection();
     const anchor = selection?.anchorNode;
     const element = anchor ? (anchor.nodeType === 1 ? anchor : anchor.parentElement) : null;
-    if (!selection || selection.isCollapsed || !element?.closest?.("[data-rich]")) {
+    if (!selection || !element?.closest?.("[data-rich]")) {
       toolbar.style.display = "none";
       return;
     }
@@ -459,7 +555,7 @@ function renderBlockList() {
 function field(label, path, value, { type = "text", rows = 0, hint = "", options = null } = {}) {
   let control = "";
   if (options) control = `<select data-field="${path}">${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${value === optionValue ? " selected" : ""}>${optionLabel}</option>`).join("")}</select>`;
-  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)"><b>B</b></button><button type="button" data-fmt="dela" title="Шрифт Dela" style="font-family:'Dela Gothic One',Arial Black,Arial,sans-serif;">D</button><button type="button" data-fmt="link" title="Ссылка">🔗</button><button type="button" data-fmt="list" title="Список с пунктами">•</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
+  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)"><b>B</b></button><button type="button" data-fmt="dela" title="Шрифт Dela" style="font-family:'Dela Gothic One',Arial Black,Arial,sans-serif;">D</button><button type="button" data-fmt="link" title="Ссылка">🔗</button><button type="button" data-fmt="list" title="Список с пунктами">•</button><button type="button" data-fmt="break" title="Ручной перенос строки">↵</button><button type="button" data-fmt="typograph" title="Типограф">Т</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
   else control = `<input data-field="${path}" type="${type}" value="${escapeAttr(value)}">`;
   return `<label class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</label>`;
 }
@@ -819,8 +915,8 @@ async function publishBrandImage(block, button) {
 async function importFile(file) {
   if (!file) return;
   try {
-    const text = await readImportedFile(file);
-    buildVariants(text);
+    const imported = await readImportedFile(file);
+    buildVariants(imported);
   } catch (error) {
     showToast(error.message || "Не удалось прочитать файл.");
   } finally {
@@ -828,12 +924,13 @@ async function importFile(file) {
   }
 }
 
-function buildVariants(text) {
+function buildVariants(source) {
+  const text = typeof source === "string" ? source : source?.text || "";
   if (!text.trim()) {
     showToast("Добавьте текст письма.");
     return;
   }
-  autoVariants = buildAutoVariants(text);
+  autoVariants = buildAutoVariants(source);
   elements.variantFrames.forEach((frame, index) => { frame.srcdoc = renderEmailDocument(autoVariants[index], { preview: true }); });
   showScreen("variants");
 }
@@ -1005,7 +1102,7 @@ $$('[data-variant]').forEach((button) => button.addEventListener("click", () => 
 
 $$('[data-preview]').forEach((button) => button.addEventListener("click", () => { email.settings.preview = button.dataset.preview; syncPreviewMode(); persistSoon(); }));
 elements.theme.addEventListener("change", () => { email.settings.theme = elements.theme.value; commitChange(); });
-$("#normalizeButton").addEventListener("click", () => { email = normalizeEmailDesign(email); commitChange({ rerenderEditor: true }); showToast("Дизайн нормализован."); });
+$("#normalizeButton").addEventListener("click", () => { email = typographEmail(normalizeEmailDesign(email)); commitChange({ rerenderEditor: true }); showToast("Письмо приведено в порядок: стили и типографика обновлены."); });
 
 elements.blockList.addEventListener("click", (event) => {
   const row = event.target.closest("[data-block-id]");
@@ -1100,6 +1197,14 @@ elements.blockEditor.addEventListener("click", async (event) => {
       const lines = (selected || "пункт списка").split("\n");
       const allList = lines.every((line) => !line.trim() || /^\s*[-–—•]\s*/.test(line));
       replacement = lines.map((line) => allList ? line.replace(/^\s*[-–—•]\s*/, "") : line.trim() ? `- ${line}` : line).join("\n");
+    } else if (fmtButton.dataset.fmt === "break") {
+      replacement = "\n";
+    } else if (fmtButton.dataset.fmt === "typograph") {
+      replacement = typographText(selected || textarea.value);
+      textarea.setRangeText(replacement, selected ? start : 0, selected ? end : textarea.value.length, "select");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      textarea.focus();
+      return;
     } else {
       const url = await askLinkUrl();
       if (!url) return;
