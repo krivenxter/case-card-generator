@@ -1297,7 +1297,7 @@ function createCreativeCanvas(format) {
       <header class="creative-topbar">
         <div class="creative-logo creative-animated-element">
           <img alt="Calltouch">
-          <span class="creative-logo__fallback">CALLTOUCH</span>
+          <span class="creative-logo__fallback">Calltouch</span>
         </div>
       </header>
       <div class="creative-body">

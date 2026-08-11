@@ -1,10 +1,30 @@
 import { isBrandScenePublished } from "./email-brand-scene.js";
 import { isBrandTitlePublished } from "./email-brand-title.js";
-import { delaSegments, forceDelaMarkup, hasDelaMarkup, richPlainText } from "./email-rich-text.js";
+import { delaSegments, forceDelaMarkup, hasDelaMarkup, parseRichMarkup, richPlainText } from "./email-rich-text.js";
 
 function visibleText(value = "") {
   return richPlainText(value)
     .replace(/\[([^\]]+)]\(https:\/\/[^)\s]+\)/g, "$1");
+}
+
+function isFullyBrandedHeading(value = "") {
+  const runs = parseRichMarkup(value).filter((run) => run.text.trim());
+  return runs.length > 0 && runs.every((run) => run.dela);
+}
+
+export function unbrandedHeadingLabels(email) {
+  const headingTypes = new Set(["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"]);
+  const labels = [];
+  email.blocks.forEach((block, index) => {
+    if (block.settings?.hidden) return;
+    const heading = String(block.content?.heading || "");
+    if (headingTypes.has(block.type) && heading.trim() && !isFullyBrandedHeading(heading)) labels.push(`Блок ${index + 1}`);
+    if (block.type === "iconGrid") (block.content?.items || []).forEach((item, itemIndex) => {
+      const itemHeading = String(item.heading || "");
+      if (itemHeading.trim() && !isFullyBrandedHeading(itemHeading)) labels.push(`Блок ${index + 1}, преимущество ${itemIndex + 1}`);
+    });
+  });
+  return labels;
 }
 
 function delaAssetKeys(email) {
@@ -74,10 +94,12 @@ export function validateEmail(email) {
   });
   if (!email.blocks.length) errors.push("В письме нет пользовательских блоков.");
   if (ctaBlocks.length > 3) warnings.push("В письме больше трёх конкурирующих CTA.");
+  const unbrandedHeadings = unbrandedHeadingLabels(email);
+  if (unbrandedHeadings.length) warnings.push(`Не забрендировано заголовков: ${unbrandedHeadings.length}. Нажмите «Забрендировать заголовки».`);
   const delaKeys = delaAssetKeys(email);
   const assets = typeof window !== "undefined" ? window.CALLTOUCH_DELA_ASSETS || {} : {};
   const missingDela = delaKeys.filter((key) => !assets[key]);
   if (missingDela.length) warnings.push(`Не удалось подготовить Dela-PNG: ${missingDela.length}. Нажмите «Проверить и экспортировать» ещё раз.`);
   if (email.blocks.some((block) => block.type === "promo") && email.blocks[0]?.type === "button") warnings.push("Основная кнопка стоит раньше заголовка.");
-  return { errors, warnings };
+  return { errors, warnings, unbrandedHeadings };
 }

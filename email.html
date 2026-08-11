@@ -13,7 +13,7 @@
 <body class="email-page" data-theme="light">
   <header class="email-toolbar">
     <a class="app-brand" href="index.html#banners" aria-label="К генераторам Calltouch">
-      <span>CALLTOUCH</span>
+      <span>Calltouch</span>
       <strong>Генераторы</strong>
     </a>
     <nav class="email-toolbar__nav" aria-label="Генераторы">
@@ -81,7 +81,7 @@
       </aside>
       <section class="email-workspace">
         <div class="email-workspace__status"><span id="saveStatus">Сохранено на этом устройстве</span><div class="email-workspace__controls"><div class="email-segmented email-preview-mode" role="group" aria-label="Размер предпросмотра"><button class="is-active" type="button" data-preview="desktop"><i data-lucide="monitor"></i><span>Компьютер</span></button><button type="button" data-preview="mobile"><i data-lucide="smartphone"></i><span>Телефон</span></button></div><div class="email-canvas-controls"><button id="zoomOutButton" type="button" aria-label="Уменьшить масштаб">−</button><output id="zoomIndicator">100%</output><button id="zoomInButton" type="button" aria-label="Увеличить масштаб">+</button><button id="resetCanvasButton" type="button">Вписать</button></div></div><span id="previewModeLabel">Компьютер · 660 px</span></div>
-        <div class="email-preview-stage" id="previewStage" title="Ctrl + колесо — масштаб. Пробел или средняя кнопка мыши — перемещение по холсту."><div class="email-preview-canvas" id="previewCanvas"><iframe id="emailPreview" title="Предпросмотр письма"></iframe></div></div>
+        <div class="email-preview-stage" id="previewStage" title="Ctrl + колесо — масштаб. Пробел или средняя кнопка мыши — перемещение по холсту."><div class="email-preview-canvas" id="previewCanvas"><iframe id="emailPreview" title="Предпросмотр письма"></iframe></div><button class="email-button email-button--quiet email-onboarding-trigger" id="onboardingButton" type="button"><i data-lucide="circle-help"></i><span>Как пользоваться</span></button></div>
       </section>
     </section>
   </main>
@@ -90,13 +90,23 @@
     <form method="dialog"><header><div><p>БИБЛИОТЕКА БЛОКОВ</p><h2>Добавить блок</h2></div><button value="cancel" aria-label="Закрыть">×</button></header><div id="blockLibrary"></div></form>
   </dialog>
   <dialog class="email-dialog email-asset-dialog" id="assetDialog">
-    <form method="dialog"><header><div><p>ОБЩАЯ БИБЛИОТЕКА</p><h2>Выберите изображение</h2></div><button value="cancel" aria-label="Закрыть">×</button></header><section class="email-custom-asset"><h3>Своё изображение</h3><p>Просто выберите файл с компьютера и нажмите «Использовать» — картинка сама загрузится в облако и получит публичную ссылку. Больше ничего делать не нужно.</p><label>Шаг 1. Выберите файл (PNG, JPEG, WebP, GIF до 2 МБ)<span class="email-file-input"><input id="customAssetFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"><span class="email-file-input__button">Выбрать файл</span><span class="email-file-input__name" id="customAssetFileName">Файл не выбран</span></span></label><label>Своя публичная ссылка — только если файл больше 2 МБ<input id="customAssetUrl" type="url" placeholder="https://cdn.example.com/image.png"></label><button class="email-button email-button--primary" id="applyCustomAssetButton" type="button">Использовать</button><img class="email-custom-asset__preview" id="customAssetPreview" alt="Превью выбранного файла" hidden></section><div class="email-asset-grid" id="assetGrid"></div></form>
+    <form method="dialog"><header><div><p>ОБЩАЯ БИБЛИОТЕКА</p><h2>Выберите изображение</h2></div><button value="cancel" aria-label="Закрыть">×</button></header><section class="email-custom-asset"><h3>Своё изображение</h3><p>Просто выберите файл с компьютера и нажмите «Применить» — картинка сама загрузится в облако и получит публичную ссылку. Больше ничего делать не нужно.</p><label>Шаг 1. Выберите файл (PNG, JPEG, WebP, GIF до 2 МБ)<span class="email-file-input"><input id="customAssetFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"><span class="email-file-input__button">Выбрать файл</span><span class="email-file-input__name" id="customAssetFileName">Файл не выбран</span></span></label><label>Своя публичная ссылка — только если файл больше 2 МБ<input id="customAssetUrl" type="url" placeholder="https://cdn.example.com/image.png"></label><button class="email-button email-button--primary" id="applyCustomAssetButton" type="button">Применить</button><img class="email-custom-asset__preview" id="customAssetPreview" alt="Превью выбранного файла" hidden></section><div class="email-asset-grid" id="assetGrid"></div></form>
   </dialog>
   <dialog class="email-dialog email-quality-dialog" id="qualityDialog">
     <form method="dialog"><header><div><p>ПРОВЕРКА ПЕРЕД ЭКСПОРТОМ</p><h2 id="qualityTitle">Письмо готово ✓</h2></div><button value="cancel" aria-label="Закрыть">×</button></header><div id="qualityResults"></div><details><summary>Показать HTML-код</summary><textarea id="codePreview" readonly rows="12"></textarea></details><footer><button class="email-button email-button--quiet" id="copyHtmlButton" type="button">Копировать HTML</button><button class="email-button email-button--primary" id="downloadHtmlButton" type="button">Скачать HTML</button></footer></form>
   </dialog>
   <dialog class="email-dialog email-link-dialog" id="linkDialog">
     <form method="dialog"><header><div><p>ФОРМАТИРОВАНИЕ ТЕКСТА</p><h2>Ссылка</h2></div><button value="cancel" aria-label="Закрыть">×</button></header><label class="email-field"><span>Адрес ссылки</span><input id="linkDialogUrl" type="text" placeholder="https://calltouch.ru/" autocomplete="off"></label><footer><button class="email-button email-button--primary" id="linkDialogApply" value="apply">Применить</button></footer></form>
+  </dialog>
+  <dialog class="email-dialog email-onboarding" id="onboardingDialog" aria-labelledby="onboardingTitle">
+    <form method="dialog">
+      <header><div><p>КАК СОБРАТЬ ПИСЬМО</p><h2 id="onboardingTitle">Пять шагов до готового HTML</h2></div><button value="cancel" aria-label="Закрыть">×</button></header>
+      <div class="email-onboarding__content">
+        <div class="email-onboarding__visual" id="onboardingVisual" aria-hidden="true"></div>
+        <div class="email-onboarding__copy" aria-live="polite"><span id="onboardingCounter"></span><h3 id="onboardingStepTitle"></h3><p id="onboardingStepText"></p><small id="onboardingStepNote" hidden></small></div>
+      </div>
+      <footer><div class="email-onboarding__dots" id="onboardingDots" aria-label="Шаги онбординга"></div><div class="email-onboarding__actions"><button class="email-button email-button--quiet" id="onboardingBackButton" type="button">Назад</button><button class="email-button email-button--primary" id="onboardingNextButton" type="button">Дальше</button></div></footer>
+    </form>
   </dialog>
   <div class="email-toast" id="emailToast" role="status" hidden></div>
 

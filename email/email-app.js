@@ -24,13 +24,46 @@ function formatIcon(name) {
   return `<svg class="email-format-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${formatIconPaths[name] || formatIconPaths.typograph}</svg>`;
 }
 
+const ONBOARDING_STORAGE_KEY = "calltouch-email-onboarding-v1";
+const onboardingSteps = [
+  {
+    title: "Добавляйте и удаляйте блоки",
+    text: "Соберите нужную структуру письма: добавляйте новые блоки, меняйте их порядок и удаляйте лишние.",
+    visual: '<svg viewBox="0 0 320 220"><rect class="onboarding-panel" x="58" y="24" width="204" height="172" rx="18"/><g class="onboarding-shift"><rect class="onboarding-card" x="78" y="48" width="164" height="34" rx="8"/><path class="onboarding-line" d="M94 64h90"/><circle class="onboarding-accent" cx="226" cy="65" r="7"/></g><rect class="onboarding-card" x="78" y="94" width="164" height="34" rx="8"/><path class="onboarding-line" d="M94 110h72"/><rect class="onboarding-card" x="78" y="140" width="164" height="34" rx="8"/><path class="onboarding-line" d="M94 156h104"/><g class="onboarding-pulse"><circle class="onboarding-action" cx="252" cy="166" r="18"/><path class="onboarding-action-line" d="M244 166h16M252 158v16"/></g></svg>'
+  },
+  {
+    title: "Поменяйте изображения",
+    text: "При необходимости замените картинки в блоках на свои.",
+    note: "После загрузки обязательно нажмите «Применить», чтобы изображение загрузилось на сервер.",
+    visual: '<svg viewBox="0 0 320 220"><rect class="onboarding-panel" x="54" y="30" width="212" height="160" rx="18"/><rect class="onboarding-card" x="78" y="52" width="164" height="90" rx="12"/><circle class="onboarding-accent" cx="112" cy="82" r="12"/><path class="onboarding-picture" d="m86 130 38-34 28 24 20-18 54 28"/><g class="onboarding-upload"><path class="onboarding-action-line onboarding-dark-line" d="M160 176v-28m0 0-12 12m12-12 12 12"/><circle class="onboarding-action" cx="226" cy="166" r="18"/><path class="onboarding-action-line" d="m218 166 6 6 11-13"/></g></svg>'
+  },
+  {
+    title: "Приведите письмо в порядок",
+    text: "Нажмите «Привести письмо в порядок», чтобы стили и переносы автоматически стали аккуратными.",
+    visual: '<svg viewBox="0 0 320 220"><rect class="onboarding-panel" x="46" y="30" width="228" height="160" rx="18"/><path class="onboarding-line" d="M76 70h150M76 96h118M76 122h150M76 148h92"/><g class="onboarding-wand"><path class="onboarding-wand-line" d="m208 154 44-44"/><path class="onboarding-spark" d="m235 82 3 12 12 3-12 3-3 12-3-12-12-3 12-3z"/><path class="onboarding-spark" d="m206 104 2 8 8 2-8 2-2 8-2-8-8-2 8-2z"/></g></svg>'
+  },
+  {
+    title: "Забрендируйте заголовки",
+    text: "Нажмите «Забрендировать заголовки», чтобы применить фирменный широкий шрифт.",
+    note: "Если где-то он не нужен, форматирование можно убрать вручную.",
+    visual: '<svg viewBox="0 0 320 220"><rect class="onboarding-panel" x="46" y="30" width="228" height="160" rx="18"/><text class="onboarding-letter" x="160" y="132" text-anchor="middle">DELA</text><g class="onboarding-width"><path class="onboarding-dark-line" d="M80 158h160"/><path class="onboarding-dark-line" d="m80 158 12-8m-12 8 12 8m148-8-12-8m12 8-12 8"/></g><circle class="onboarding-accent onboarding-pulse" cx="236" cy="62" r="13"/></svg>'
+  },
+  {
+    title: "Проверьте и экспортируйте",
+    text: "Нажмите «Проверить и экспортировать», когда письмо готово.",
+    note: "Изображения загрузятся на сервер, а письмо соберётся в итоговый HTML-файл, который можно скачать.",
+    visual: '<svg viewBox="0 0 320 220"><path class="onboarding-document" d="M96 28h88l40 40v124H96z"/><path class="onboarding-fold" d="M184 28v40h40"/><path class="onboarding-line" d="M120 94h80M120 118h80M120 142h52"/><g class="onboarding-download"><circle class="onboarding-action" cx="218" cy="164" r="25"/><path class="onboarding-action-line onboarding-draw" d="m205 164 9 9 17-20"/></g></svg>'
+  }
+];
+
 const elements = {
   start: $("#startScreen"), variants: $("#variantScreen"), editor: $("#editorScreen"), pastePanel: $("#pastePanel"), importText: $("#importText"), fileInput: $("#importFileInput"),
   variantFrames: [$("#variantAFrame"), $("#variantBFrame")], preview: $("#emailPreview"), previewStage: $("#previewStage"), previewCanvas: $("#previewCanvas"), previewModeLabel: $("#previewModeLabel"), zoomIndicator: $("#zoomIndicator"),
   projectTitle: $("#projectTitle"), themePicker: $("#themePicker"), blockList: $("#blockList"), blockEditor: $("#blockEditor"), footnoteList: $("#footnoteList"),
   blockLibraryDialog: $("#blockLibraryDialog"), blockLibrary: $("#blockLibrary"), assetDialog: $("#assetDialog"), assetGrid: $("#assetGrid"), customAssetFile: $("#customAssetFile"), customAssetFileName: $("#customAssetFileName"), customAssetUrl: $("#customAssetUrl"), customAssetPreview: $("#customAssetPreview"),
   qualityDialog: $("#qualityDialog"), qualityTitle: $("#qualityTitle"), qualityResults: $("#qualityResults"), codePreview: $("#codePreview"), copyButton: $("#copyHtmlButton"), downloadButton: $("#downloadHtmlButton"), linkDialog: $("#linkDialog"), linkDialogUrl: $("#linkDialogUrl"),
-  saveStatus: $("#saveStatus"), toast: $("#emailToast"), undoButton: $("#undoButton"), redoButton: $("#redoButton"), exportDraftButton: $("#exportDraftButton"), importDraftInput: $("#importDraftInput")
+  saveStatus: $("#saveStatus"), toast: $("#emailToast"), undoButton: $("#undoButton"), redoButton: $("#redoButton"), exportDraftButton: $("#exportDraftButton"), importDraftInput: $("#importDraftInput"),
+  onboardingDialog: $("#onboardingDialog"), onboardingVisual: $("#onboardingVisual"), onboardingCounter: $("#onboardingCounter"), onboardingStepTitle: $("#onboardingStepTitle"), onboardingStepText: $("#onboardingStepText"), onboardingStepNote: $("#onboardingStepNote"), onboardingDots: $("#onboardingDots"), onboardingBackButton: $("#onboardingBackButton"), onboardingNextButton: $("#onboardingNextButton")
 };
 
 let email = null;
@@ -45,8 +78,11 @@ let historyTimer = 0;
 const history = { undo: [], redo: [] };
 const iconAutoTimers = new Map();
 let previewTimer = 0;
+let delaPreviewTimer = 0;
+let delaPreviewBusy = false;
 let draggedBlockId = "";
 let pendingPreviewScroll = null;
+let onboardingStep = 0;
 const canvasState = { zoom: 1, panX: 0, panY: 0, panning: false, spacePressed: false, fitMode: true, startX: 0, startY: 0, originX: 0, originY: 0 };
 
 function showScreen(name) {
@@ -60,6 +96,26 @@ function showToast(message) {
   elements.toast.hidden = false;
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => { elements.toast.hidden = true; }, 2600);
+}
+
+function renderOnboardingStep() {
+  const step = onboardingSteps[onboardingStep];
+  elements.onboardingVisual.innerHTML = step.visual;
+  elements.onboardingCounter.textContent = `Шаг ${onboardingStep + 1} из ${onboardingSteps.length}`;
+  elements.onboardingStepTitle.textContent = step.title;
+  elements.onboardingStepText.textContent = step.text;
+  elements.onboardingStepNote.textContent = step.note || "";
+  elements.onboardingStepNote.hidden = !step.note;
+  elements.onboardingBackButton.hidden = onboardingStep === 0;
+  elements.onboardingNextButton.textContent = onboardingStep === onboardingSteps.length - 1 ? "Начать работу" : "Дальше";
+  elements.onboardingDots.innerHTML = onboardingSteps.map((_, index) => `<button type="button" data-onboarding-step="${index}" class="${index === onboardingStep ? "is-active" : ""}" aria-label="Шаг ${index + 1}"${index === onboardingStep ? ' aria-current="step"' : ""}></button>`).join("");
+}
+
+function openOnboarding() {
+  onboardingStep = 0;
+  renderOnboardingStep();
+  localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+  if (!elements.onboardingDialog.open) elements.onboardingDialog.showModal();
 }
 
 function iconRefresh() {
@@ -183,6 +239,7 @@ function normalizeProjectMarkup(project) {
 
 function enterEditor(nextEmail) {
   email = normalizeProjectMarkup(cloneEmail(nextEmail || createDefaultEmail()));
+  window.CALLTOUCH_DELA_ASSETS = {};
   email.settings.logo = "dark";
   canvasState.fitMode = true;
   selectedBlockId = email.blocks[0]?.id || "";
@@ -192,6 +249,10 @@ function enterEditor(nextEmail) {
   history.redo = [];
   syncHistoryButtons();
   persistSoon();
+  if (email.settings.preview === "mobile") scheduleDelaPreviewAssets(100);
+  if (!localStorage.getItem(ONBOARDING_STORAGE_KEY)) window.setTimeout(() => {
+    if (!elements.editor.hidden) openOnboarding();
+  }, 300);
 }
 
 function renderEditor() {
@@ -301,10 +362,6 @@ function brandDela(value) {
   if (!text || hasDelaMarkup(text)) return normalizeRichMarkup(text);
   const source = text.replace(/\*\*/g, "");
   return serializeRichRuns(parseRichMarkup(source).map((run) => ({ ...run, dela: true })));
-}
-
-function hasBrandedDelaHeading(project) {
-  return project.blocks.some((block) => block.type === "brandTitle" || block.type === "brandScene" || hasDelaMarkup(block.content?.bigNumber) || hasDelaMarkup(block.content?.heading) || (block.content?.items || []).some((item) => hasDelaMarkup(item.heading)));
 }
 
 function brandEmail(project) {
@@ -817,6 +874,7 @@ function commitChange({ rerenderEditor = false, refreshPreview = true } = {}) {
   renderBlockList();
   if (rerenderEditor) renderBlockEditor();
   persistSoon();
+  if (email.settings.preview === "mobile") scheduleDelaPreviewAssets();
 }
 
 function applyCanvasTransform() {
@@ -1197,15 +1255,58 @@ function markupValues(value, result = []) {
   return result;
 }
 
-async function renderDelaPng(text) {
+function createDelaMeasureFrame() {
+  return new Promise((resolve) => {
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;left:-10000px;top:0;width:760px;height:2000px;visibility:hidden;pointer-events:none;border:0;";
+    frame.addEventListener("load", () => resolve(frame), { once: true });
+    frame.srcdoc = renderEmailDocument(email, { preview: true, mobile: false });
+    document.body.append(frame);
+  });
+}
+
+function scheduleDelaPreviewAssets(delay = 450) {
+  window.clearTimeout(delaPreviewTimer);
+  delaPreviewTimer = window.setTimeout(() => prepareDelaPreviewAssets(), delay);
+}
+
+async function prepareDelaPreviewAssets() {
+  if (!email) return;
+  if (delaPreviewBusy) {
+    scheduleDelaPreviewAssets();
+    return;
+  }
+  const current = window.CALLTOUCH_DELA_ASSETS || {};
+  const missing = delaTexts().filter((text) => !current[text]);
+  if (!missing.length) return;
+  delaPreviewBusy = true;
+  let measureFrame;
+  try {
+    measureFrame = await createDelaMeasureFrame();
+    const map = { ...current };
+    for (const text of missing) {
+      const rendered = await renderDelaPng(text, measureFrame.contentDocument);
+      if (delaTexts().includes(text)) map[text] = { url: URL.createObjectURL(rendered.blob), width: rendered.width, height: rendered.height, local: true };
+    }
+    window.CALLTOUCH_DELA_ASSETS = map;
+    renderPreview({ preservePosition: true });
+  } catch (error) {
+    console.warn("Не удалось подготовить локальное Dela-превью", error);
+  } finally {
+    measureFrame?.remove();
+    delaPreviewBusy = false;
+  }
+}
+
+async function renderDelaPng(text, measureDocument = elements.preview.contentDocument) {
   const style = delaStyle(text);
   const group = isDelaGroup(text);
   const previewNode = group
-    ? [...(elements.preview.contentDocument?.querySelectorAll("[data-dela-text]") || [])].find((node) => comparableDelaText(node.dataset.delaValue || node.textContent) === comparableDelaText(text))
-    : [...(elements.preview.contentDocument?.querySelectorAll("[data-dela]") || [])].find((node) => comparableDelaText(node.dataset.delaValue || node.textContent) === comparableDelaText(text));
+    ? [...(measureDocument?.querySelectorAll("[data-dela-text]") || [])].find((node) => comparableDelaText(node.dataset.delaValue || node.textContent) === comparableDelaText(text))
+    : [...(measureDocument?.querySelectorAll("[data-dela]") || [])].find((node) => comparableDelaText(node.dataset.delaValue || node.textContent) === comparableDelaText(text));
   const previewContentWidth = (group ? previewNode : previewNode?.closest("[data-rich]"))?.getBoundingClientRect().width || 560;
-  const desktopRatio = email.settings.preview === "mobile" ? 660 / 390 : 1;
-  const targetWidth = Math.min(560, Math.max(100, Math.ceil(previewContentWidth * desktopRatio)));
+  const targetWidth = Math.min(560, Math.max(100, Math.ceil(previewContentWidth)));
   const host = document.createElement("div");
   host.style.cssText = `position:fixed;left:-10000px;top:0;width:${targetWidth}px;padding:8px 0;pointer-events:none;`;
   host.innerHTML = `<div style="display:${group ? "block;width:100%" : "inline-block;width:max-content;max-width:100%"};font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.2;font-weight:400;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance;word-break:normal;overflow-wrap:normal;hyphens:none;white-space:pre-line;color:${style.color};">${group ? delaGroupMarkup(text) : escapeAttr(normalizeDelaWrapText(text))}</div>`;
@@ -1252,17 +1353,22 @@ async function publishDelaAssets() {
   const config = window.CALLTOUCH_EMAIL_CONFIG || {};
   if (!config.brandAssetUploadEndpoint) throw new Error("Для экспорта Dela нужна подключённая облачная функция.");
   const map = {};
-  for (const [index, text] of texts.entries()) {
-    const rendered = await renderDelaPng(text);
-    const headers = { "Content-Type": "application/json" };
-    if (config.uploadToken) headers["X-Generator-Token"] = config.uploadToken;
-    const response = await fetch(config.brandAssetUploadEndpoint, { method: "POST", headers, body: JSON.stringify({ imageBase64: await blobToBase64(rendered.blob), blockId: `dela-${index}`, kind: "dela" }) });
-    const raw = await response.json().catch(() => ({}));
-    const result = typeof raw.body === "string" ? JSON.parse(raw.body) : raw;
-    if (!response.ok || !result.url) throw new Error(result.error || "Не удалось загрузить фрагмент Dela.");
-    map[text] = { url: result.url, width: rendered.width, height: rendered.height };
+  const measureFrame = await createDelaMeasureFrame();
+  try {
+    for (const [index, text] of texts.entries()) {
+      const rendered = await renderDelaPng(text, measureFrame.contentDocument);
+      const headers = { "Content-Type": "application/json" };
+      if (config.uploadToken) headers["X-Generator-Token"] = config.uploadToken;
+      const response = await fetch(config.brandAssetUploadEndpoint, { method: "POST", headers, body: JSON.stringify({ imageBase64: await blobToBase64(rendered.blob), blockId: `dela-${index}`, kind: "dela" }) });
+      const raw = await response.json().catch(() => ({}));
+      const result = typeof raw.body === "string" ? JSON.parse(raw.body) : raw;
+      if (!response.ok || !result.url) throw new Error(result.error || "Не удалось загрузить фрагмент Dela.");
+      map[text] = { url: result.url, width: rendered.width, height: rendered.height };
+    }
+    return map;
+  } finally {
+    measureFrame.remove();
   }
-  return map;
 }
 
 // Перед финальной проверкой догружает в облако всё неопубликованное:
@@ -1329,14 +1435,14 @@ async function openQualityDialog() {
     return;
   }
   const report = validateEmail(email);
-  const brandingWarning = hasBrandedDelaHeading(email) ? "" : `<section class="email-quality-group"><h3>Брендинг</h3><ul><li>В письме нет Dela-заголовков. Добавьте фирменную подачу перед отправкой.</li></ul><button class="email-button email-button--brand" type="button" data-brand-and-publish>Забрендировать заголовки</button></section>`;
+  const brandingAction = report.unbrandedHeadings.length ? `<button class="email-button email-button--brand" type="button" data-brand-and-publish>Забрендировать заголовки</button>` : "";
   const html = renderEmailDocument(email, { preview: false });
   elements.qualityTitle.textContent = report.errors.length ? `Нужно исправить: ${report.errors.length}` : report.warnings.length ? `Нужно проверить: ${report.warnings.length}` : "Письмо готово ✓";
-  elements.qualityResults.innerHTML = `${uploadNote}${brandingWarning}${report.errors.length ? `<section class="email-quality-group"><h3>Ошибки</h3><ul>${report.errors.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${report.warnings.length ? `<section class="email-quality-group"><h3>Предупреждения</h3><ul>${report.warnings.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${!report.errors.length && !report.warnings.length ? `<section class="email-quality-group"><h3>Критических проблем не найдено</h3><ul><li>Проверьте ссылки и отправьте тестовое письмо в вашей системе рассылок.</li></ul></section>` : ""}`;
+  elements.qualityResults.innerHTML = `${uploadNote}${report.errors.length ? `<section class="email-quality-group"><h3>Ошибки</h3><ul>${report.errors.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${report.warnings.length ? `<section class="email-quality-group"><h3>Предупреждения</h3><ul>${report.warnings.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul>${brandingAction}</section>` : ""}${!report.errors.length && !report.warnings.length ? `<section class="email-quality-group"><h3>Критических проблем не найдено</h3><ul><li>Проверьте ссылки и отправьте тестовое письмо в вашей системе рассылок.</li></ul></section>` : ""}`;
   elements.codePreview.value = html;
   elements.copyButton.disabled = Boolean(report.errors.length);
   elements.downloadButton.disabled = Boolean(report.errors.length);
-  elements.qualityDialog.showModal();
+  if (!elements.qualityDialog.open) elements.qualityDialog.showModal();
 }
 
 async function copyHtml() {
@@ -1374,15 +1480,28 @@ elements.fileInput.addEventListener("change", () => importFile(elements.fileInpu
 $("#backToStartButton").addEventListener("click", () => showScreen("start"));
 $$('[data-variant]').forEach((button) => button.addEventListener("click", () => enterEditor(autoVariants[Number(button.dataset.variant)])));
 
-$$('[data-preview]').forEach((button) => button.addEventListener("click", () => { email.settings.preview = button.dataset.preview; syncPreviewMode(); renderPreview({ preservePosition: false }); persistSoon(); }));
+$$('[data-preview]').forEach((button) => button.addEventListener("click", () => {
+  email.settings.preview = button.dataset.preview;
+  syncPreviewMode();
+  renderPreview({ preservePosition: false });
+  if (email.settings.preview === "mobile") scheduleDelaPreviewAssets(100);
+  persistSoon();
+}));
 elements.themePicker.addEventListener("click", (event) => {
   const button = event.target.closest("[data-theme-option]");
   if (!button || button.dataset.themeOption === email.settings.theme) return;
   email.settings.theme = button.dataset.themeOption;
+  window.CALLTOUCH_DELA_ASSETS = {};
   commitChange({ rerenderEditor: true });
 });
 $("#normalizeButton").addEventListener("click", () => { email = typographEmail(normalizeEmailDesign(email)); commitChange({ rerenderEditor: true }); showToast("Письмо приведено в порядок: стили и типографика обновлены."); });
-$("#brandButton").addEventListener("click", () => { email = brandEmail(email); commitChange({ rerenderEditor: true }); showToast("Письмо забрендировано: заголовки переведены в Dela, текстовые блоки получили белые плашки."); });
+$("#brandButton").addEventListener("click", async () => {
+  email = brandEmail(email);
+  commitChange({ rerenderEditor: true });
+  showToast("Готовим точное Dela-превью…");
+  await prepareDelaPreviewAssets();
+  showToast("Письмо забрендировано: заголовки собраны в Dela-PNG.");
+});
 elements.qualityResults.addEventListener("click", async (event) => {
   if (!event.target.closest("[data-brand-and-publish]")) return;
   email = brandEmail(email);
@@ -1670,7 +1789,7 @@ $("#applyCustomAssetButton").addEventListener("click", async (event) => {
       return;
     } finally {
       button.disabled = false;
-      button.textContent = "Использовать";
+      button.textContent = "Применить";
     }
   }
   applyAsset({ id: createId("asset"), label: file?.name || "Своё изображение", previewSource: customPreviewSource || exportUrl, exportUrl, keywords: [] });
@@ -1696,6 +1815,28 @@ $("#newEmailButton").addEventListener("click", () => {
 $("#zoomInButton").addEventListener("click", () => setCanvasZoom(canvasState.zoom + .1));
 $("#zoomOutButton").addEventListener("click", () => setCanvasZoom(canvasState.zoom - .1));
 $("#resetCanvasButton").addEventListener("click", resetCanvas);
+$("#onboardingButton").addEventListener("click", openOnboarding);
+elements.onboardingDialog.addEventListener("click", (event) => {
+  if (event.target === elements.onboardingDialog) elements.onboardingDialog.close();
+});
+elements.onboardingBackButton.addEventListener("click", () => {
+  onboardingStep = Math.max(0, onboardingStep - 1);
+  renderOnboardingStep();
+});
+elements.onboardingNextButton.addEventListener("click", () => {
+  if (onboardingStep === onboardingSteps.length - 1) {
+    elements.onboardingDialog.close();
+    return;
+  }
+  onboardingStep += 1;
+  renderOnboardingStep();
+});
+elements.onboardingDots.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-onboarding-step]");
+  if (!button) return;
+  onboardingStep = Number(button.dataset.onboardingStep);
+  renderOnboardingStep();
+});
 elements.previewStage.addEventListener("wheel", (event) => {
   event.preventDefault();
   if (event.ctrlKey || event.metaKey) {
