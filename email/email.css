@@ -60,13 +60,13 @@
 .email-start, .email-variants { min-height: 100%; padding: 72px clamp(22px, 6vw, 96px); box-sizing: border-box; background: radial-gradient(circle at 85% 10%, rgba(36,184,220,.16), transparent 34%), #f5f8f9; }
 .email-start__intro, .email-variants > header { max-width: 760px; margin: 0 auto 42px; text-align: center; }
 .email-start__intro p, .email-variants > header p, .email-dialog header p, .email-sidebar__global p { margin: 0 0 10px; color: var(--email-cyan); font-size: 12px; font-weight: 900; letter-spacing: .16em; }
-.email-start h1, .email-variants h1 { margin: 0; color: var(--email-navy); font: 400 clamp(38px, 4vw, 72px)/.98 "Dela Gothic One", "Arial Black", sans-serif; }
+.email-start h1, .email-variants h1 { margin: 0; color: var(--email-navy); font: 700 var(--email-ui-display, 32px)/1.1 "Museo Sans Cyrl", Arial, sans-serif; }
 .email-start__intro span, .email-variants > header span { display: block; margin-top: 18px; color: #68757b; font-size: 18px; line-height: 1.5; }
 .email-start__choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1040px; margin: 0 auto; gap: 18px; }
 .email-start__choices button, .email-start__file { position: relative; display: flex; min-height: 230px; padding: 28px; flex-direction: column; align-items: flex-start; gap: 12px; border: 1px solid var(--email-border); border-radius: 22px; color: #1f282c; background: #fff; text-align: left; cursor: pointer; box-shadow: 0 16px 44px rgba(31,40,44,.06); transition: transform .16s ease, border-color .16s ease; }
 .email-start__choices button:hover, .email-start__file:hover { transform: translateY(-3px); border-color: rgba(8,78,125,.34); }
 .email-start__choices svg { width: 32px; height: 32px; padding: 10px; border-radius: 13px; color: var(--email-navy); background: var(--email-pale); }
-.email-start__choices strong { margin-top: auto; color: var(--email-navy); font: 400 21px/1.1 "Dela Gothic One", "Arial Black", sans-serif; text-transform: uppercase; }
+.email-start__choices strong { margin-top: auto; color: var(--email-navy); font: 700 var(--email-ui-heading, 20px)/1.2 "Museo Sans Cyrl", Arial, sans-serif; text-transform: none; }
 .email-start__choices span { color: #68757b; font-size: 14px; line-height: 1.4; }
 .email-start__choices small { position: absolute; top: 20px; right: 20px; padding: 7px 9px; border-radius: 999px; color: #fff; background: var(--email-navy); font-size: 9px; font-weight: 900; letter-spacing: .08em; }
 .email-start__file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -80,7 +80,7 @@
 .email-variants h1 { font-size: clamp(32px, 4vw, 52px); }
 .email-variants__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 1120px; margin: 0 auto; gap: 22px; }
 .email-variants article { position: relative; padding: 24px; border: 1px solid var(--email-border); border-radius: 24px; background: #fff; }
-.email-variants article h2 { margin: 14px 0 7px; color: var(--email-navy); font: 400 24px/1 "Dela Gothic One", "Arial Black", sans-serif; }
+.email-variants article h2 { margin: 14px 0 7px; color: var(--email-navy); font: 700 var(--email-ui-heading, 20px)/1.2 "Museo Sans Cyrl", Arial, sans-serif; }
 .email-variants article p { min-height: 40px; margin: 0 0 18px; color: #68757b; font-size: 14px; line-height: 1.45; }
 .email-variants article iframe { display: block; width: 100%; height: 390px; margin-bottom: 18px; border: 1px solid var(--email-border); border-radius: 16px; background: #fff; }
 .email-variants article .email-button { width: 100%; }
@@ -91,7 +91,7 @@
 .email-editor { display: grid; grid-template-columns: 390px minmax(0, 1fr); height: 100%; overflow: hidden; }
 .email-sidebar { overflow-y: auto; border-right: 1px solid var(--email-border); background: #fff; }
 .email-sidebar > section { padding: 22px; border-bottom: 1px solid var(--email-border); }
-.email-sidebar__global > div:first-child h1 { margin: 0 0 18px; color: var(--email-navy); font: 400 18px/1.16 "Dela Gothic One", "Arial Black", sans-serif; text-transform: uppercase; }
+.email-sidebar__global > div:first-child h1 { margin: 0 0 18px; color: var(--email-navy); font: 700 var(--email-ui-heading, 20px)/1.2 "Museo Sans Cyrl", Arial, sans-serif; text-transform: none; }
 .email-segmented { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 10px; background: #edf2f4; }
 .email-segmented button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 8px; color: #68757b; background: transparent; font-weight: 700; cursor: pointer; }
 .email-segmented button svg { width: 17px; height: 17px; stroke-width: 1.8; }
@@ -184,7 +184,7 @@
 .email-dialog::backdrop { background: rgba(9,20,28,.52); }
 .email-dialog form { padding: 24px; }
 .email-dialog header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
-.email-dialog header h2 { margin: 0; color: var(--email-navy); font: 400 24px/1.1 "Dela Gothic One", "Arial Black", sans-serif; text-transform: uppercase; }
+.email-dialog header h2 { margin: 0; color: var(--email-navy); font: 700 var(--email-ui-heading, 20px)/1.2 "Museo Sans Cyrl", Arial, sans-serif; text-transform: none; }
 .email-dialog header > button { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #eef3f5; font-size: 24px; cursor: pointer; }
 .email-dialog footer { display: flex; justify-content: flex-end; margin-top: 18px; gap: 10px; }
 .email-link-dialog { width: min(460px, calc(100% - 32px)); }
@@ -266,6 +266,9 @@
 .email-icon-item input { min-width: 0; }
 .email-workspace__status { display: grid; grid-template-columns: 1fr auto 1fr; height: 46px; padding: 0 18px; align-items: center; color: #68757b; background: rgba(255,255,255,.88); border-bottom: 1px solid var(--email-border); font-size: 11px; }
 .email-workspace__status > :last-child { justify-self: end; }
+.email-workspace__controls { display: flex; align-items: center; gap: 10px; }
+.email-workspace__controls .email-segmented { display: flex; padding: 3px; }
+.email-workspace__controls .email-segmented button { min-height: 28px; padding: 0 9px; font-size: 12px; }
 .email-canvas-controls { display: flex; align-items: center; padding: 3px; gap: 2px; border: 1px solid var(--email-border); border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(31,40,44,.06); }
 .email-canvas-controls button { min-width: 28px; height: 28px; padding: 0 8px; border: 0; border-radius: 7px; color: var(--email-navy); background: transparent; font: 700 13px/1 "Museo Sans Cyrl", Arial, sans-serif; cursor: pointer; }
 .email-canvas-controls button:hover { background: var(--email-pale); }
@@ -277,3 +280,129 @@
 .email-preview-stage.is-panning .email-preview-canvas { transition: none; }
 .email-preview-stage iframe { display: block; width: 760px; max-width: none; margin: 0 auto; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 18px 60px rgba(31,40,44,.16); transition: width .2s ease; }
 .email-preview-stage.is-mobile iframe { width: 390px; }
+
+@media (max-width: 720px) {
+  .email-workspace__status { padding: 0 10px; }
+  .email-preview-mode span { display: none; }
+  .email-workspace__controls .email-segmented button { width: 30px; padding: 0; gap: 0; }
+  .email-workspace__status > :last-child { display: none; }
+}
+
+/* Единая типографика интерфейса письма. Содержимое iframe-превью изолировано. */
+.email-page {
+  --email-ui-family: "Museo Sans Cyrl", Arial, sans-serif;
+  --email-ui-display: 32px;
+  --email-ui-heading: 20px;
+  --email-ui-body: 14px;
+  --email-ui-caption: 12px;
+  font-family: var(--email-ui-family);
+}
+
+.email-page button,
+.email-page input,
+.email-page textarea,
+.email-page select,
+.email-page label,
+.email-page a,
+.email-page p,
+.email-page span,
+.email-page h1,
+.email-page h2,
+.email-page h3 {
+  font-family: var(--email-ui-family);
+}
+
+.email-page .email-start h1,
+.email-page .email-variants h1 {
+  font: 700 var(--email-ui-display)/1.1 var(--email-ui-family);
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+.email-page .email-start__choices strong,
+.email-page .email-variants article h2,
+.email-page .email-sidebar__global > div:first-child h1,
+.email-page .email-dialog header h2,
+.email-page .email-section-title h2,
+.email-page .email-block-editor h2,
+.email-page .email-custom-asset h3,
+.email-page .email-quality-group h3 {
+  font: 700 var(--email-ui-heading)/1.2 var(--email-ui-family);
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.email-page .email-button,
+.email-page .email-toolbar__nav a,
+.email-page .email-segmented button,
+.email-page .email-theme-picker button,
+.email-page .email-button-tone-picker button,
+.email-page .email-icon-picker,
+.email-page .email-canvas-controls button,
+.email-page .email-section-title button,
+.email-page .email-block-row strong,
+.email-page .email-library-item strong,
+.email-page .email-icon-item strong,
+.email-page .email-asset-trigger span {
+  font-size: var(--email-ui-body);
+  font-weight: 700;
+}
+
+.email-page .email-start__intro span,
+.email-page .email-variants > header span,
+.email-page .email-start__choices span,
+.email-page .email-variants article p,
+.email-page .email-import textarea,
+.email-page .email-global-fields select,
+.email-page .email-field input,
+.email-page .email-field textarea,
+.email-page .email-field select,
+.email-page .email-icon-item input,
+.email-page .email-footnote-row textarea,
+.email-page .email-custom-asset input,
+.email-page .email-quality-group ul,
+.email-page .email-quality-dialog summary,
+.email-page .email-toast {
+  font-size: var(--email-ui-body);
+  font-weight: 500;
+}
+
+.email-page .email-start__intro p,
+.email-page .email-variants > header p,
+.email-page .email-dialog header p,
+.email-page .email-sidebar__global p,
+.email-page .email-global-fields span,
+.email-page .email-field > span,
+.email-page .email-field__hint,
+.email-page .email-custom-asset p,
+.email-page .email-asset-field > span,
+.email-page .email-workspace__status,
+.email-page .email-tag,
+.email-page .email-start__choices small,
+.email-page .email-block-editor__header span {
+  font-size: var(--email-ui-caption);
+  font-weight: 700;
+}
+
+.email-page .email-block-row small,
+.email-page .email-library-brand__badge,
+.email-page .email-library-item span,
+.email-page .email-asset-card span,
+.email-page .email-custom-asset label,
+.email-page .email-file-input__button,
+.email-page .email-file-input__name,
+.email-page .email-footnote-row > span,
+.email-page .email-brand-publish-status,
+.email-page .email-brand-publish-status strong,
+.email-page .email-brand-publish-status a,
+.email-page .email-canvas-controls output {
+  font-size: var(--email-ui-caption);
+}
+
+.email-page .email-quality-dialog textarea {
+  font: 500 var(--email-ui-caption)/1.4 var(--email-ui-family);
+}
+
+.email-page .email-dialog header > button {
+  font-size: var(--email-ui-heading);
+}

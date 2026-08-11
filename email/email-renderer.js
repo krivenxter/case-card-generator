@@ -130,9 +130,10 @@ function hasText(value) {
 
 function renderTitle(block, preview, darkText = false) {
   const { bigNumber, heading, subtitle, accent } = block.content;
-  // На циановом оформлении текст без собственной подложки делаем белым.
-  const textColor = darkText ? "#ffffff" : C.navy;
-  const bodyColor = darkText ? "#ffffff" : C.ink;
+  const hasPlate = String(block.content.plate || "") === "1";
+  // На циановом фоне текст белый, но на собственной белой плашке — тёмный.
+  const textColor = darkText && !hasPlate ? "#ffffff" : C.navy;
+  const bodyColor = darkText && !hasPlate ? "#ffffff" : C.ink;
   const hasHeading = String(heading || "").trim().length > 0;
   const hasBigNumber = String(bigNumber || "").trim().length > 0;
   const hasSubtitle = block.variant !== "plain" && String(subtitle || "").trim().length > 0;
@@ -150,7 +151,7 @@ function renderTitle(block, preview, darkText = false) {
   const bigNumberHtml = hasBigNumber ? `<div style="padding-bottom:${hasHeading ? "8px" : "0"};">${displayText(bigNumber, textColor, 42, "left", "content.bigNumber", preview, 42)}</div>` : "";
   const subtitleHtml = hasSubtitle ? `<div style="${hasHeading ? "padding-top:18px;" : ""}">${bodyText(subtitle, bodyColor, 16, "content.subtitle", preview)}</div>` : "";
   // Необязательная белая плашка с отступами под заголовком и подзаголовком.
-  const inner = String(block.content.plate || "") === "1"
+  const inner = hasPlate
     ? `<div style="padding:22px;background:#ffffff;border-radius:22px;box-sizing:border-box;">${bigNumberHtml}${headingHtml}${subtitleHtml}</div>`
     : bigNumberHtml + headingHtml + subtitleHtml;
   return wrapBlock(block, inner, "transparent", "4px 0 24px");
@@ -249,7 +250,8 @@ function renderCtaCard(block, preview) {
   const background = light ? "#ffffff" : gradient ? `radial-gradient(circle at 100% 100%,${C.purple} 0%,rgba(156,46,221,.72) 0%,${C.navy} 64%)` : C.navy;
   const color = light ? C.navy : "#ffffff";
   const fallbackBackground = light ? "#ffffff" : C.navy;
-  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;">${displayText(block.content.heading, color, 24, "left", "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${block.content.ctaText ? `<div style="padding-top:22px;">${button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview)}</div>` : ""}</div>`, "transparent", "0 0 24px");
+  const align = block.content.align === "left" ? "left" : "center";
+  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;text-align:${align};">${displayText(block.content.heading, color, 24, align, "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;text-align:${align};">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${block.content.ctaText ? `<div style="padding-top:22px;text-align:${align};">${button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview, align)}</div>` : ""}</div>`, "transparent", "0 0 24px");
 }
 
 function renderButton(block, preview) {

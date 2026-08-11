@@ -64,10 +64,6 @@
       <aside class="email-sidebar">
         <section class="email-sidebar__global">
           <div><p>ГЕНЕРАТОР РАССЫЛОК</p><h1 id="projectTitle">Новое письмо</h1></div>
-          <div class="email-segmented" aria-label="Размер предпросмотра">
-            <button class="is-active" type="button" data-preview="desktop"><i data-lucide="monitor"></i><span>Компьютер</span></button>
-            <button type="button" data-preview="mobile"><i data-lucide="smartphone"></i><span>Телефон</span></button>
-          </div>
           <div class="email-global-fields">
             <div class="email-theme-picker" id="themePicker" role="radiogroup" aria-label="Оформление"><span>Оформление</span><div><button type="button" role="radio" data-theme-option="classic"><i class="email-theme-dot email-theme-dot--classic"></i>Светло-голубое</button><button type="button" role="radio" data-theme-option="editorial"><i class="email-theme-dot email-theme-dot--editorial"></i>Циановое</button></div></div>
           </div>
@@ -84,7 +80,7 @@
         </section>
       </aside>
       <section class="email-workspace">
-        <div class="email-workspace__status"><span id="saveStatus">Сохранено на этом устройстве</span><div class="email-canvas-controls"><button id="zoomOutButton" type="button" aria-label="Уменьшить масштаб">−</button><output id="zoomIndicator">100%</output><button id="zoomInButton" type="button" aria-label="Увеличить масштаб">+</button><button id="resetCanvasButton" type="button">Вписать</button></div><span id="previewModeLabel">Компьютер · 660 px</span></div>
+        <div class="email-workspace__status"><span id="saveStatus">Сохранено на этом устройстве</span><div class="email-workspace__controls"><div class="email-segmented email-preview-mode" role="group" aria-label="Размер предпросмотра"><button class="is-active" type="button" data-preview="desktop"><i data-lucide="monitor"></i><span>Компьютер</span></button><button type="button" data-preview="mobile"><i data-lucide="smartphone"></i><span>Телефон</span></button></div><div class="email-canvas-controls"><button id="zoomOutButton" type="button" aria-label="Уменьшить масштаб">−</button><output id="zoomIndicator">100%</output><button id="zoomInButton" type="button" aria-label="Увеличить масштаб">+</button><button id="resetCanvasButton" type="button">Вписать</button></div></div><span id="previewModeLabel">Компьютер · 660 px</span></div>
         <div class="email-preview-stage" id="previewStage" title="Ctrl + колесо — масштаб. Пробел или средняя кнопка мыши — перемещение по холсту."><div class="email-preview-canvas" id="previewCanvas"><iframe id="emailPreview" title="Предпросмотр письма"></iframe></div></div>
       </section>
     </section>

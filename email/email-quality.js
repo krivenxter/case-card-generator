@@ -43,6 +43,7 @@ export function normalizeEmailDesign(email) {
     if (block.type === "brandScene") block.variant = ["navy-purple", "cyan-navy", "purple-cyan"].includes(block.variant) ? block.variant : "navy-purple";
     if (block.type === "divider") block.variant = ["s", "m", "l", "xl"].includes(block.variant) ? block.variant : "m";
     if (["ctaCard", "button"].includes(block.type) && !block.variant) block.variant = "primary";
+    if (block.type === "ctaCard") block.content.align = block.content.align === "left" ? "left" : "center";
     return block;
   });
   return normalized;

@@ -217,12 +217,12 @@ body:not(.is-access-granted) .app-frame {
 
 .access-gate h1 {
   margin: 12px 0 16px;
-  font-family: "Dela Gothic One", "Arial Black", sans-serif;
-  font-size: clamp(28px, 5vw, 38px);
+  font-family: "Museo Sans Cyrl", Arial, sans-serif;
+  font-size: var(--ui-font-display, 32px);
   line-height: 1.12;
-  letter-spacing: -0.04em;
-  font-weight: 400;
-  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  text-transform: none;
 }
 
 .access-gate h1 span {
@@ -374,10 +374,11 @@ body {
 
 .app-brand span {
   color: var(--accent);
-  font-family: "Dela Gothic One", "Arial Black", sans-serif;
+  font-family: "Museo Sans Cyrl", Arial, sans-serif;
   font-size: 14px;
   line-height: 1;
-  padding-bottom: 2px;
+  font-weight: 700;
+  padding-bottom: 0;
 }
 
 .app-brand strong {
@@ -560,7 +561,7 @@ select:focus-visible,
 .control-panel__eyebrow {
   margin: 0 0 10px;
   color: var(--accent);
-  font-family: "Dela Gothic One", "Arial Black", sans-serif;
+  font-family: "Museo Sans Cyrl", Arial, sans-serif;
   font-size: 12px;
   line-height: 1;
   letter-spacing: 0.08em;
@@ -3000,6 +3001,95 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
     width: min(100%, 230px);
     justify-self: start;
   }
+}
+
+/* Единая типографика оболочки приложения. Стили внутри canvas/iframe не затрагиваются. */
+body:not(.email-page) {
+  --ui-font-family: "Museo Sans Cyrl", Arial, sans-serif;
+  --ui-font-display: 32px;
+  --ui-font-heading: 20px;
+  --ui-font-body: 14px;
+  --ui-font-caption: 12px;
+}
+
+body:not(.email-page) .access-gate,
+body:not(.email-page) .app-toolbar,
+body:not(.email-page) .control-panel,
+body:not(.email-page) .workspace__header,
+body:not(.email-page) .mobile-controls-toggle,
+body:not(.email-page) .mobile-controls-scrim,
+body:not(.email-page) .toast {
+  font-family: var(--ui-font-family);
+}
+
+body:not(.email-page) .access-gate h1 {
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+body:not(.email-page) .app-brand span,
+body:not(.email-page) .app-brand strong {
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-body);
+  font-weight: 700;
+}
+
+body:not(.email-page) .control-panel__header h1 {
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-heading);
+  font-weight: 700;
+}
+
+body:not(.email-page) .app-toolbar button,
+body:not(.email-page) .app-toolbar a,
+body:not(.email-page) .app-toolbar .tool-tab,
+body:not(.email-page) .control-panel button,
+body:not(.email-page) .workspace__header button,
+body:not(.email-page) .export-button,
+body:not(.email-page) .panel-button,
+body:not(.email-page) .canvas-center-button {
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-body);
+  font-weight: 700;
+}
+
+body:not(.email-page) .control-panel input,
+body:not(.email-page) .control-panel textarea,
+body:not(.email-page) .control-panel select {
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-body);
+  font-weight: 500;
+}
+
+body:not(.email-page) .control-panel .field__label,
+body:not(.email-page) .control-panel .field__hint,
+body:not(.email-page) .control-panel .form-section__hint,
+body:not(.email-page) .control-panel .toggle-row small,
+body:not(.email-page) .control-panel .field__counter,
+body:not(.email-page) .control-panel .background-note,
+body:not(.email-page) .workspace__header p,
+body:not(.email-page) .workspace__header span,
+body:not(.email-page) .animation-panel__support,
+body:not(.email-page) .toast {
+  font-size: var(--ui-font-caption);
+  font-weight: 500;
+}
+
+body:not(.email-page) .control-panel .form-section h2,
+body:not(.email-page) .control-panel .form-section__summary,
+body:not(.email-page) .control-panel .result-editor__title,
+body:not(.email-page) .control-panel .animation-panel__subheading,
+body:not(.email-page) .workspace__header strong {
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-body);
+  font-weight: 700;
+}
+
+body:not(.email-page) .control-panel .background-note code {
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-caption);
 }
 
 .toast {
