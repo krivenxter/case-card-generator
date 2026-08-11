@@ -966,9 +966,14 @@ function delaTexts() {
 
 async function renderDelaPng(text) {
   const style = delaStyle(text);
+  const previewNode = [...(elements.preview.contentDocument?.querySelectorAll("[data-dela]") || [])]
+    .find((node) => node.textContent?.trim() === text.trim());
+  const previewContentWidth = previewNode?.closest("[data-rich]")?.getBoundingClientRect().width || 560;
+  const desktopRatio = email.settings.preview === "mobile" ? 660 / 390 : 1;
+  const targetWidth = Math.min(560, Math.max(100, Math.ceil(previewContentWidth * desktopRatio)));
   const host = document.createElement("div");
-  host.style.cssText = "position:fixed;left:-10000px;top:0;width:560px;padding:8px 0;pointer-events:none;";
-  host.innerHTML = `<div style="display:inline-block;width:max-content;max-width:560px;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:normal;overflow-wrap:normal;white-space:pre-line;color:${style.color};">${escapeAttr(text)}</div>`;
+  host.style.cssText = `position:fixed;left:-10000px;top:0;width:${targetWidth}px;padding:8px 0;pointer-events:none;`;
+  host.innerHTML = `<div style="display:inline-block;width:max-content;max-width:100%;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;overflow-wrap:anywhere;white-space:pre-line;color:${style.color};">${escapeAttr(text)}</div>`;
   document.body.append(host);
   try {
     if (document.fonts?.ready) await document.fonts.ready;
