@@ -547,11 +547,17 @@ function syncPreviewHeight(previewDocument) {
     // scrollHeight не бывает меньше текущего вьюпорта iframe,
     // поэтому перед замером сбрасываем высоту — иначе карточка не ужимается.
     elements.preview.style.height = "0px";
-    const height = Math.max(previewDocument.body.scrollHeight, previewDocument.documentElement.scrollHeight);
+    const height = Math.max(
+      previewDocument.body.scrollHeight,
+      previewDocument.body.offsetHeight,
+      previewDocument.documentElement.scrollHeight,
+      previewDocument.documentElement.offsetHeight
+    );
     elements.preview.style.height = `${height}px`;
     if (canvasState.fitMode) fitCanvas();
   };
   measure();
+  window.setTimeout(measure, 120);
   previewDocument.querySelectorAll("img").forEach((image) => image.addEventListener("load", measure, { once: true }));
 }
 
