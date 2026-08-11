@@ -4,6 +4,7 @@ import { renderEmailDocument, renderBlock } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
 import { BRAND_SCENE_MIN_HEIGHT, BRAND_SCENE_WIDTH, brandSceneSignature, isBrandScenePublished, renderBrandSceneMarkup } from "./email-brand-scene.js";
 import { BRAND_TITLE_MIN_HEIGHT, BRAND_TITLE_WIDTH, brandTitleSignature, isBrandTitlePublished, renderBrandTitleMarkup, resolveBrandTitleColors } from "./email-brand-title.js";
+import { delaSegments, forceDelaMarkup, hasDelaMarkup, normalizeRichMarkup, parseRichMarkup, richPlainText, serializeRichRuns, toggleDelaMarkup, togglePillMarkup, toggleToneMarkup } from "./email-rich-text.js";
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
@@ -170,8 +171,18 @@ function setPath(target, path, value) {
   parent[last] = value;
 }
 
+function normalizeProjectMarkup(project) {
+  const walk = (value, key = "") => {
+    if (typeof value === "string") return /(?:url|source|signature|renderedat|^id$)/i.test(key) ? value : normalizeRichMarkup(value);
+    if (Array.isArray(value)) return value.map((item) => walk(item));
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, walk(childValue, childKey)]));
+    return value;
+  };
+  return walk(project);
+}
+
 function enterEditor(nextEmail) {
-  email = cloneEmail(nextEmail || createDefaultEmail());
+  email = normalizeProjectMarkup(cloneEmail(nextEmail || createDefaultEmail()));
   email.settings.logo = "dark";
   canvasState.fitMode = true;
   selectedBlockId = email.blocks[0]?.id || "";
@@ -216,7 +227,7 @@ function richToMarkdown(root) {
     const inner = [...node.childNodes].map(walk).join("");
     if (tag === "b" || tag === "strong") return inner.trim() ? `**${inner}**` : inner;
     if (node.dataset?.dela) {
-      const wrapped = inner.trim() ? `%%${inner}%%` : inner;
+      const wrapped = inner.trim() ? `{{dela|${inner}}}` : inner;
       return node.dataset.color ? `{{${node.dataset.color}|${wrapped}}}` : wrapped;
     }
     if (node.dataset?.pill) return inner.trim() ? `{{pill|${inner}}}` : inner;
@@ -227,7 +238,7 @@ function richToMarkdown(root) {
     if (tag === "div" || tag === "p") return `\n${inner}`;
     return inner;
   };
-  return [...root.childNodes].map(walk).join("").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim();
+  return normalizeRichMarkup([...root.childNodes].map(walk).join("").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim());
 }
 
 function bindShortWords(value) {
@@ -244,8 +255,8 @@ function bindShortWords(value) {
 
 function typographText(value, delaMode = false) {
   const protectedParts = [];
-  const source = String(value || "");
-  const protect = (text) => text.replace(/\{\{(?:cyan|purple|pill)\|[\s\S]*?\}\}|%%[\s\S]*?%%|https?:\/\/[^\s)]+|\{\{[a-z0-9_]+\}\}/gi, (match) => `\u0000${protectedParts.push(match) - 1}\u0000`);
+  const source = normalizeRichMarkup(value);
+  const protect = (text) => text.replace(/\{\{(?:dela|cyan|purple|pill)\|[\s\S]*?\}\}|https?:\/\/[^\s)]+|\{\{[a-z0-9_]+\}\}/gi, (match) => `\u0000${protectedParts.push(match) - 1}\u0000`);
   const restore = (text) => text.replace(/\u0000(\d+)\u0000/g, (_, index) => protectedParts[Number(index)]);
   const result = protect(source)
     .replace(/\.{3}/g, "…")
@@ -260,15 +271,15 @@ function typographText(value, delaMode = false) {
     .replace(/\n+[ \t\u00A0]*(?=Присоединяйтесь(?:\s|$))/iu, " ")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n");
-  const isDelaText = delaMode || source.includes("%%");
+  const isDelaText = delaMode || hasDelaMarkup(source);
   const lineBroken = result;
   const orphanSafe = isDelaText
     ? lineBroken
     : lineBroken.replace(/(\S+)[ \t]+(\S+)([.!?…]?)$/gm, "$1\u00A0$2$3");
   const restored = restore(orphanSafe);
-  if (!isDelaText) return bindShortWords(restored);
+  if (!isDelaText) return normalizeRichMarkup(bindShortWords(restored));
   const normalized = restored.replace(/[\u00a0\u202f]/g, " ").replace(/\u2011/g, "-");
-  return bindShortWords(normalized);
+  return normalizeRichMarkup(bindShortWords(normalized));
 }
 
 function typographEmail(project) {
@@ -287,22 +298,13 @@ function typographEmail(project) {
 
 function brandDela(value) {
   const text = String(value || "").trim();
-  if (!text || /%%[\s\S]*?%%/.test(text)) return text;
+  if (!text || hasDelaMarkup(text)) return normalizeRichMarkup(text);
   const source = text.replace(/\*\*/g, "");
-  const pattern = /\{\{(cyan|purple|pill)\|([\s\S]*?)\}\}/g;
-  let result = "";
-  let cursor = 0;
-  for (const match of source.matchAll(pattern)) {
-    if (match.index > cursor) result += `%%${source.slice(cursor, match.index)}%%`;
-    result += `{{${match[1]}|%%${match[2]}%%}}`;
-    cursor = match.index + match[0].length;
-  }
-  if (cursor < source.length) result += `%%${source.slice(cursor)}%%`;
-  return result || `%%${source}%%`;
+  return serializeRichRuns(parseRichMarkup(source).map((run) => ({ ...run, dela: true })));
 }
 
 function hasBrandedDelaHeading(project) {
-  return project.blocks.some((block) => block.type === "brandTitle" || block.type === "brandScene" || /%%[\s\S]*?%%/.test(String(block.content?.bigNumber || "")) || /%%[\s\S]*?%%/.test(String(block.content?.heading || "")) || (block.content?.items || []).some((item) => /%%[\s\S]*?%%/.test(String(item.heading || ""))));
+  return project.blocks.some((block) => block.type === "brandTitle" || block.type === "brandScene" || hasDelaMarkup(block.content?.bigNumber) || hasDelaMarkup(block.content?.heading) || (block.content?.items || []).some((item) => hasDelaMarkup(item.heading)));
 }
 
 function brandEmail(project) {
@@ -496,7 +498,7 @@ function ensureEditToolbar(previewDocument) {
         const editedBlock = email.blocks.find((item) => item.id === editable?.closest("[data-block-id]")?.dataset.blockId);
         const editPath = editable?.dataset.editPath;
         const currentValue = editedBlock && editPath ? editPath.split(".").reduce((value, key) => value?.[key], editedBlock) : "";
-        if (typeof currentValue === "string" && currentValue.includes("%%")) {
+        if (typeof currentValue === "string" && hasDelaMarkup(currentValue)) {
           setPath(editedBlock, editPath, typographText(currentValue, true));
           updatePreviewBlock(editedBlock);
           renderBlockList();
@@ -540,7 +542,7 @@ function ensureEditToolbar(previewDocument) {
           const editable = delaParent.closest("[data-rich]");
           const block = email.blocks.find((item) => item.id === editable?.closest("[data-block-id]")?.dataset.blockId);
           if (block && editable?.dataset.editPath) {
-            const plain = richToMarkdown(editable).replace(/%%([\s\S]*?)%%/g, "$1");
+            const plain = serializeRichRuns(parseRichMarkup(richToMarkdown(editable)).map((run) => ({ ...run, dela: false })));
             setPath(block, editable.dataset.editPath, plain);
             updatePreviewBlock(block);
             renderBlockList();
@@ -1144,16 +1146,16 @@ function delaTexts() {
   const result = new Set();
   const grouped = new Set();
   email.blocks.forEach((block) => {
-    if (["title", "promo"].includes(block.type) && /%%[\s\S]*?%%/.test(String(block.content?.bigNumber || ""))) grouped.add(block.content.bigNumber);
-    if (block.type === "promo" && /%%[\s\S]*?%%/.test(String(block.content?.offer || ""))) grouped.add(block.content.offer);
-    if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && /%%[\s\S]*?%%/.test(String(block.content?.heading || ""))) grouped.add(block.content.heading);
-    (block.content?.items || []).forEach((item) => { if (/%%[\s\S]*?%%/.test(String(item.heading || ""))) grouped.add(item.heading); });
+    if (["title", "promo"].includes(block.type) && hasDelaMarkup(block.content?.bigNumber)) grouped.add(forceDelaMarkup(block.content.bigNumber));
+    if (block.type === "promo" && hasDelaMarkup(block.content?.offer)) grouped.add(forceDelaMarkup(block.content.offer));
+    if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && hasDelaMarkup(block.content?.heading)) grouped.add(forceDelaMarkup(block.content.heading));
+    (block.content?.items || []).forEach((item) => { if (hasDelaMarkup(item.heading)) grouped.add(forceDelaMarkup(item.heading)); });
   });
   grouped.forEach((text) => result.add(text));
   const collect = (value) => {
     if (typeof value === "string") {
-      if (grouped.has(value)) return;
-      for (const match of value.matchAll(/%%([\s\S]*?)%%/g)) if (match[1].trim()) result.add(match[1].trim());
+      if (grouped.has(forceDelaMarkup(value))) return;
+      delaSegments(value).forEach((run) => result.add(run.text.trim()));
     } else if (Array.isArray(value)) value.forEach(collect);
     else if (value && typeof value === "object") Object.values(value).forEach(collect);
   };
@@ -1162,7 +1164,7 @@ function delaTexts() {
 }
 
 function isDelaGroup(text) {
-  return email.blocks.some((block) => (["title", "promo"].includes(block.type) && String(block.content?.bigNumber || "") === text) || (block.type === "promo" && String(block.content?.offer || "") === text) || (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && String(block.content?.heading || "") === text) || (block.content?.items || []).some((item) => String(item.heading || "") === text));
+  return email.blocks.some((block) => (["title", "promo"].includes(block.type) && forceDelaMarkup(block.content?.bigNumber) === text) || (block.type === "promo" && forceDelaMarkup(block.content?.offer) === text) || (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && forceDelaMarkup(block.content?.heading) === text) || (block.content?.items || []).some((item) => forceDelaMarkup(item.heading) === text));
 }
 
 function normalizeDelaWrapText(value) {
@@ -1171,29 +1173,28 @@ function normalizeDelaWrapText(value) {
 }
 
 function delaGroupMarkup(value) {
-  const source = String(value || "");
   const safe = normalizeDelaWrapText;
-  const pattern = /\{\{(cyan|purple|pill)\|%%([\s\S]*?)%%\}\}|%%([\s\S]*?)%%/g;
-  let html = "";
-  let cursor = 0;
-  for (const match of source.matchAll(pattern)) {
-    html += escapeAttr(safe(source.slice(cursor, match.index).replace(/\*\*/g, "")));
-    html += match[1]
-      ? match[1] === "pill"
-        ? `<span style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#fff;line-height:1;white-space:nowrap;">${escapeAttr(safe(match[2]))}</span>`
-        : `<span style="color:${match[1] === "cyan" ? "#33bfe2" : "#BA6DE7"};">${escapeAttr(safe(match[2]))}</span>`
-      : escapeAttr(safe(match[3]));
-    cursor = match.index + match[0].length;
-  }
-  return html + escapeAttr(safe(source.slice(cursor).replace(/\*\*/g, "")));
+  return parseRichMarkup(value).map((run) => {
+    let html = escapeAttr(safe(run.text));
+    if (run.tone) html = `<span style="color:${run.tone === "cyan" ? "#33bfe2" : "#BA6DE7"};">${html}</span>`;
+    if (run.pill) html = `<span style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#fff;line-height:1;white-space:nowrap;">${html}</span>`;
+    return html;
+  }).join("");
 }
 
 function delaPlainText(value) {
-  return String(value || "").replace(/\{\{(?:cyan|purple|pill)\|%%([\s\S]*?)%%\}\}/g, "$1").replace(/\{\{pill\|([\s\S]*?)\}\}/g, "$1").replace(/%%/g, "").replace(/\*\*/g, "");
+  return richPlainText(value);
 }
 
 function comparableDelaText(value) {
   return delaPlainText(value).replace(/[‐‑‒–—]/g, "-").replace(/\s+/g, " ").trim();
+}
+
+function markupValues(value, result = []) {
+  if (typeof value === "string") result.push(value);
+  else if (Array.isArray(value)) value.forEach((item) => markupValues(item, result));
+  else if (value && typeof value === "object") Object.values(value).forEach((item) => markupValues(item, result));
+  return result;
 }
 
 async function renderDelaPng(text) {
@@ -1223,22 +1224,24 @@ function delaStyle(text) {
   const darkDefault = email.settings.theme === "editorial";
   for (const block of email.blocks) {
     const content = block.content || {};
-    const contentText = JSON.stringify(content);
-    const color = contentText.includes(`{{cyan|%%${text}%%}}`) ? "#33bfe2" : contentText.includes(`{{purple|%%${text}%%}}`) ? "#BA6DE7" : "";
-    const pill = contentText.includes(`{{pill|%%${text}%%}}`);
-    if (String(content.bigNumber || "") === text) return { size: 42, color: color || (block.type === "promo" || darkDefault ? "#ffffff" : "#084E7D") };
-    if (block.type === "promo" && String(content.offer || "") === text) return { size: 16, color: "#ffffff" };
-    if (String(content.heading || "") === text) {
+    const values = markupValues(content);
+    const run = values.flatMap((value) => delaSegments(value)).find((item) => item.text.trim() === text);
+    const color = run?.tone === "cyan" ? "#33bfe2" : run?.tone === "purple" ? "#BA6DE7" : "";
+    const pill = Boolean(run?.pill);
+    const contains = (value) => delaSegments(value).some((item) => item.text.trim() === text);
+    if (forceDelaMarkup(content.bigNumber) === text) return { size: 42, color: color || (block.type === "promo" || darkDefault ? "#ffffff" : "#084E7D") };
+    if (block.type === "promo" && forceDelaMarkup(content.offer) === text) return { size: 16, color: "#ffffff" };
+    if (forceDelaMarkup(content.heading) === text) {
       const light = ["imageText", "featureCard", "iconGrid"].includes(block.type) || (block.type === "ctaCard" && block.variant === "light");
       const defaultColor = block.type === "title" ? (darkDefault ? "#ffffff" : "#084E7D") : light ? "#1F282C" : "#ffffff";
       return { size: ["imageText", "featureCard"].includes(block.type) ? DELA_FONT_SIZES.small : DELA_FONT_SIZES.large, color: defaultColor };
     }
-    if ((content.items || []).some((item) => String(item.heading || "") === text)) return { size: DELA_FONT_SIZES.small, color: "#1F282C" };
-    if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || (pill ? "#ffffff" : block.variant === "light" ? "#084E7D" : "#ffffff") };
-    if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || "#ffffff" };
-    if (block.type === "promo" && contentText.includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.small, color: color || "#ffffff" };
-    if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: DELA_FONT_SIZES.small, color: color || (pill ? "#ffffff" : "#1F282C") };
-    if (contentText.includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.small, color: color || (pill || darkDefault ? "#ffffff" : "#1F282C") };
+    if ((content.items || []).some((item) => forceDelaMarkup(item.heading) === text)) return { size: DELA_FONT_SIZES.small, color: "#1F282C" };
+    if (block.type === "ctaCard" && contains(content.heading)) return { size: DELA_FONT_SIZES.large, color: color || (pill ? "#ffffff" : block.variant === "light" ? "#084E7D" : "#ffffff") };
+    if (block.type === "promo" && contains(content.heading)) return { size: DELA_FONT_SIZES.large, color: color || "#ffffff" };
+    if (block.type === "promo" && values.some(contains)) return { size: DELA_FONT_SIZES.small, color: color || "#ffffff" };
+    if (block.type === "iconGrid" && (content.items || []).some((item) => contains(item.heading))) return { size: DELA_FONT_SIZES.small, color: color || (pill ? "#ffffff" : "#1F282C") };
+    if (values.some(contains)) return { size: DELA_FONT_SIZES.small, color: color || (pill || darkDefault ? "#ffffff" : "#1F282C") };
   }
   return { size: DELA_FONT_SIZES.small, color: darkDefault ? "#ffffff" : "#1F282C" };
 }
@@ -1456,6 +1459,7 @@ elements.blockEditor.addEventListener("change", (event) => {
   const control = event.target.closest("[data-field]");
   const block = getSelectedBlock();
   if (!control || !block) return;
+  if (control.matches("textarea")) setPath(block, control.dataset.field, normalizeRichMarkup(control.value));
   updatePreviewBlock(block);
   renderBlockList();
   renderBlockEditor();
@@ -1488,16 +1492,11 @@ elements.blockEditor.addEventListener("click", async (event) => {
       const trimmed = selected.trim();
       replacement = /^\*\*[\s\S]*\*\*$/.test(trimmed) ? trimmed.slice(2, -2) : `**${selected}**`;
     } else if (fmtButton.dataset.fmt === "dela") {
-      const colored = selected.match(/^\{\{(cyan|purple|pill)\|([\s\S]*)\}\}$/);
-      replacement = colored ? `{{${colored[1]}|%%${colored[2]}%%}}` : `%%${selected}%%`;
+      replacement = toggleDelaMarkup(selected);
     } else if (fmtButton.dataset.fmt === "cyan" || fmtButton.dataset.fmt === "purple") {
-      const tone = fmtButton.dataset.fmt;
-      const colored = selected.match(/^\{\{(cyan|purple)\|([\s\S]*)\}\}$/);
-      replacement = colored?.[1] === tone ? colored[2] : `{{${tone}|${selected}}}`;
+      replacement = toggleToneMarkup(selected, fmtButton.dataset.fmt);
     } else if (fmtButton.dataset.fmt === "pill") {
-      const pill = selected.match(/^\{\{pill\|([\s\S]*)\}\}$/);
-      const colored = selected.match(/^\{\{(?:cyan|purple)\|([\s\S]*)\}\}$/);
-      replacement = pill ? pill[1] : `{{pill|${colored ? colored[1] : selected}}}`;
+      replacement = togglePillMarkup(selected);
     } else if (fmtButton.dataset.fmt === "list") {
       // Тоггл: если все выделенные строки уже пункты — снимаем маркеры, иначе добавляем.
       const lines = selected.split("\n");
@@ -1546,7 +1545,7 @@ elements.blockEditor.addEventListener("click", async (event) => {
   if (iconDela) {
     const block = getSelectedBlock();
     const item = block?.content.items[Number(iconDela.dataset.iconDela)];
-    if (item) { const value = String(item.heading || "").trim(); const unwrapped = value.replace(/^%+|%+$/g, ""); item.heading = unwrapped !== value ? unwrapped : `%%${value || "Заголовок"}%%`; commitChange({ rerenderEditor: true }); }
+    if (item) { item.heading = toggleDelaMarkup(String(item.heading || "Заголовок").trim()); commitChange({ rerenderEditor: true }); }
     return;
   }
   const iconPick = event.target.closest("[data-icon-pick]");

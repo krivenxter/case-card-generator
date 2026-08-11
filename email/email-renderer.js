@@ -1,6 +1,7 @@
 import { DELA_FONT_SIZES, EMAIL_TOKENS, SYSTEM_LINKS } from "./email-model.js";
 import { BRAND_SCENE_WIDTH, renderBrandSceneMarkup } from "./email-brand-scene.js";
 import { BRAND_TITLE_WIDTH, renderBrandTitleMarkup } from "./email-brand-title.js";
+import { forceDelaMarkup, hasDelaMarkup, normalizeRichMarkup, richPlainText } from "./email-rich-text.js";
 
 const C = EMAIL_TOKENS.colors;
 const textPurple = "#BA6DE7";
@@ -32,10 +33,14 @@ function assetSource(asset, preview) {
   return escapeHtml(preview ? asset.previewSource : asset.exportUrl);
 }
 
+function plainLabel(value = "") {
+  return richPlainText(value).replace(/\[([^\]]+)]\(https:\/\/[^)\s]+\)/g, "$1");
+}
+
 function img(asset, alt, preview, width = 176, radius = 0, scale = 1) {
   const source = assetSource(asset, preview);
   if (!source) return "";
-  return `<img src="${source}" width="${width}" alt="${escapeHtml(alt || asset.label || "")}" style="display:block;width:${scale * 100}%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;${radius ? `border-radius:${radius}px;` : ""}">`;
+  return `<img src="${source}" width="${width}" alt="${escapeHtml(plainLabel(alt || asset.label || ""))}" style="display:block;width:${scale * 100}%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;${radius ? `border-radius:${radius}px;` : ""}">`;
 }
 
 function td(content, style = "", attributes = "") {
@@ -51,19 +56,21 @@ function editAttrs(preview, path) {
 }
 
 function displayText(value, color = C.navy, size = 24, align = "left", path = "", preview = false, delaSize = DELA_FONT_SIZES.large, weight = 700) {
-  const hasDela = /%%[\s\S]*?%%/.test(String(value || ""));
+  const normalized = normalizeRichMarkup(value);
+  const hasDela = hasDelaMarkup(normalized);
+  const normalizedValue = hasDela ? forceDelaMarkup(normalized) : normalized;
   const displaySize = hasDela ? Math.min(size, delaSize) : size;
-  const groupAsset = hasDela && window.CALLTOUCH_DELA_ASSETS?.[String(value || "")];
+  const groupAsset = hasDela && window.CALLTOUCH_DELA_ASSETS?.[normalizedValue];
   const groupSource = typeof groupAsset === "string" ? groupAsset : groupAsset?.url;
   const groupWidth = typeof groupAsset === "object" && groupAsset?.width ? `width="${groupAsset.width}"` : "";
   const text = groupSource
-    ? `<img src="${escapeHtml(groupSource)}" alt="${escapeHtml(delaWrapText(delaPlainText(value)))}" ${groupWidth} style="display:block;width:100%;max-width:100%;height:auto;border:0;">`
-    : inlineMarkup(value, preview, displaySize).replace(/\n/g, "<br>");
-  return `<div${editAttrs(preview, path)}${hasDela ? ` data-dela-text="1" data-dela-value="${escapeHtml(delaWrapText(value))}"` : ""} style="font-family:Arial,Helvetica,sans-serif;font-size:${displaySize}px;line-height:1.2;font-weight:${weight};color:${color};text-align:${align};text-wrap:balance;word-break:${hasDela ? "normal" : "break-word"};overflow-wrap:${hasDela ? "normal" : "break-word"};hyphens:${hasDela ? "none" : "manual"};">${text}</div>`;
+    ? `<img src="${escapeHtml(groupSource)}" alt="${escapeHtml(delaWrapText(delaPlainText(normalizedValue)))}" ${groupWidth} style="display:block;width:100%;max-width:100%;height:auto;border:0;">`
+    : inlineMarkup(normalizedValue, preview, displaySize).replace(/\n/g, "<br>");
+  return `<div${editAttrs(preview, path)}${hasDela ? ` data-dela-text="1" data-dela-value="${escapeHtml(delaWrapText(normalizedValue))}"` : ""} style="font-family:Arial,Helvetica,sans-serif;font-size:${displaySize}px;line-height:1.2;font-weight:${weight};color:${color};text-align:${align};text-wrap:balance;word-break:${hasDela ? "normal" : "break-word"};overflow-wrap:${hasDela ? "normal" : "break-word"};hyphens:${hasDela ? "none" : "manual"};">${text}</div>`;
 }
 
 function delaPlainText(value = "") {
-  return String(value).replace(/\{\{(?:cyan|purple|pill)\|%%([\s\S]*?)%%\}\}/g, "$1").replace(/\{\{pill\|([\s\S]*?)\}\}/g, "$1").replace(/%%/g, "").replace(/\*\*/g, "");
+  return richPlainText(value);
 }
 
 function delaWrapText(value = "") {
@@ -82,12 +89,12 @@ function delaMarkup(value, preview, size = DELA_FONT_SIZES.small) {
 }
 
 function inlineMarkup(value, preview, delaSize = DELA_FONT_SIZES.small) {
-  return rubleSafe(value)
+  return rubleSafe(normalizeRichMarkup(value))
+    .replace(/\{\{dela\|([\s\S]*?)\}\}/g, (_, inner) => delaMarkup(inner, preview, delaSize))
     .replace(/\{\{pill\|([\s\S]*?)\}\}/g, '<span data-pill="1" style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:#33bfe2;color:#ffffff;line-height:1;white-space:nowrap;">$1</span>')
     .replace(/\{\{(cyan|purple)\|([\s\S]*?)\}\}/g, (_, tone, inner) => `<span data-color="${tone}" style="color:${tone === "cyan" ? C.cyan : textPurple};">${inner}</span>`)
     .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\\\*/g, "*")
-    .replace(/%%([\s\S]*?)%%/g, (_, inner) => delaMarkup(inner, preview, delaSize))
     .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
 }
 
@@ -131,7 +138,7 @@ function renderTitle(block, preview, darkText = false) {
   const hasSubtitle = block.variant !== "plain" && String(subtitle || "").trim().length > 0;
   // Пустой блок не оставляет пустоты: в экспорте его нет, в редакторе — тонкая заглушка для выбора.
   if (!hasBigNumber && !hasHeading && !hasSubtitle) return "";
-  const hasRichHeading = /%%[\s\S]*?%%|\{\{(?:cyan|purple|pill)\|/.test(heading);
+  const hasRichHeading = hasDelaMarkup(heading) || /\{\{(?:cyan|purple|pill)\|/.test(heading);
   const highlighted = hasHeading && block.variant === "accent" && accent && heading.includes(accent) && !hasRichHeading
     ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`).replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>").replace(/\\\*/g, "*").replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>')
     : inlineMarkup(heading, preview, DELA_FONT_SIZES.large).replace(/\n/g, "<br>");
@@ -171,7 +178,7 @@ function renderPromo(block, preview) {
   const bodySize = String(content.bodySize) === "16" ? 16 : 14;
   const lower = hasLower ? table(`<tr>${td(`${hasText(content.offer) ? `<div style="padding-bottom:${hasText(content.body) ? "10px" : "0"};">${offerHtml}</div>` : ""}${bodyText(content.body, "#D6E8F2", bodySize, "content.body", preview)}`, visual ? "width:62%;padding:20px;vertical-align:middle;" : "width:100%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${visual ? td(visual, "width:38%;padding:12px 12px 12px 0;vertical-align:middle;", 'class="stack-column"') : ""}</tr>`, "table-layout:fixed;") : "";
   const gradient = content.gradient === false || content.gradient === "false" ? C.navy : `radial-gradient(circle at 100% 100%,${C.purple} 0%,rgba(156,46,221,.72) 0%,${C.navy} 64%)`;
-  const wholeLink = !preview && content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" aria-label="${escapeHtml(content.heading || content.eyebrow || "Открыть предложение")}" style="position:absolute;inset:0;z-index:1;display:block;text-decoration:none;">&nbsp;</a>` : "";
+  const wholeLink = !preview && content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" aria-label="${escapeHtml(plainLabel(content.heading || content.eyebrow || "Открыть предложение"))}" style="position:absolute;inset:0;z-index:1;display:block;text-decoration:none;">&nbsp;</a>` : "";
   const contentHtml = `<div style="position:relative;">${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;max-width:80%;box-sizing:border-box;padding:9px 16px;background:${eyebrowColor};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;word-break:normal;overflow-wrap:normal;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};background:${gradient};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};">${hasText(content.bigNumber) ? `<div style="padding-bottom:${hasText(content.heading) ? "8px" : "18px"};">${displayText(content.bigNumber, "#ffffff", 42, "left", "content.bigNumber", preview, 42)}</div>` : ""}${hasText(content.heading) ? `<div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 24, "left", "content.heading", preview)}</div>` : ""}${hasLower ? `<div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>` : ""}${content.ctaText ? `<div style="position:relative;z-index:2;padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>${wholeLink}</div>`;
   return wrapBlock(block, contentHtml, "transparent", "0 0 28px");
 }
@@ -197,7 +204,7 @@ function renderBrandScene(block, preview) {
   if (!hasText(block.content.renderedUrl) && !hasText(block.content.heading) && !hasText(block.content.body)) return "";
   if (preview) return wrapBlock(block, renderBrandSceneMarkup(block, { preview: true, editable: true }), "transparent", "0 0 24px");
   const source = safeUrl(block.content.renderedUrl);
-  const image = `<img src="${source}" width="${BRAND_SCENE_WIDTH}" alt="${escapeHtml(block.content.alt || block.content.heading || "Фирменный блок Calltouch")}" style="display:block;width:100%;max-width:${BRAND_SCENE_WIDTH}px;height:auto;border:0;outline:none;text-decoration:none;">`;
+  const image = `<img src="${source}" width="${BRAND_SCENE_WIDTH}" alt="${escapeHtml(plainLabel(block.content.alt || block.content.heading || "Фирменный блок Calltouch"))}" style="display:block;width:100%;max-width:${BRAND_SCENE_WIDTH}px;height:auto;border:0;outline:none;text-decoration:none;">`;
   const linked = block.content.linkUrl ? `<a href="${safeUrl(block.content.linkUrl)}" target="_blank" style="display:block;text-decoration:none;">${image}</a>` : image;
   return wrapBlock(block, linked, "transparent", "0 0 24px");
 }
@@ -206,7 +213,7 @@ function renderBrandTitle(block, preview) {
   if (!hasText(block.content.renderedUrl) && !hasText(block.content.heading)) return "";
   if (preview) return wrapBlock(block, renderBrandTitleMarkup(block, { editable: true }), "transparent", "0 0 24px");
   const source = safeUrl(block.content.renderedUrl);
-  const image = `<img src="${source}" width="${BRAND_TITLE_WIDTH}" alt="${escapeHtml(block.content.heading || "Фирменный заголовок Calltouch")}" style="display:block;width:100%;max-width:${BRAND_TITLE_WIDTH}px;height:auto;border:0;outline:none;text-decoration:none;">`;
+  const image = `<img src="${source}" width="${BRAND_TITLE_WIDTH}" alt="${escapeHtml(plainLabel(block.content.heading || "Фирменный заголовок Calltouch"))}" style="display:block;width:100%;max-width:${BRAND_TITLE_WIDTH}px;height:auto;border:0;outline:none;text-decoration:none;">`;
   return wrapBlock(block, image, "transparent", "0 0 24px");
 }
 

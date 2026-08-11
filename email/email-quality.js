@@ -1,11 +1,9 @@
 import { isBrandScenePublished } from "./email-brand-scene.js";
 import { isBrandTitlePublished } from "./email-brand-title.js";
+import { delaSegments, forceDelaMarkup, hasDelaMarkup, richPlainText } from "./email-rich-text.js";
 
 function visibleText(value = "") {
-  return String(value)
-    .replace(/\{\{(?:cyan|purple|pill)\|([\s\S]*?)\}\}/g, "$1")
-    .replace(/%%/g, "")
-    .replace(/\*\*/g, "")
+  return richPlainText(value)
     .replace(/\[([^\]]+)]\(https:\/\/[^)\s]+\)/g, "$1");
 }
 
@@ -13,20 +11,20 @@ function delaAssetKeys(email) {
   const keys = new Set();
   const grouped = new Set();
   email.blocks.forEach((block) => {
-    if (["title", "promo"].includes(block.type) && /%%[\s\S]*?%%/.test(String(block.content?.bigNumber || ""))) grouped.add(block.content.bigNumber);
-    if (block.type === "promo" && /%%[\s\S]*?%%/.test(String(block.content?.offer || ""))) grouped.add(block.content.offer);
+    if (["title", "promo"].includes(block.type) && hasDelaMarkup(block.content?.bigNumber)) grouped.add(forceDelaMarkup(block.content.bigNumber));
+    if (block.type === "promo" && hasDelaMarkup(block.content?.offer)) grouped.add(forceDelaMarkup(block.content.offer));
     const heading = String(block.content?.heading || "");
-    if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && /%%[\s\S]*?%%/.test(heading)) grouped.add(heading);
+    if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && hasDelaMarkup(heading)) grouped.add(forceDelaMarkup(heading));
     (block.content?.items || []).forEach((item) => {
       const itemHeading = String(item.heading || "");
-      if (/%%[\s\S]*?%%/.test(itemHeading)) grouped.add(itemHeading);
+      if (hasDelaMarkup(itemHeading)) grouped.add(forceDelaMarkup(itemHeading));
     });
   });
   grouped.forEach((value) => keys.add(value));
   const collect = (value) => {
     if (typeof value === "string") {
-      if (grouped.has(value)) return;
-      for (const match of value.matchAll(/%%([\s\S]*?)%%/g)) if (match[1].trim()) keys.add(match[1].trim());
+      if (grouped.has(forceDelaMarkup(value))) return;
+      delaSegments(value).forEach((run) => keys.add(run.text.trim()));
     } else if (Array.isArray(value)) value.forEach(collect);
     else if (value && typeof value === "object") Object.values(value).forEach(collect);
   };
