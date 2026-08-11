@@ -35,7 +35,7 @@ export function validateEmail(email) {
       ctaBlocks.push(block);
       if (!String(url || "").trim()) errors.push(`${label}: у CTA нет ссылки.`);
     }
-    if (url && !/^https:\/\//i.test(url)) warnings.push(`${label}: ссылка содержит placeholder или небезопасный протокол.`);
+    if (url && !/^(https:\/\/|\{\{[a-z0-9_]+\}\})$/i.test(String(url).trim())) warnings.push(`${label}: ссылка содержит placeholder или небезопасный протокол.`);
     const image = content.image;
     if (image && block.type !== "brandScene" && (!image.exportUrl || /^(blob:|data:|file:|http:)/i.test(image.exportUrl))) errors.push(`${label}: у изображения нет публичного HTTPS URL.`);
     if (image && !String(image.label || content.heading || "").trim()) warnings.push(`${label}: проверьте alt изображения.`);

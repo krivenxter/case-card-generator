@@ -951,7 +951,7 @@ async function renderDelaPng(text) {
   const style = delaStyle(text);
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:-10000px;top:0;width:560px;padding:8px 0;pointer-events:none;";
-  host.innerHTML = `<div style="display:inline-block;width:max-content;max-width:560px;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;color:${style.color};">${escapeAttr(text)}</div>`;
+  host.innerHTML = `<div style="display:inline-block;width:max-content;max-width:560px;font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-size:${style.size}px;line-height:1.12;font-weight:400;letter-spacing:.02em;text-transform:uppercase;word-break:break-word;white-space:pre-line;color:${style.color};">${escapeAttr(text)}</div>`;
   document.body.append(host);
   try {
     if (document.fonts?.ready) await document.fonts.ready;
