@@ -12,6 +12,8 @@ const formatIconPaths = {
   bold: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 0 8H6z"/><path d="M6 12h9a4 4 0 0 1 0 8H6z"/></g>',
   dela: '<text x="2" y="19" font-family="Dela Gothic One,Arial Black,sans-serif" font-size="19" font-weight="400">D</text>',
   link: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></g>',
+  cyan: '<circle cx="12" cy="12" r="8" fill="#33bfe2"/>',
+  purple: '<circle cx="12" cy="12" r="8" fill="#BA6DE7"/>',
   list: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></g>',
   break: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7a4 4 0 0 0 4 4h10"/><path d="m15 11 4 4-4 4"/></g>',
   typograph: '<g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M8 7h8M8 11h6"/></g>'
@@ -23,7 +25,7 @@ function formatIcon(name) {
 const elements = {
   start: $("#startScreen"), variants: $("#variantScreen"), editor: $("#editorScreen"), pastePanel: $("#pastePanel"), importText: $("#importText"), fileInput: $("#importFileInput"),
   variantFrames: [$("#variantAFrame"), $("#variantBFrame")], preview: $("#emailPreview"), previewStage: $("#previewStage"), previewCanvas: $("#previewCanvas"), previewModeLabel: $("#previewModeLabel"), zoomIndicator: $("#zoomIndicator"),
-  projectTitle: $("#projectTitle"), theme: $("#themeSelect"), blockList: $("#blockList"), blockEditor: $("#blockEditor"), footnoteList: $("#footnoteList"),
+  projectTitle: $("#projectTitle"), themePicker: $("#themePicker"), blockList: $("#blockList"), blockEditor: $("#blockEditor"), footnoteList: $("#footnoteList"),
   blockLibraryDialog: $("#blockLibraryDialog"), blockLibrary: $("#blockLibrary"), assetDialog: $("#assetDialog"), assetGrid: $("#assetGrid"), customAssetFile: $("#customAssetFile"), customAssetFileName: $("#customAssetFileName"), customAssetUrl: $("#customAssetUrl"), customAssetPreview: $("#customAssetPreview"),
   qualityDialog: $("#qualityDialog"), qualityTitle: $("#qualityTitle"), qualityResults: $("#qualityResults"), codePreview: $("#codePreview"), copyButton: $("#copyHtmlButton"), downloadButton: $("#downloadHtmlButton"), linkDialog: $("#linkDialog"), linkDialogUrl: $("#linkDialogUrl"),
   saveStatus: $("#saveStatus"), toast: $("#emailToast"), undoButton: $("#undoButton"), redoButton: $("#redoButton"), exportDraftButton: $("#exportDraftButton"), importDraftInput: $("#importDraftInput")
@@ -182,7 +184,11 @@ function enterEditor(nextEmail) {
 
 function renderEditor() {
   elements.projectTitle.textContent = email.meta.title || "Новое письмо";
-  elements.theme.value = email.settings.theme;
+  $$('[data-theme-option]', elements.themePicker).forEach((button) => {
+    const active = button.dataset.themeOption === email.settings.theme;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-checked", String(active));
+  });
   renderPreview();
   renderBlockList();
   renderBlockEditor();
@@ -208,7 +214,11 @@ function richToMarkdown(root) {
     const tag = node.tagName.toLowerCase();
     const inner = [...node.childNodes].map(walk).join("");
     if (tag === "b" || tag === "strong") return inner.trim() ? `**${inner}**` : inner;
-    if (node.dataset?.dela) return inner.trim() ? `%%${inner}%%` : inner;
+    if (node.dataset?.dela) {
+      const wrapped = inner.trim() ? `%%${inner}%%` : inner;
+      return node.dataset.color ? `{{${node.dataset.color}|${wrapped}}}` : wrapped;
+    }
+    if (node.dataset?.color) return inner.trim() ? `{{${node.dataset.color}|${inner}}}` : inner;
     if (tag === "a") return `[${inner}](${node.getAttribute("href") || ""})`;
     if (tag === "li") return `\n- ${inner}`;
     if (tag === "br") return "\n";
@@ -261,8 +271,29 @@ function typographEmail(project) {
   return normalized;
 }
 
+function brandDela(value) {
+  const text = String(value || "").trim();
+  if (!text || /%%[\s\S]*?%%/.test(text)) return text;
+  return `%%${text.replace(/\{\{(?:cyan|purple)\|([\s\S]*?)\}\}/g, "$1").replace(/\*\*/g, "")}%%`;
+}
+
+function hasBrandedDelaHeading(project) {
+  return project.blocks.some((block) => block.type === "brandTitle" || block.type === "brandScene" || /%%[\s\S]*?%%/.test(String(block.content?.heading || "")) || (block.content?.items || []).some((item) => /%%[\s\S]*?%%/.test(String(item.heading || ""))));
+}
+
+function brandEmail(project) {
+  const branded = cloneEmail(project);
+  branded.blocks.forEach((block) => {
+    if (["brandTitle", "brandScene"].includes(block.type)) return;
+    if (["title", "text"].includes(block.type) && String(block.content?.plate || "") !== "1") block.content.plate = "1";
+    if (block.content?.heading) block.content.heading = brandDela(block.content.heading);
+    if (block.type === "iconGrid") block.content.items = (block.content.items || []).map((item) => ({ ...item, heading: brandDela(item.heading) }));
+  });
+  return branded;
+}
+
 function isRichEditNode(node) {
-  if (!/\.(body|subtitle|heading)$/.test(node.dataset.editPath || "")) return false;
+  if (!/\.(body|subtitle|heading|offer)$/.test(node.dataset.editPath || "")) return false;
   const block = email.blocks.find((item) => item.id === node.closest("[data-block-id]")?.dataset.blockId);
   return Boolean(block) && !["brandTitle", "brandScene"].includes(block.type);
 }
@@ -287,7 +318,7 @@ function ensureEditToolbar(previewDocument) {
   const toolbar = previewDocument.createElement("div");
   const buttonStyle = "display:inline-flex;align-items:center;justify-content:center;width:28px;height:26px;padding:0;border:0;border-radius:6px;background:transparent;color:#fff;cursor:pointer;";
   toolbar.style.cssText = "position:absolute;z-index:60;display:none;gap:2px;padding:3px;border-radius:9px;background:#084E7D;box-shadow:0 8px 20px rgba(31,40,44,.3);";
-  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" aria-label="Жирный" style="${buttonStyle}">${formatIcon("bold")}</button><button type="button" data-cmd="dela" title="Шрифт Dela" aria-label="Шрифт Dela" style="${buttonStyle}">${formatIcon("dela")}</button><button type="button" data-cmd="link" title="Ссылка" aria-label="Ссылка" style="${buttonStyle}">${formatIcon("link")}</button><button type="button" data-cmd="list" title="Список с пунктами" aria-label="Список с пунктами" style="${buttonStyle}">${formatIcon("list")}</button><button type="button" data-cmd="break" title="Ручной перенос строки" aria-label="Перенос строки" style="${buttonStyle}">${formatIcon("break")}</button><button type="button" data-cmd="typograph" title="Типограф" aria-label="Типограф" style="${buttonStyle}">${formatIcon("typograph")}</button>`;
+  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" aria-label="Жирный" style="${buttonStyle}">${formatIcon("bold")}</button><button type="button" data-cmd="dela" title="Шрифт Dela" aria-label="Шрифт Dela" style="${buttonStyle}">${formatIcon("dela")}</button><button type="button" data-cmd="cyan" title="Циановый текст" aria-label="Циановый текст" style="${buttonStyle}">${formatIcon("cyan")}</button><button type="button" data-cmd="purple" title="Пурпурный текст" aria-label="Пурпурный текст" style="${buttonStyle}">${formatIcon("purple")}</button><button type="button" data-cmd="link" title="Ссылка" aria-label="Ссылка" style="${buttonStyle}">${formatIcon("link")}</button><button type="button" data-cmd="list" title="Список с пунктами" aria-label="Список с пунктами" style="${buttonStyle}">${formatIcon("list")}</button><button type="button" data-cmd="break" title="Ручной перенос строки" aria-label="Перенос строки" style="${buttonStyle}">${formatIcon("break")}</button><button type="button" data-cmd="typograph" title="Типограф" aria-label="Типограф" style="${buttonStyle}">${formatIcon("typograph")}</button>`;
   previewDocument.body.append(toolbar);
   toolbar.addEventListener("mousedown", (event) => event.preventDefault());
   let savedRange = null;
@@ -295,6 +326,66 @@ function ensureEditToolbar(previewDocument) {
     const command = event.target.closest("[data-cmd]")?.dataset.cmd;
    if (!command) return;
    if (command === "bold") previewDocument.execCommand("bold");
+    if (command === "cyan" || command === "purple") {
+      const range = savedRange?.cloneRange();
+      const selected = range?.toString();
+      if (!range || !selected?.trim()) return;
+      const rangeElement = range.commonAncestorContainer?.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer?.parentElement;
+      const selectedColor = rangeElement?.closest("[data-color]");
+      if (selectedColor?.textContent === selected) {
+        const editable = selectedColor.closest("[data-rich]");
+        if (selectedColor.dataset.color === command) {
+          selectedColor.replaceWith(...selectedColor.childNodes);
+        } else {
+          selectedColor.dataset.color = command;
+          selectedColor.style.color = command === "cyan" ? "#33bfe2" : "#BA6DE7";
+        }
+        editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatColor", data: null }));
+        return;
+      }
+      const delaParent = rangeElement?.closest("[data-dela]");
+      if (delaParent) {
+        const text = delaParent.textContent || "";
+        const start = text.indexOf(selected);
+        const selectedText = start >= 0 ? selected : text;
+        const offset = Math.max(0, start);
+        const colorParent = delaParent.parentElement?.dataset.color ? delaParent.parentElement : null;
+        const originalTone = colorParent?.dataset.color || "";
+        const editable = delaParent.closest("[data-rich]");
+        const makeDela = (value) => { const node = delaParent.cloneNode(false); node.textContent = value; return node; };
+        const withColor = (value, tone) => {
+          const node = makeDela(value);
+          if (!tone) return node;
+          const wrapper = previewDocument.createElement("span");
+          wrapper.dataset.color = tone;
+          wrapper.style.color = tone === "cyan" ? "#33bfe2" : "#BA6DE7";
+          wrapper.append(node);
+          return wrapper;
+        };
+        const appendDela = (container, value, tone, splitWords = false) => {
+          if (!splitWords) { container.append(withColor(value, tone)); return; }
+          value.split(/(\s+)/).forEach((part) => {
+            if (!part) return;
+            container.append(/^\s+$/.test(part) ? previewDocument.createTextNode(part) : withColor(part, tone));
+          });
+        };
+        const fragment = previewDocument.createDocumentFragment();
+        if (offset) appendDela(fragment, text.slice(0, offset), originalTone, true);
+        appendDela(fragment, selectedText, command, true);
+        if (offset + selectedText.length < text.length) appendDela(fragment, text.slice(offset + selectedText.length), originalTone, true);
+        const target = colorParent?.textContent === text ? colorParent : delaParent;
+        target.replaceWith(fragment);
+        editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatColor", data: null }));
+        return;
+      }
+      const span = previewDocument.createElement("span");
+      span.dataset.color = command;
+      span.style.color = command === "cyan" ? "#33bfe2" : "#BA6DE7";
+      span.append(range.extractContents());
+      range.insertNode(span);
+      span.closest("[data-rich]")?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatColor", data: null }));
+      return;
+    }
     if (command === "break") {
       const range = savedRange?.cloneRange();
       if (range) {
@@ -569,7 +660,7 @@ function renderBlockList() {
 function field(label, path, value, { type = "text", rows = 0, hint = "", options = null } = {}) {
   let control = "";
   if (options) control = `<select data-field="${path}">${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${value === optionValue ? " selected" : ""}>${optionLabel}</option>`).join("")}</select>`;
-  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)" aria-label="Жирный">${formatIcon("bold")}</button><button type="button" data-fmt="dela" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button><button type="button" data-fmt="link" title="Ссылка" aria-label="Ссылка">${formatIcon("link")}</button><button type="button" data-fmt="list" title="Список с пунктами" aria-label="Список с пунктами">${formatIcon("list")}</button><button type="button" data-fmt="break" title="Ручной перенос строки" aria-label="Перенос строки">${formatIcon("break")}</button><button type="button" data-fmt="typograph" title="Типограф" aria-label="Типограф">${formatIcon("typograph")}</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
+  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)" aria-label="Жирный">${formatIcon("bold")}</button><button type="button" data-fmt="dela" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button><button type="button" data-fmt="cyan" title="Циановый текст" aria-label="Циановый текст">${formatIcon("cyan")}</button><button type="button" data-fmt="purple" title="Пурпурный текст" aria-label="Пурпурный текст">${formatIcon("purple")}</button><button type="button" data-fmt="link" title="Ссылка" aria-label="Ссылка">${formatIcon("link")}</button><button type="button" data-fmt="list" title="Список с пунктами" aria-label="Список с пунктами">${formatIcon("list")}</button><button type="button" data-fmt="break" title="Ручной перенос строки" aria-label="Перенос строки">${formatIcon("break")}</button><button type="button" data-fmt="typograph" title="Типограф" aria-label="Типограф">${formatIcon("typograph")}</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
   else control = `<input data-field="${path}" type="${type}" value="${escapeAttr(value)}">`;
   return `<label class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</label>`;
 }
@@ -596,14 +687,14 @@ function renderBlockEditor() {
   let controls = "";
   if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
   if (block.type === "text") controls = `${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Стиль списка", "content.listStyle", block.content.listStyle || "bullet", { options: [["bullet", "Маркеры"], ["number", "Цифры в кружках"]] })}${field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" })}<button class="email-button email-button--quiet" type="button" data-insert-image-after>+ Вставить картинку после текста</button>`;
-  if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer)}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
+  if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${field("Размер описания", "content.bodySize", block.content.bodySize || "14", { options: [["16", "Обычный · 16 px"], ["14", "Компактный · 14 px"]] })}${field("Фон", "content.gradient", block.content.gradient === false ? "false" : "true", { options: [["true", "Радиальный градиент"], ["false", "Тёмно-синий без градиента"]] })}${assetField(block)}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "image") controls = `${assetField(block)}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2, hint: "Виден, если картинки отключены" })}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl, { type: "url", hint: "При клике открывается весь блок" })}`;
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
-  if (block.type === "iconGrid") controls = `<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><button type="button" data-icon-dela="${index}" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
+  if (block.type === "iconGrid") controls = `${field("Заголовок блока", "content.heading", block.content.heading || "", { rows: 2 })}<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><button type="button" data-icon-dela="${index}" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
   if (block.type === "ctaCard") controls = `${field("Тема", "variant", block.variant, { options: [["dark", "Тёмно-синяя"], ["dark-gradient", "Тёмно-синяя с пурпурным свечением"], ["light", "Светлая"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Пояснение", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
-  if (block.type === "button") controls = `${field("Акцент", "variant", block.variant, { options: [["primary", "Основной"], ["secondary", "Спокойный"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
+  if (block.type === "button") controls = `${field("Акцент", "variant", block.variant, { options: [["primary", "Основной"], ["secondary", "Спокойный"]] })}${field("Выравнивание", "content.align", block.content.align || "center", { options: [["center", "По центру"], ["left", "По левому краю"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
   if (block.type === "divider") controls = field("Интервал", "variant", block.variant, { options: [["s", "S — компактный"], ["m", "M — обычный"], ["l", "L — большой"], ["xl", "XL — очень большой"]] });
   elements.blockEditor.innerHTML = `<div class="email-block-editor__header"><h2>${escapeAttr(definition?.label || block.type)}</h2><span>ЗАЩИЩЁННЫЙ ВАРИАНТ</span></div>${controls}`;
   iconRefresh(elements.blockEditor);
@@ -989,9 +1080,13 @@ function delaStyle(text) {
   const darkDefault = email.settings.theme === "editorial";
   for (const block of email.blocks) {
     const content = block.content || {};
-    if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: block.variant === "light" ? "#084E7D" : "#ffffff" };
-    if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: "#ffffff" };
-    if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: DELA_FONT_SIZES.small, color: "#1F282C" };
+    const contentText = JSON.stringify(content);
+    const color = contentText.includes(`{{cyan|%%${text}%%}}`) ? "#33bfe2" : contentText.includes(`{{purple|%%${text}%%}}`) ? "#BA6DE7" : "";
+    if (block.type === "ctaCard" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || (block.variant === "light" ? "#084E7D" : "#ffffff") };
+    if (block.type === "promo" && String(content.heading || "").includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.large, color: color || "#ffffff" };
+    if (block.type === "promo" && contentText.includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.small, color: color || "#ffffff" };
+    if (block.type === "iconGrid" && (content.items || []).some((item) => String(item.heading || "").includes(`%%${text}%%`))) return { size: DELA_FONT_SIZES.small, color: color || "#1F282C" };
+    if (contentText.includes(`%%${text}%%`)) return { size: DELA_FONT_SIZES.small, color: color || (darkDefault ? "#ffffff" : "#1F282C") };
   }
   return { size: DELA_FONT_SIZES.small, color: darkDefault ? "#ffffff" : "#1F282C" };
 }
@@ -1079,9 +1174,10 @@ async function openQualityDialog() {
     return;
   }
   const report = validateEmail(email);
+  const brandingWarning = hasBrandedDelaHeading(email) ? "" : `<section class="email-quality-group"><h3>Брендинг</h3><ul><li>В письме нет Dela-заголовков. Добавьте фирменную подачу перед отправкой.</li></ul><button class="email-button email-button--brand" type="button" data-brand-and-publish>Забрендировать</button></section>`;
   const html = renderEmailDocument(email, { preview: false });
   elements.qualityTitle.textContent = report.errors.length ? `Нужно исправить: ${report.errors.length}` : report.warnings.length ? `Нужно проверить: ${report.warnings.length}` : "Письмо готово ✓";
-  elements.qualityResults.innerHTML = `${uploadNote}${report.errors.length ? `<section class="email-quality-group"><h3>Ошибки</h3><ul>${report.errors.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${report.warnings.length ? `<section class="email-quality-group"><h3>Предупреждения</h3><ul>${report.warnings.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${!report.errors.length && !report.warnings.length ? `<section class="email-quality-group"><h3>Критических проблем не найдено</h3><ul><li>Проверьте ссылки и отправьте тестовое письмо в вашей системе рассылок.</li></ul></section>` : ""}`;
+  elements.qualityResults.innerHTML = `${uploadNote}${brandingWarning}${report.errors.length ? `<section class="email-quality-group"><h3>Ошибки</h3><ul>${report.errors.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${report.warnings.length ? `<section class="email-quality-group"><h3>Предупреждения</h3><ul>${report.warnings.map((item) => `<li>${escapeAttr(item)}</li>`).join("")}</ul></section>` : ""}${!report.errors.length && !report.warnings.length ? `<section class="email-quality-group"><h3>Критических проблем не найдено</h3><ul><li>Проверьте ссылки и отправьте тестовое письмо в вашей системе рассылок.</li></ul></section>` : ""}`;
   elements.codePreview.value = html;
   elements.copyButton.disabled = Boolean(report.errors.length);
   elements.downloadButton.disabled = Boolean(report.errors.length);
@@ -1124,8 +1220,21 @@ $("#backToStartButton").addEventListener("click", () => showScreen("start"));
 $$('[data-variant]').forEach((button) => button.addEventListener("click", () => enterEditor(autoVariants[Number(button.dataset.variant)])));
 
 $$('[data-preview]').forEach((button) => button.addEventListener("click", () => { email.settings.preview = button.dataset.preview; syncPreviewMode(); renderPreview({ preservePosition: false }); persistSoon(); }));
-elements.theme.addEventListener("change", () => { email.settings.theme = elements.theme.value; commitChange(); });
+elements.themePicker.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-theme-option]");
+  if (!button || button.dataset.themeOption === email.settings.theme) return;
+  email.settings.theme = button.dataset.themeOption;
+  commitChange({ rerenderEditor: true });
+});
 $("#normalizeButton").addEventListener("click", () => { email = typographEmail(normalizeEmailDesign(email)); commitChange({ rerenderEditor: true }); showToast("Письмо приведено в порядок: стили и типографика обновлены."); });
+$("#brandButton").addEventListener("click", () => { email = brandEmail(email); commitChange({ rerenderEditor: true }); showToast("Письмо забрендировано: заголовки переведены в Dela, текстовые блоки получили белые плашки."); });
+elements.qualityResults.addEventListener("click", async (event) => {
+  if (!event.target.closest("[data-brand-and-publish]")) return;
+  email = brandEmail(email);
+  commitChange({ rerenderEditor: true });
+  showToast("Брендируем письмо и готовим Dela-PNG…");
+  await openQualityDialog();
+});
 
 elements.blockList.addEventListener("click", (event) => {
   const row = event.target.closest("[data-block-id]");
@@ -1218,7 +1327,12 @@ elements.blockEditor.addEventListener("click", async (event) => {
       const trimmed = selected.trim();
       replacement = /^\*\*[\s\S]*\*\*$/.test(trimmed) ? trimmed.slice(2, -2) : `**${selected}**`;
     } else if (fmtButton.dataset.fmt === "dela") {
-      replacement = `%%${selected}%%`;
+      const colored = selected.match(/^\{\{(cyan|purple)\|([\s\S]*)\}\}$/);
+      replacement = colored ? `{{${colored[1]}|%%${colored[2]}%%}}` : `%%${selected}%%`;
+    } else if (fmtButton.dataset.fmt === "cyan" || fmtButton.dataset.fmt === "purple") {
+      const tone = fmtButton.dataset.fmt;
+      const colored = selected.match(/^\{\{(cyan|purple)\|([\s\S]*)\}\}$/);
+      replacement = colored?.[1] === tone ? colored[2] : `{{${tone}|${selected}}}`;
     } else if (fmtButton.dataset.fmt === "list") {
       // Тоггл: если все выделенные строки уже пункты — снимаем маркеры, иначе добавляем.
       const lines = selected.split("\n");

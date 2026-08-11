@@ -2,7 +2,7 @@ import { createBlock, cloneEmail, createDefaultEmail } from "./email-model.js";
 
 const URL_RE = /https?:\/\/[^\s)]+/gi;
 const LABEL_RE = /^(тема|прехедер|прехидер|subject|preheader)\s*:\s*/i;
-const HEADING_RE = /^(что будем делать|обсудим|преимущества?.*|как .*\?|спецпредложение.*|.*акция.*|.*кешбэк.*|.*ассистент.*|подключить|узнать больше|открыть трансляцию)$/i;
+const HEADING_RE = /^(что будем делать|обсудим|преимущества?.*|как .*\?|спецпредложение.*|.*акция.*|.*кешбэк.*|ии ассистент|подключить|узнать больше|открыть трансляцию)$/i;
 const CTA_RE = /^(подключить|узнать больше|открыть трансляцию|смотреть трансляцию|программа встречи|зарегистрироваться|оставить заявку)$/i;
 const CLOSING_RE = /^(?:старт(?:\s|$).*(?:онлайн|увидимся)|подключайтесь(?:\s|$)|смотрите(?:\s|$)|жд[её]м(?:\s|$)|до встречи(?:\s|$))/i;
 const WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -25,15 +25,22 @@ function normalizeKey(value) {
 }
 
 function isList(line) {
-  return /^\s*(?:[-–—•]\s+|\*\s+|\d+[.)]\s+)/.test(line);
+  return /^\s*(?:\*\*\s*)?(?:[-–—•]\s+|\*\s+|\d+[.)]\s+)/.test(line);
 }
 
 function listValue(line) {
-  return cleanLine(line).replace(/^\s*(?:[-–—•]\s+|\*\s+|\d+[.)]\s+)/, "");
+  const value = cleanLine(line);
+  const boldMarker = value.match(/^\s*\*\*\s*[-–—•]\s+/);
+  if (boldMarker) return `**${value.slice(boldMarker[0].length)}`;
+  return value.replace(/^\s*(?:[-–—•]\s+|\*\s+|\d+[.)]\s+)/, "");
 }
 
 function isUrl(line) {
   return /^https?:\/\/\S+$/i.test(line);
+}
+
+function isFootnoteLine(line) {
+  return /^\*{1,3}\s*(?:акция действует|шаблонн(?:ый|ого) чек-лист|лид(?:\s|$))/i.test(line);
 }
 
 function isHeading(line, index, lines) {
@@ -57,7 +64,10 @@ export function parseDocument(source) {
     .split("\n")
     .map(cleanLine)
     .filter(Boolean);
-  const urls = [...new Set(lines.flatMap((line) => line.match(URL_RE) || []))];
+  const urls = [...new Set(lines.flatMap((line) => {
+    const markdownUrls = [...line.matchAll(/\]\((https?:\/\/[^)\s]+)/gi)].map((match) => match[1]);
+    return markdownUrls.length ? markdownUrls : (line.match(URL_RE) || []);
+  }))];
   const meta = { subject: "", preheader: "" };
   const contentLines = [];
   const footnotes = [];
@@ -67,8 +77,8 @@ export function parseDocument(source) {
       const value = line.slice(match[0].length).trim();
       if (/тема|subject/i.test(match[1])) meta.subject = value;
       else meta.preheader = value;
-    } else if (/^\*(?!\*)\S/.test(line)) {
-      footnotes.push(line);
+    } else if (isFootnoteLine(line)) {
+      footnotes.push(line.replace(/^\*{1,3}\s*/, ""));
     } else {
       const inlineSection = line.match(/^([^:]{2,72}):\s+(.+)$/) || line.match(/^((?:место|дата и время|с собой))\s+[—–-]\s+(.+)$/i);
       if (inlineSection) contentLines.push(`${inlineSection[1]}:`, inlineSection[2]);
@@ -133,11 +143,32 @@ function sectionText(section) {
 }
 
 function isOfferSection(section) {
-  return /акци|спецпредлож|кешбэк|0\s*₽|бесплатн|без затрат/i.test(semanticText(`${section.heading} ${section.body}`));
+  return /акци|спецпредлож|специальн(?:ым|ое|ого) предлож|кешбэк|0\s*₽|бесплатн|без затрат/i.test(semanticText(`${section.heading} ${section.body}`));
 }
 
 function isBenefitsSection(section) {
   return /преимуществ|поможет|почему|что будем делать|обсудим/i.test(semanticText(section.heading)) && section.list.length >= 2;
+}
+
+function splitBenefit(value) {
+  const text = cleanLine(value).replace(/^[-–—•]\s*/, "").replace(/\*\*/g, "");
+  const match = text.match(/^(.+?[.!?])\s+(.+)$/);
+  return match ? { heading: match[1], body: match[2] } : { heading: text, body: "" };
+}
+
+function pickIconId(text) {
+  const source = semanticText(text).toLowerCase();
+  const semantic = {
+    call: ["звон", "телефон", "колл"],
+    "call-incoming": ["входящ", "обращен"],
+    people: ["клиент", "аудитор", "люд"],
+    moneys: ["деньг", "бюджет", "стоим", "доход", "cpl"],
+    verify: ["квалифиц", "чек-лист", "точн", "результат"],
+    chart: ["аналит", "показател", "метрик", "данн"]
+  };
+  return Object.entries(window.CALLTOUCH_ASSETS.essentials || {})
+    .map(([id, asset]) => ({ id, score: [...(asset.keywords || []), ...(semantic[id] || [])].filter((word) => source.includes(word.toLowerCase())).length }))
+    .sort((a, b) => b.score - a.score)[0]?.id || "verify";
 }
 
 function isLogistics(section) {
@@ -146,6 +177,13 @@ function isLogistics(section) {
 
 function isCtaSection(section, ctaCandidate) {
   return !section.list.length && !section.body && (normalizeKey(section.heading) === normalizeKey(ctaCandidate) || CTA_RE.test(semanticText(section.heading)) || markdownLink(section.heading));
+}
+
+function pickVisualAsset(text) {
+  const assets = window.CALLTOUCH_ASSETS.visuals || [];
+  const source = semanticText(text).toLowerCase();
+  return assets.map((asset) => ({ asset, score: (asset.keywords || []).filter((keyword) => source.includes(keyword.toLowerCase())).length }))
+    .sort((a, b) => b.score - a.score)[0]?.asset || assets[0];
 }
 
 function importedImageBlocks(images) {
@@ -166,9 +204,20 @@ function sectionBlocks(content, editorial = false) {
     if (isCtaSection(section, content.ctaCandidate)) return;
     if (isLogistics(section)) return;
     if (isOfferSection(section)) {
-      blocks.push(createBlock("promo", { variant: "dark", content: { eyebrow: section.heading || "Специальное предложение", heading: section.heading || content.title, offer: section.list[0] || "", body: section.body, ctaText: content.ctaCandidate, ctaUrl: content.primaryUrl, image: assetList[0] } }));
+      const next = content.sections[index + 1];
+      const description = next && /ассистент/i.test(semanticText(next.heading)) ? next : null;
+      if (description) used.add(normalizeKey(sectionText(description)));
+      blocks.push(createBlock("promo", { variant: "dark", content: {
+        eyebrow: section.heading || "Специальное предложение",
+        heading: section.body || content.title,
+        offer: description?.heading || section.list[0] || "",
+        body: description?.body || "",
+        ctaText: "",
+        ctaUrl: content.primaryUrl,
+        image: pickVisualAsset(`${section.heading} ${section.body} ${description?.heading || ""} ${description?.body || ""}`) || assetList[0]
+      } }));
     } else if (!editorial && isBenefitsSection(section)) {
-      blocks.push(createBlock("text", { content: { plate: "1", listStyle: "number", body: sectionText(section) } }));
+      blocks.push(createBlock("iconGrid", { content: { heading: section.heading, items: section.list.slice(0, 6).map((item) => ({ ...splitBenefit(item), iconId: pickIconId(item) })) } }));
     } else if (editorial) {
       blocks.push(createBlock("text", { content: { plate: index % 2 ? "1" : "", listStyle: section.list.length ? "bullet" : "bullet", body: text } }));
     } else {
@@ -187,12 +236,16 @@ function addOnce(blocks, block, key) {
 }
 
 function addImportedTitle(blocks, content, subtitle = "") {
-  if (content.title) blocks.push(createBlock("title", { variant: "plain", content: { heading: content.title, subtitle, accent: "" } }));
+  // Тема и прехедер — технические поля eNkod, они не должны попадать в тело письма.
 }
 
 function addImportedCta(blocks, content, variant = "dark-gradient") {
   if (!content.ctaCandidate && !content.ctaLink) return;
   const heading = content.ctaCandidate && !markdownLink(content.ctaCandidate) ? semanticText(content.ctaCandidate) : "";
+  if (!content.ctaLink && CTA_RE.test(heading)) {
+    addOnce(blocks, createBlock("button", { variant: "primary", content: { text: heading, url: content.primaryUrl } }), heading);
+    return;
+  }
   if (content.ctaLink) {
     addOnce(blocks, createBlock("ctaCard", { variant, content: { heading, subtitle: "", ctaText: content.ctaLink.label, ctaUrl: content.ctaLink.url } }), `${heading}|${content.ctaLink.url}`);
   } else {
@@ -208,8 +261,8 @@ export function buildLayoutVariantA(content, images = []) {
   const blocks = [];
   addImportedTitle(blocks, content, content.intro);
   blocks.push(...importedImageBlocks(images));
-  if (!content.title && content.intro) blocks.push(createBlock("text", { content: { body: content.intro } }));
-  sectionBlocks(content, false).forEach((block) => addOnce(blocks, block, block.content?.heading || block.content?.body));
+  if (content.intro) blocks.push(createBlock("text", { content: { body: content.intro } }));
+  sectionBlocks(content, false).forEach((block) => addOnce(blocks, block, block.content?.heading || block.content?.body || block.content?.items?.map((item) => `${item.heading} ${item.body}`).join("|")));
   addImportedCta(blocks, content);
   email.blocks = blocks;
   return email;
@@ -224,8 +277,8 @@ export function buildLayoutVariantB(content, images = []) {
   const blocks = [];
   addImportedTitle(blocks, content);
   blocks.push(...importedImageBlocks(images));
-  if (!content.title && content.intro) blocks.push(createBlock("text", { content: { body: content.intro, plate: "1" } }));
-  sectionBlocks(content, true).forEach((block) => addOnce(blocks, block, block.content?.heading || block.content?.body));
+  if (content.intro) blocks.push(createBlock("text", { content: { body: content.intro, plate: "1" } }));
+  sectionBlocks(content, true).forEach((block) => addOnce(blocks, block, block.content?.heading || block.content?.body || block.content?.items?.map((item) => `${item.heading} ${item.body}`).join("|")));
   addImportedCta(blocks, content, "light");
   email.blocks = blocks;
   return email;

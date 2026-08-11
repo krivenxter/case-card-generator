@@ -1,6 +1,14 @@
 import { isBrandScenePublished } from "./email-brand-scene.js";
 import { isBrandTitlePublished } from "./email-brand-title.js";
 
+function visibleText(value = "") {
+  return String(value)
+    .replace(/\{\{(?:cyan|purple)\|([\s\S]*?)\}\}/g, "$1")
+    .replace(/%%/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/\[([^\]]+)]\(https:\/\/[^)\s]+\)/g, "$1");
+}
+
 export function normalizeEmailDesign(email) {
   const normalized = JSON.parse(JSON.stringify(email));
   normalized.settings.theme = ["classic", "editorial"].includes(normalized.settings.theme) ? normalized.settings.theme : "classic";
@@ -28,7 +36,7 @@ export function validateEmail(email) {
     const content = block.content || {};
     delaFragments += Object.values(content).filter((value) => typeof value === "string").reduce((count, value) => count + (value.match(/%%[\s\S]*?%%/g) || []).length, 0);
     if (["promo", "imageText", "brandTitle", "brandScene", "featureCard", "ctaCard"].includes(block.type) && !String(content.heading || "").trim()) errors.push(`${label}: пустой заголовок.`);
-    if (String(content.heading || "").length > 120) warnings.push(`${label}: заголовок длиннее 120 символов.`);
+    if (visibleText(content.heading).length > 120) warnings.push(`${label}: заголовок длиннее 120 символов.`);
     if (String(content.body || "").length > 900) warnings.push(`${label}: текстовый блок слишком длинный.`);
     const url = content.ctaUrl || content.url || content.linkUrl;
     if (["promo", "ctaCard", "button"].includes(block.type)) {

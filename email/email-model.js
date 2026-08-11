@@ -6,7 +6,7 @@ export const EMAIL_TOKENS = Object.freeze({
   spacing: Object.freeze({ s: 12, m: 20, l: 32, xl: 48 })
 });
 
-export const DELA_FONT_SIZES = Object.freeze({ small: 16, large: 24 });
+export const DELA_FONT_SIZES = Object.freeze({ small: 16, large: 22 });
 
 export const SYSTEM_LINKS = Object.freeze({
   webVersion: "{{link_view_in_browser}}",
@@ -48,20 +48,20 @@ export function createBlock(type, overrides = {}) {
   const presets = {
     title: { variant: "accent", content: { heading: "Заголовок письма", subtitle: "Коротко объясните, какую пользу получит читатель.", accent: "письма", plate: "" } },
     text: { content: { plate: "", listStyle: "bullet", body: "Добавьте основной текст. Разделяйте абзацы пустой строкой, а пункты списка начинайте с дефиса." } },
-    promo: { variant: "dark", content: { eyebrow: "Специальное предложение", heading: "Решение для роста бизнеса", offer: "0 ₽", body: "Расскажите об условиях предложения и главной выгоде.", ctaText: "Подключить", ctaUrl: "https://calltouch.ru/", image: asset } },
+    promo: { variant: "dark", content: { eyebrow: "Специальное предложение", heading: "Решение для роста бизнеса", offer: "0 ₽", body: "Расскажите об условиях предложения и главной выгоде.", bodySize: "14", ctaText: "Подключить", ctaUrl: "https://calltouch.ru/", gradient: true, image: asset } },
     imageText: { variant: "image-left", content: { heading: "Как это работает", body: "Коротко опишите продукт, сценарий или преимущество.", linkText: "Подробнее", linkUrl: "https://calltouch.ru/", image: asset } },
     image: { content: { image: asset, alt: "", linkUrl: "" } },
     brandTitle: { variant: "light-cyan", content: { heading: "ЗАГОЛОВОК DELA", backgroundColor: EMAIL_TOKENS.colors.lightCyan, textTone: "auto", renderedUrl: "", renderedSignature: "", renderedAt: "" } },
     brandScene: { variant: "navy-purple", content: { heading: "ЗАГОЛОВОК ФИРМЕННОГО БЛОКА", body: "— Первый важный тезис\n— Второй важный тезис\n— Третий важный тезис", alt: "Фирменный информационный блок Calltouch", linkUrl: "https://calltouch.ru/", image: asset, background: null, renderedUrl: "", renderedSignature: "", renderedAt: "" } },
     featureCard: { variant: "image-left", content: { heading: "Преимущество", body: "Объясните пользу одним коротким абзацем.", image: asset } },
-    iconGrid: { variant: "light", content: { items: [
+    iconGrid: { variant: "light", content: { heading: "", items: [
       { heading: "Быстрый старт", body: "Без сложной настройки", iconId: "send" },
       { heading: "Понятный результат", body: "Все важное перед глазами", iconId: "verify" },
       { heading: "Экономия времени", body: "Меньше ручной работы", iconId: "clock" },
       { heading: "Поддержка", body: "Команда всегда на связи", iconId: "message" }
     ] } },
     ctaCard: { variant: "dark-gradient", content: { heading: "Попробуйте Calltouch прямо сейчас", subtitle: "Оставьте заявку — мы поможем выбрать решение.", ctaText: "Оставить заявку", ctaUrl: "https://calltouch.ru/" } },
-    button: { variant: "primary", content: { text: "Подробнее", url: "https://calltouch.ru/" } },
+    button: { variant: "primary", content: { text: "Подробнее", url: "https://calltouch.ru/", align: "center" } },
     divider: { variant: "m", content: {} }
   };
   const preset = presets[type] || presets.text;
