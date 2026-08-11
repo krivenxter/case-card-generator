@@ -123,12 +123,10 @@ function renderTitle(block, preview, darkText = false) {
   const hasSubtitle = block.variant !== "plain" && String(subtitle || "").trim().length > 0;
   // Пустой блок не оставляет пустоты: в экспорте его нет, в редакторе — тонкая заглушка для выбора.
   if (!hasHeading && !hasSubtitle) return "";
-  const highlighted = (hasHeading && block.variant === "accent" && accent && heading.includes(accent)
-    ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`)
-    : rubleSafe(heading))
-    .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\\\*/g, "*")
-    .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+  const hasRichHeading = /%%[\s\S]*?%%|\{\{(?:cyan|purple)\|/.test(heading);
+  const highlighted = hasHeading && block.variant === "accent" && accent && heading.includes(accent) && !hasRichHeading
+    ? rubleSafe(heading).replace(rubleSafe(accent), `<span style="display:inline-block;background:${C.navy};color:#ffffff;border-radius:999px;padding:1px 12px 4px;">${rubleSafe(accent)}</span>`).replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>").replace(/\\\*/g, "*").replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>')
+    : inlineMarkup(heading, preview, DELA_FONT_SIZES.large).replace(/\n/g, "<br>");
   const headingHtml = hasHeading ? `<div${editAttrs(preview, "content.heading")} style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.2;font-weight:700;color:${textColor};word-break:break-word;">${highlighted}</div>` : "";
   const subtitleHtml = hasSubtitle ? `<div style="${hasHeading ? "padding-top:18px;" : ""}">${bodyText(subtitle, bodyColor, 16, "content.subtitle", preview)}</div>` : "";
   // Необязательная белая плашка с отступами под заголовком и подзаголовком.

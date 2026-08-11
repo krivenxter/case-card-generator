@@ -5,6 +5,7 @@ const LABEL_RE = /^(тема|прехедер|прехидер|subject|preheader
 const HEADING_RE = /^(что будем делать|обсудим|преимущества?.*|как .*\?|спецпредложение.*|.*акция.*|.*кешбэк.*|ии ассистент|подключить|узнать больше|открыть трансляцию)$/i;
 const CTA_RE = /^(подключить|узнать больше|открыть трансляцию|смотреть трансляцию|программа встречи|зарегистрироваться|оставить заявку)$/i;
 const CLOSING_RE = /^(?:старт(?:\s|$).*(?:онлайн|увидимся)|подключайтесь(?:\s|$)|смотрите(?:\s|$)|жд[её]м(?:\s|$)|до встречи(?:\s|$))/i;
+const DOCX_HEADING_RE = /^\[\[h([1-3])\]\]\s*(.+)$/i;
 const WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
 function cleanLine(value) {
@@ -40,10 +41,11 @@ function isUrl(line) {
 }
 
 function isFootnoteLine(line) {
-  return /^\*{1,3}\s*(?:акция действует|шаблонн(?:ый|ого) чек-лист|лид(?:\s|$))/i.test(line);
+  return /^\*{1,3}(?:\s*(?:акция действует|специальное предложение|шаблонн(?:ый|ого) чек-лист|лид(?:\s|$))|\S)/i.test(line);
 }
 
 function isHeading(line, index, lines) {
+  if (DOCX_HEADING_RE.test(line)) return true;
   const plain = semanticText(line);
   if (!plain || isList(line) || isUrl(line) || LABEL_RE.test(plain)) return false;
   if (CTA_RE.test(plain) || CLOSING_RE.test(plain)) return true;
@@ -54,7 +56,7 @@ function isHeading(line, index, lines) {
 }
 
 function withoutHeadingColon(value) {
-  return cleanLine(value).replace(/:(?=\*{2}$)|:$/, "");
+  return cleanLine(value).replace(DOCX_HEADING_RE, "$2").replace(/:(?=\*{2}$)|:$/, "");
 }
 
 export function parseDocument(source) {
@@ -87,15 +89,16 @@ export function parseDocument(source) {
   });
 
   const sections = [];
-  let current = { heading: "", body: [], list: [], urls: [] };
+  let current = { heading: "", level: 0, body: [], list: [], urls: [] };
   const push = () => {
     if (current.heading || current.body.length || current.list.length) sections.push({ ...current, body: current.body.join("\n") });
-    current = { heading: "", body: [], list: [], urls: [] };
+    current = { heading: "", level: 0, body: [], list: [], urls: [] };
   };
   contentLines.forEach((line, index) => {
     if (isHeading(line, index, contentLines)) {
       if (current.heading || current.body.length || current.list.length) push();
       current.heading = withoutHeadingColon(line);
+      current.level = Number(line.match(DOCX_HEADING_RE)?.[1] || 0);
       return;
     }
     if (isList(line)) current.list.push(listValue(line));
@@ -109,7 +112,8 @@ export function parseDocument(source) {
 
   const title = meta.subject || "";
   const intro = sections.find((section) => !section.heading && section.body)?.body || "";
-  return { title: title.slice(0, 180), preheader: meta.preheader, intro, sections, footnotes, urls, primaryUrl: urls[0] || "{{cta_url}}" };
+  const heroHeading = sections.find((section) => section.level === 1)?.heading || "";
+  return { title: title.slice(0, 180), heroHeading, preheader: meta.preheader, intro, sections, footnotes, urls, primaryUrl: urls[0] || "{{cta_url}}" };
 }
 
 export function normalizeContent(parsed) {
@@ -151,7 +155,10 @@ function isBenefitsSection(section) {
 }
 
 function splitBenefit(value) {
-  const text = cleanLine(value).replace(/^[-–—•]\s*/, "").replace(/\*\*/g, "");
+  const source = cleanLine(value).replace(/^[-–—•]\s*/, "");
+  const bold = source.match(/^\*\*([\s\S]+?)\*\*\s*(.*)$/);
+  if (bold) return { heading: cleanLine(bold[1]), body: cleanLine(bold[2]) };
+  const text = source.replace(/\*\*/g, "");
   const match = text.match(/^(.+?[.!?])\s+(.+)$/);
   return match ? { heading: match[1], body: match[2] } : { heading: text, body: "" };
 }
@@ -200,24 +207,45 @@ function sectionBlocks(content, editorial = false) {
     const key = normalizeKey(text);
     if (!text || used.has(key)) return;
     used.add(key);
+    if (section.level === 1) return;
     if (!section.heading && section.body === content.intro) return;
     if (isCtaSection(section, content.ctaCandidate)) return;
     if (isLogistics(section)) return;
     if (isOfferSection(section)) {
       const next = content.sections[index + 1];
+      const isOfferLead = !section.body && !section.list.length && next?.heading;
+      const offerSource = isOfferLead && !next?.body && !next?.list.length ? content.sections[index + 2] : next;
       const description = next && /ассистент/i.test(semanticText(next.heading)) ? next : null;
-      if (description) used.add(normalizeKey(sectionText(description)));
+      const nextLines = String(offerSource?.body || "").split("\n").map(cleanLine).filter(Boolean);
+      const offer = isOfferLead ? offerSource?.heading || nextLines.shift() || "" : description?.heading || section.list[0] || "";
+      const body = isOfferLead ? nextLines.join(" ") : description?.body || "";
+      if (description || isOfferLead) {
+        used.add(normalizeKey(sectionText(next)));
+        if (offerSource && offerSource !== next) used.add(normalizeKey(sectionText(offerSource)));
+      }
       blocks.push(createBlock("promo", { variant: "dark", content: {
         eyebrow: section.heading || "Специальное предложение",
-        heading: section.body || content.title,
-        offer: description?.heading || section.list[0] || "",
-        body: description?.body || "",
+        heading: isOfferLead ? next.heading : section.body || content.title,
+        offer,
+        body,
         ctaText: "",
         ctaUrl: content.primaryUrl,
-        image: pickVisualAsset(`${section.heading} ${section.body} ${description?.heading || ""} ${description?.body || ""}`) || assetList[0]
+        image: pickVisualAsset(`${section.heading} ${isOfferLead ? next?.heading || "" : section.body} ${offer} ${body}`) || assetList[0]
       } }));
     } else if (!editorial && isBenefitsSection(section)) {
-      blocks.push(createBlock("iconGrid", { content: { heading: section.heading, items: section.list.slice(0, 6).map((item) => ({ ...splitBenefit(item), iconId: pickIconId(item) })) } }));
+      const benefits = section.list.slice(0, 6).map((item) => ({ ...splitBenefit(item), iconId: pickIconId(item) }));
+      const hasLongBenefit = benefits.some((item) => semanticText(item.body).length > 110);
+      if (hasLongBenefit) {
+        benefits.forEach((item, benefitIndex) => blocks.push(createBlock("imageText", { variant: benefitIndex % 2 ? "image-right" : "image-left", content: {
+          heading: item.heading,
+          body: item.body,
+          linkText: "",
+          linkUrl: "",
+          image: pickVisualAsset(`${item.heading} ${item.body}`) || assetList[0]
+        } })));
+      } else {
+        blocks.push(createBlock("iconGrid", { content: { heading: section.heading, items: benefits } }));
+      }
     } else if (editorial) {
       blocks.push(createBlock("text", { content: { plate: index % 2 ? "1" : "", listStyle: section.list.length ? "bullet" : "bullet", body: text } }));
     } else {
@@ -236,7 +264,8 @@ function addOnce(blocks, block, key) {
 }
 
 function addImportedTitle(blocks, content, subtitle = "") {
-  // Тема и прехедер — технические поля eNkod, они не должны попадать в тело письма.
+  if (!content.heroHeading) return;
+  addOnce(blocks, createBlock("title", { variant: "plain", content: { heading: content.heroHeading, subtitle: subtitle || "", accent: "", plate: "" } }), content.heroHeading);
 }
 
 function addImportedCta(blocks, content, variant = "dark-gradient") {
@@ -327,7 +356,9 @@ export async function readImportedFile(file) {
         return node.localName === "r" ? readRun(node) : "";
       }).join("");
       const isNumbered = paragraph.getElementsByTagNameNS(WORD_NS, "numPr").length > 0;
-      return isNumbered ? `- ${value}` : value;
+      const style = paragraph.getElementsByTagNameNS(WORD_NS, "pStyle")[0]?.getAttribute("w:val") || paragraph.getElementsByTagNameNS(WORD_NS, "pStyle")[0]?.getAttribute("val") || "";
+      const level = /^Heading([1-3])$/i.exec(style)?.[1];
+      return isNumbered ? `- ${value}` : level ? `[[h${level}]] ${value}` : value;
     })
     .map(cleanLine)
     .filter(Boolean)
