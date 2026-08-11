@@ -14,7 +14,7 @@ function delaAssetKeys(email) {
   const grouped = new Set();
   email.blocks.forEach((block) => {
     const heading = String(block.content?.heading || "");
-    if (/%%[\s\S]*?%%/.test(heading)) grouped.add(heading);
+    if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && /%%[\s\S]*?%%/.test(heading)) grouped.add(heading);
     (block.content?.items || []).forEach((item) => {
       const itemHeading = String(item.heading || "");
       if (/%%[\s\S]*?%%/.test(itemHeading)) grouped.add(itemHeading);

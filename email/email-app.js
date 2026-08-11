@@ -1056,7 +1056,7 @@ function delaTexts() {
   const result = new Set();
   const grouped = new Set();
   email.blocks.forEach((block) => {
-    if (/%%[\s\S]*?%%/.test(String(block.content?.heading || ""))) grouped.add(block.content.heading);
+    if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && /%%[\s\S]*?%%/.test(String(block.content?.heading || ""))) grouped.add(block.content.heading);
     (block.content?.items || []).forEach((item) => { if (/%%[\s\S]*?%%/.test(String(item.heading || ""))) grouped.add(item.heading); });
   });
   grouped.forEach((text) => result.add(text));
@@ -1072,7 +1072,7 @@ function delaTexts() {
 }
 
 function isDelaGroup(text) {
-  return email.blocks.some((block) => String(block.content?.heading || "") === text || (block.content?.items || []).some((item) => String(item.heading || "") === text));
+  return email.blocks.some((block) => (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && String(block.content?.heading || "") === text) || (block.content?.items || []).some((item) => String(item.heading || "") === text));
 }
 
 function delaGroupMarkup(value) {
