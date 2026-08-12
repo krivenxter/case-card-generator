@@ -405,10 +405,40 @@ function ensureEditToolbar(previewDocument) {
   const toolbar = previewDocument.createElement("div");
   const buttonStyle = "display:inline-flex;align-items:center;justify-content:center;width:28px;height:26px;padding:0;border:0;border-radius:6px;background:transparent;color:#fff;cursor:pointer;";
   toolbar.style.cssText = "position:absolute;z-index:60;display:none;gap:2px;padding:3px;border-radius:9px;background:#084E7D;box-shadow:0 8px 20px rgba(31,40,44,.3);";
-  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" aria-label="Жирный" style="${buttonStyle}">${formatIcon("bold")}</button><button type="button" data-cmd="dela" title="Шрифт Dela" aria-label="Шрифт Dela" style="${buttonStyle}">${formatIcon("dela")}</button><button type="button" data-cmd="cyan" title="Циановый текст" aria-label="Циановый текст" style="${buttonStyle}">${formatIcon("cyan")}</button><button type="button" data-cmd="purple" title="Пурпурный текст" aria-label="Пурпурный текст" style="${buttonStyle}">${formatIcon("purple")}</button><button type="button" data-cmd="pill" title="Белый текст на голубой плашке" aria-label="Голубая плашка" style="${buttonStyle}">${formatIcon("pill")}</button><button type="button" data-cmd="link" title="Ссылка" aria-label="Ссылка" style="${buttonStyle}">${formatIcon("link")}</button><button type="button" data-cmd="list" title="Список с пунктами" aria-label="Список с пунктами" style="${buttonStyle}">${formatIcon("list")}</button><button type="button" data-cmd="break" title="Ручной перенос строки" aria-label="Перенос строки" style="${buttonStyle}">${formatIcon("break")}</button><button type="button" data-cmd="typograph" title="Типограф" aria-label="Типограф" style="${buttonStyle}">${formatIcon("typograph")}</button>`;
+  toolbar.innerHTML = `<button type="button" data-cmd="bold" title="Жирный (Ctrl+B)" aria-label="Жирный" style="${buttonStyle}">${formatIcon("bold")}</button><button type="button" data-cmd="dela" title="Переключить Dela для выделенного текста или поля" aria-label="Переключить Dela" style="${buttonStyle}">${formatIcon("dela")}</button><button type="button" data-cmd="cyan" title="Циановый текст" aria-label="Циановый текст" style="${buttonStyle}">${formatIcon("cyan")}</button><button type="button" data-cmd="purple" title="Пурпурный текст" aria-label="Пурпурный текст" style="${buttonStyle}">${formatIcon("purple")}</button><button type="button" data-cmd="pill" title="Белый текст на голубой плашке" aria-label="Голубая плашка" style="${buttonStyle}">${formatIcon("pill")}</button><button type="button" data-cmd="link" title="Ссылка" aria-label="Ссылка" style="${buttonStyle}">${formatIcon("link")}</button><button type="button" data-cmd="list" title="Список с пунктами" aria-label="Список с пунктами" style="${buttonStyle}">${formatIcon("list")}</button><button type="button" data-cmd="break" title="Ручной перенос строки" aria-label="Перенос строки" style="${buttonStyle}">${formatIcon("break")}</button><button type="button" data-cmd="typograph" title="Типограф" aria-label="Типограф" style="${buttonStyle}">${formatIcon("typograph")}</button>`;
   previewDocument.body.append(toolbar);
   toolbar.addEventListener("mousedown", (event) => event.preventDefault());
   let savedRange = null;
+  let activeEditNode = null;
+  const hideEditToolbar = () => {
+    activeEditNode = null;
+    toolbar.style.display = "none";
+  };
+  const showEditToolbar = (node, preserveRange = false) => {
+    if (!node?.isConnected) return hideEditToolbar();
+    activeEditNode = node;
+    if (!preserveRange) savedRange = null;
+    const rect = node.getBoundingClientRect();
+    toolbar.style.display = "flex";
+    const toolbarHeight = toolbar.offsetHeight || 32;
+    const top = rect.top + previewDocument.defaultView.scrollY - toolbarHeight - 6;
+    toolbar.style.left = `${Math.max(rect.left + previewDocument.defaultView.scrollX, 8)}px`;
+    toolbar.style.top = `${Math.max(previewDocument.defaultView.scrollY + 8, top)}px`;
+  };
+  const toggleDelaForNode = (node) => {
+    const block = email.blocks.find((item) => item.id === node?.closest("[data-block-id]")?.dataset.blockId);
+    const path = node?.dataset.editPath;
+    const current = block && path ? path.split(".").reduce((value, key) => value?.[key], block) : "";
+    if (!block || !path || typeof current !== "string" || !current.trim()) return;
+    setPath(block, path, toggleDelaMarkup(current));
+    hideEditToolbar();
+    updatePreviewBlock(block);
+    renderBlockList();
+    renderBlockEditor();
+    persistSoon();
+  };
+  previewDocument.__emailShowEditToolbar = showEditToolbar;
+  previewDocument.__emailHideEditToolbar = hideEditToolbar;
   toolbar.addEventListener("click", async (event) => {
     const command = event.target.closest("[data-cmd]")?.dataset.cmd;
    if (!command) return;
@@ -592,6 +622,10 @@ function ensureEditToolbar(previewDocument) {
     if (command === "dela") {
       const selection = previewDocument.getSelection();
       const selected = selection?.toString().trim();
+      if (!selected && activeEditNode) {
+        toggleDelaForNode(activeEditNode);
+        return;
+      }
       if (selected) {
         const range = savedRange?.cloneRange();
         const selectedElement = selection.anchorNode?.nodeType === 1 ? selection.anchorNode : selection.anchorNode?.parentElement;
@@ -638,11 +672,16 @@ function ensureEditToolbar(previewDocument) {
     const anchor = selection?.anchorNode;
     const element = anchor ? (anchor.nodeType === 1 ? anchor : anchor.parentElement) : null;
     if (!selection || !element?.closest?.("[data-rich]")) {
-      toolbar.style.display = "none";
+      if (activeEditNode?.isConnected) showEditToolbar(activeEditNode);
+      else hideEditToolbar();
       return;
     }
+    activeEditNode = element.closest("[data-rich]");
     const rect = selection.getRangeAt(0).getBoundingClientRect();
-    if (!rect.width && !rect.height) { toolbar.style.display = "none"; return; }
+    if (!rect.width && !rect.height) {
+      showEditToolbar(activeEditNode);
+      return;
+    }
     savedRange = selection.getRangeAt(0).cloneRange();
     toolbar.style.display = "flex";
     toolbar.style.left = `${Math.max(rect.left + previewDocument.defaultView.scrollX, 8)}px`;
@@ -694,6 +733,10 @@ function bindPreviewNodes(previewDocument) {
       renderBlockList();
       renderBlockEditor();
       bindPreviewSelection();
+      const selection = previewDocument.getSelection();
+      const preserveRange = Boolean(selection?.toString().trim() && selection.anchorNode && node.contains(selection.anchorNode));
+      if (rich) previewDocument.__emailShowEditToolbar?.(node, preserveRange);
+      else previewDocument.__emailHideEditToolbar?.();
     });
     node.addEventListener("focus", () => {
       node.dataset.editStart = node.innerText;

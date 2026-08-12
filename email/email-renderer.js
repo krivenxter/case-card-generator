@@ -117,7 +117,7 @@ function bodyText(value, color = C.ink, size = 16, path = "", preview = false, l
 function button(text, url, variant = "primary", path = "", preview = false, align = "left") {
   const background = variant === "secondary" ? C.cyan : `linear-gradient(90deg,${C.magenta},${C.purple})`;
   const fallback = variant === "secondary" ? C.navy : C.purple;
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;margin:0 ${align === "center" ? "auto" : "0"};"><tr><td bgcolor="${fallback}" style="background:${background};border-radius:999px;text-align:center;"><a href="${safeUrl(url)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${fontDisplay};font-size:16px;line-height:20px;font-weight:900;color:#ffffff;text-decoration:none;min-width:160px;"><span${editAttrs(preview, path)}>${rubleSafe(text || "Подробнее")}</span></a></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;margin:0 ${align === "center" ? "auto" : "0"};"><tr><td bgcolor="${fallback}" style="background:${background};border-radius:999px;text-align:center;"><a href="${safeUrl(url)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${fontDisplay};font-size:16px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;min-width:160px;"><span${editAttrs(preview, path)}>${rubleSafe(text || "Подробнее")}</span></a></td></tr></table>`;
 }
 
 function wrapBlock(block, content, background = "transparent", padding = "0 0 20px") {
