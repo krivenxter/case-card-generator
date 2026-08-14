@@ -98,8 +98,9 @@ function inlineMarkup(value, preview, delaSize = DELA_FONT_SIZES.small) {
     .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
 }
 
-function bodyText(value, color = C.ink, size = 16, path = "", preview = false, listStyle = "bullet") {
+function bodyText(value, color = C.ink, size = 16, path = "", preview = false, listStyle = "bullet", align = "left") {
   const lines = String(value || "").split("\n").map((line) => line.trim()).filter(Boolean);
+  const textAlign = align === "center" ? "center" : "left";
   let listIndex = 0;
   const html = lines.map((line, lineIndex) => {
     const numbered = listStyle === "number" && /^\s*\d+\s*/.test(line);
@@ -109,9 +110,9 @@ function bodyText(value, color = C.ink, size = 16, path = "", preview = false, l
     if (!list) return `<div style="padding:0 0 ${lineIndex === lines.length - 1 ? 0 : 16}px;">${text}</div>`;
     listIndex += 1;
     const marker = listStyle === "number" ? `<span style="display:inline-block;width:28px;height:28px;margin-right:16px;border-radius:50%;background:${C.cyan};color:#ffffff;font-size:16px;line-height:28px;text-align:center;text-indent:0;">${listIndex}</span>` : `<span style="color:${C.cyan};">•</span>&nbsp;`;
-    return `<div style="display:flex;align-items:flex-start;padding:0 0 ${lineIndex === lines.length - 1 ? 0 : 12}px;"><span style="flex:0 0 auto;">${marker}</span><span>${text}</span></div>`;
+    return `<div style="display:flex;align-items:flex-start;justify-content:${textAlign === "center" ? "center" : "flex-start"};padding:0 0 ${lineIndex === lines.length - 1 ? 0 : 12}px;"><span style="flex:0 0 auto;">${marker}</span><span>${text}</span></div>`;
   }).join("");
-  return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};word-break:break-word;overflow-wrap:break-word;">${html}</div>`;
+  return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};text-align:${textAlign};word-break:break-word;overflow-wrap:break-word;">${html}</div>`;
 }
 
 function button(text, url, variant = "primary", path = "", preview = false, align = "left") {
@@ -160,7 +161,7 @@ function renderTitle(block, preview, darkText = false) {
 function renderText(block, preview, darkText = false) {
   if (!hasText(block.content.body)) return "";
   const hasPlate = String(block.content.plate || "") === "1";
-  const body = bodyText(block.content.body, darkText && !hasPlate ? "#ffffff" : C.ink, 16, "content.body", preview, block.content.listStyle || "bullet");
+  const body = bodyText(block.content.body, darkText && !hasPlate ? "#ffffff" : C.ink, 16, "content.body", preview, block.content.listStyle || "bullet", block.content.align);
   // Необязательная белая плашка с отступами под текстом.
   const inner = String(block.content.plate || "") === "1"
     ? `<div style="padding:22px;background:#ffffff;border-radius:22px;box-sizing:border-box;">${body}</div>`
@@ -195,10 +196,10 @@ function renderImageBlock(block, preview) {
 function renderImageText(block, preview, feature = false) {
   const content = block.content;
   if (![content.heading, content.body, content.linkText, content.image?.previewSource, content.image?.exportUrl].some(hasText)) return "";
-  const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 190, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : 22}px;vertical-align:middle;direction:ltr;`, 'class="stack-column"');
-  const textCell = td(`${displayText(content.heading, C.ink, 24, "left", "content.heading", preview, DELA_FONT_SIZES.small)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 16, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : 26}px;vertical-align:middle;direction:ltr;`, 'class="stack-column"');
+  const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 140, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : "10px 16px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
+  const textCell = td(`${displayText(content.heading, C.ink, 24, "left", "content.heading", preview, DELA_FONT_SIZES.small)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 16, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : "14px 18px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
   const direction = block.variant === "image-right" ? "rtl" : "ltr";
-  return wrapBlock(block, table(`<tr>${imageCell}${textCell}</tr>`, `direction:${direction};table-layout:fixed;background:#ffffff;border-radius:${feature ? 22 : 28}px;overflow:hidden;`, 'class="image-text-table"'), "transparent", `0 0 ${feature ? 12 : 20}px`);
+  return wrapBlock(block, table(`<tr>${imageCell}${textCell}</tr>`, `direction:${direction};table-layout:fixed;background:#ffffff;border-radius:${feature ? 22 : 28}px;overflow:hidden;`, 'class="image-text-table"'), "transparent", `0 0 ${feature ? 12 : 12}px`);
 }
 
 function renderBrandScene(block, preview) {
@@ -225,18 +226,24 @@ function renderIconGrid(block, preview) {
   const icons = window.CALLTOUCH_ASSETS.essentials || {};
   const fallbackIds = ["send", "verify", "clock", "message", "send", "verify"];
   const rows = [];
-  // Размеры иконки с подложкой: картинка 35px, паддинг плашки 10px, радиус 14px.
+  const iconPosition = block.content.iconPosition === "left" ? "left" : "top";
+  // Размеры иконки с подложкой уменьшены на 30%: 35/10/14 -> 25/7/10.
   for (let start = 0; start < items.length; start += columns) {
     const rowItems = items.slice(start, start + columns);
     rows.push(`<tr class="benefits-row">${rowItems.map((item, index) => {
       const icon = icons[item.iconId] || icons[fallbackIds[start + index]];
       // Подложка под иконку — залитая ячейка таблицы: в старом Outlook border-radius
       // не сработает, подложка станет квадратной, но ничего не сломается.
-      const iconMarkup = icon ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${C.pale}" style="background:${C.pale};border-radius:14px;padding:10px;"><img src="${assetSource(icon, preview)}" width="35" height="35" alt="${escapeHtml(icon.label)}" style="display:block;width:35px;height:35px;border:0;"></td></tr></table>` : "";
+      const iconMarkup = icon ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${C.pale}" style="background:${C.pale};border-radius:10px;padding:7px;"><img src="${assetSource(icon, preview)}" width="25" height="25" alt="${escapeHtml(icon.label)}" style="display:block;width:25px;height:25px;border:0;"></td></tr></table>` : "";
       const heading = String(item.heading || "").replace(/\*\*/g, "");
       const body = String(item.body || "").replace(/\*\*/g, "");
       const span = columns === 1 ? 2 : 1;
-      return td(`${iconMarkup}<div style="padding-top:13px;">${displayText(heading, C.ink, 16, "left", `content.items.${start + index}.heading`, preview)}</div>${body ? `<div style="padding-top:5px;">${bodyText(body, C.ink, 16, `content.items.${start + index}.body`, preview)}</div>` : ""}`, `width:${span === 2 ? "100" : "50"}%;padding:18px;vertical-align:top;`, `class="grid-column" colspan="${span}"`);
+      const headingHtml = displayText(heading, C.ink, 16, "left", `content.items.${start + index}.heading`, preview);
+      const bodyHtml = body ? `<div style="padding-top:5px;">${bodyText(body, C.ink, 16, `content.items.${start + index}.body`, preview)}</div>` : "";
+      const itemHtml = iconPosition === "left"
+        ? table(`<tr>${td(iconMarkup, "width:39px;padding:0 12px 0 0;vertical-align:top;")}${td(`${headingHtml}${bodyHtml}`, "vertical-align:top;")}</tr>`, "width:100%;border-collapse:collapse;")
+        : `${iconMarkup}<div style="padding-top:13px;">${headingHtml}</div>${bodyHtml}`;
+      return td(itemHtml, `width:${span === 2 ? "100" : "50"}%;padding:18px;vertical-align:top;`, `class="grid-column" colspan="${span}"`);
     }).join("")}${columns === 2 && rowItems.length === 1 ? td("", "width:50%;padding:0;", 'class="grid-column grid-column--empty" aria-hidden="true"') : ""}</tr>`);
   }
   const heading = hasText(block.content.heading) ? `<tr><td colspan="2" style="padding:22px 22px 0;">${displayText(block.content.heading, C.ink, 24, "left", "content.heading", preview)}</td></tr>` : "";

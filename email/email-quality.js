@@ -57,6 +57,7 @@ export function normalizeEmailDesign(email) {
   normalized.settings.theme = ["classic", "editorial"].includes(normalized.settings.theme) ? normalized.settings.theme : "classic";
   normalized.settings.logo = ["dark", "color"].includes(normalized.settings.logo) ? normalized.settings.logo : "dark";
   normalized.blocks = normalized.blocks.filter((block) => block?.type && block?.id).map((block) => {
+    block.content = block.content || {};
     block.settings = { ...(block.settings || {}), hidden: Boolean(block.settings?.hidden) };
     if (["imageText", "featureCard"].includes(block.type)) block.variant = ["image-left", "image-right"].includes(block.variant) ? block.variant : "image-left";
     if (block.type === "brandTitle") block.variant = ["light-cyan", "cyan", "navy", "purple", "magenta", "custom"].includes(block.variant) ? block.variant : "light-cyan";
@@ -64,6 +65,12 @@ export function normalizeEmailDesign(email) {
     if (block.type === "divider") block.variant = ["s", "m", "l", "xl"].includes(block.variant) ? block.variant : "m";
     if (["ctaCard", "button"].includes(block.type) && !block.variant) block.variant = "primary";
     if (block.type === "ctaCard") block.content.align = block.content.align === "left" ? "left" : "center";
+    if (block.type === "text") block.content.align = block.content.align === "center" ? "center" : "left";
+    if (block.type === "iconGrid") {
+      block.content.iconPosition = block.content.iconPosition === "left" ? "left" : "top";
+      block.content.columns = block.content.columns === "1" ? "1" : "2";
+      block.content.items = Array.isArray(block.content.items) ? block.content.items : [];
+    }
     return block;
   });
   return normalized;

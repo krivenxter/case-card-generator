@@ -222,6 +222,13 @@ function getDefinition(type) {
   return BLOCK_DEFINITIONS.find((definition) => definition.type === type);
 }
 
+function plainUiText(value = "") {
+  return richPlainText(value)
+    .replace(/\[([^\]]+)\]\(https:\/\/[^)\s]+\)/gi, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function setPath(target, path, value) {
   const keys = path.split(".");
   const last = keys.pop();
@@ -231,7 +238,7 @@ function setPath(target, path, value) {
 
 function normalizeProjectMarkup(project) {
   const walk = (value, key = "") => {
-    if (typeof value === "string") return /(?:url|source|signature|renderedat|^id$)/i.test(key) ? value : normalizeRichMarkup(value);
+    if (typeof value === "string") return /(?:url|source|signature|renderedat|^id$)/i.test(key) ? value : normalizeRichMarkup(normalizeLiteralStrongTags(value));
     if (Array.isArray(value)) return value.map((item) => walk(item));
     if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, walk(childValue, childKey)]));
     return value;
@@ -282,9 +289,15 @@ function renderPreview({ preservePosition = true } = {}) {
 }
 
 // Переводит rich-разметку contenteditable (b/a/br/div) в markdown, который хранится в состоянии.
+function normalizeLiteralStrongTags(value = "") {
+  return String(value)
+    .replace(/&lt;\s*\/?\s*(?:strong|b)\s*&gt;/gi, "**")
+    .replace(/<\s*\/?\s*(?:strong|b)\s*>/gi, "**");
+}
+
 function richToMarkdown(root) {
   const walk = (node) => {
-    if (node.nodeType === 3) return node.nodeValue || "";
+    if (node.nodeType === 3) return normalizeLiteralStrongTags(node.nodeValue || "");
     if (node.nodeType !== 1) return "";
     const tag = node.tagName.toLowerCase();
     const inner = [...node.childNodes].map(walk).join("");
@@ -301,7 +314,153 @@ function richToMarkdown(root) {
     if (tag === "div" || tag === "p") return `\n${inner}`;
     return inner;
   };
-  return normalizeRichMarkup([...root.childNodes].map(walk).join("").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim());
+  return normalizeRichMarkup(normalizeLiteralStrongTags([...root.childNodes].map(walk).join("").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim()));
+}
+
+function richMarkupToEditorHtml(value = "") {
+  const textHtml = (text) => escapeAttr(text)
+    .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    .replace(/\n/g, "<br>");
+  return parseRichMarkup(normalizeRichMarkup(normalizeLiteralStrongTags(value))).map((run) => {
+    let html = textHtml(run.text);
+    if (run.bold) html = `<strong>${html}</strong>`;
+    if (run.dela) html = `<span data-dela="1" data-dela-value="${escapeAttr(run.text)}" style="font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;">${html}</span>`;
+    if (run.pill) html = `<span data-pill="1" style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:${EMAIL_COLORS.cyan};color:#fff;line-height:1;white-space:nowrap;">${html}</span>`;
+    if (run.tone) html = `<span data-color="${run.tone}" style="color:${run.tone === "cyan" ? EMAIL_COLORS.cyan : EMAIL_COLORS.purpleText};">${html}</span>`;
+    return html;
+  }).join("");
+}
+
+function panelEditorSelection(editor) {
+  const selection = document.getSelection();
+  if (!selection?.rangeCount || !selection.toString() || !editor.contains(selection.anchorNode) || !editor.contains(selection.focusNode)) return null;
+  return selection.getRangeAt(0).cloneRange();
+}
+
+function rangeTextNodes(root, range) {
+  const showText = root.ownerDocument.defaultView?.NodeFilter?.SHOW_TEXT || 4;
+  const walker = root.ownerDocument.createTreeWalker(root, showText);
+  const nodes = [];
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node.nodeValue?.trim() && range.intersectsNode(node)) nodes.push(node);
+  }
+  return nodes;
+}
+
+function unwrapRichWrappers(root, kind) {
+  [...root.querySelectorAll(`[data-${kind}]`)].reverse().forEach((wrapper) => wrapper.replaceWith(...wrapper.childNodes));
+}
+
+function toggleDelaRange(editor, range) {
+  const selected = range.toString();
+  const textNodes = rangeTextNodes(editor, range);
+  if (!selected.trim() || !textNodes.length) return false;
+  const enabled = !textNodes.every((node) => node.parentElement?.closest("[data-dela]"));
+  const fragment = range.extractContents();
+  unwrapRichWrappers(fragment, "dela");
+  if (enabled) {
+    const wrapper = editor.ownerDocument.createElement("span");
+    wrapper.dataset.dela = "1";
+    wrapper.style.cssText = "font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;";
+    wrapper.append(fragment);
+    range.insertNode(wrapper);
+  } else {
+    range.insertNode(fragment);
+  }
+  return true;
+}
+
+function dispatchPanelEditorInput(editor, inputType = "formatText") {
+  editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType, data: null }));
+}
+
+function closestRangeWrapper(range, kind) {
+  const selector = `[data-${kind}]`;
+  const candidates = [range.startContainer, range.endContainer, range.commonAncestorContainer]
+    .map((node) => node?.nodeType === 1 ? node : node?.parentElement)
+    .filter(Boolean);
+  return candidates.map((node) => node.closest(selector)).find((wrapper) => wrapper && wrapper.contains(candidates[0]) && wrapper.contains(candidates[1])) || null;
+}
+
+function wrapPanelSelection(editor, kind, style = "") {
+  const range = panelEditorSelection(editor);
+  if (!range) return false;
+  const selected = range.toString();
+  if (!selected.trim()) return false;
+  const existing = closestRangeWrapper(range, kind);
+  if (existing && existing.parentElement && existing.textContent.trim() === selected.trim()) existing.replaceWith(...existing.childNodes);
+  else {
+    const span = editor.ownerDocument.createElement("span");
+    span.dataset[kind] = "1";
+    span.style.cssText = style;
+    span.append(range.extractContents());
+    range.insertNode(span);
+  }
+  dispatchPanelEditorInput(editor, `format${kind}`);
+  return true;
+}
+
+async function formatPanelEditor(editor, command) {
+  if (command === "bold") {
+    editor.ownerDocument.execCommand("bold");
+    dispatchPanelEditorInput(editor, "formatBold");
+    return;
+  }
+  if (command === "list") {
+    editor.ownerDocument.execCommand("insertUnorderedList");
+    dispatchPanelEditorInput(editor, "formatList");
+    return;
+  }
+  if (command === "dela") {
+    const range = panelEditorSelection(editor);
+    if (!range || !toggleDelaRange(editor, range)) return;
+    dispatchPanelEditorInput(editor, "formatDela");
+    return;
+  }
+  if (command === "pill") return wrapPanelSelection(editor, "pill", `display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:${EMAIL_COLORS.cyan};color:#fff;line-height:1;white-space:nowrap;`);
+  if (command === "cyan" || command === "purple") return wrapPanelSelection(editor, "color", `color:${command === "cyan" ? EMAIL_COLORS.cyan : EMAIL_COLORS.purpleText};`);
+  if (command === "break") {
+    const range = panelEditorSelection(editor);
+    if (!range) return;
+    range.deleteContents();
+    range.insertNode(editor.ownerDocument.createElement("br"));
+    dispatchPanelEditorInput(editor, "insertLineBreak");
+    return;
+  }
+  if (command === "typograph") {
+    const range = panelEditorSelection(editor);
+    if (!range) return;
+    const text = range.toString();
+    if (!text) return;
+    range.deleteContents();
+    range.insertNode(editor.ownerDocument.createTextNode(typographText(text)));
+    dispatchPanelEditorInput(editor, "formatTypograph");
+    return;
+  }
+  if (command === "link") {
+    const url = await askLinkUrl();
+    if (url) {
+      editor.ownerDocument.execCommand("createLink", false, url);
+      dispatchPanelEditorInput(editor, "createLink");
+    }
+  }
+}
+
+function togglePanelPill(value, start, end) {
+  const prefix = "{{pill|";
+  const suffix = "}}";
+  let from = start;
+  let to = end;
+  let wrapped = false;
+  while (from >= prefix.length && value.slice(from - prefix.length, from) === prefix && value.slice(to, to + suffix.length) === suffix) {
+    from -= prefix.length;
+    to += suffix.length;
+    wrapped = true;
+  }
+  return wrapped
+    ? { start: from, end: to, replacement: value.slice(start, end) }
+    : { start, end, replacement: togglePillMarkup(value.slice(start, end)) };
 }
 
 function bindShortWords(value) {
@@ -448,10 +607,11 @@ function ensureEditToolbar(previewDocument) {
       const selected = range?.toString();
       if (!range || !selected?.trim()) return;
       const rangeElement = range.commonAncestorContainer?.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer?.parentElement;
-      const selectedPill = rangeElement?.closest("[data-pill]");
-      if (selectedPill?.textContent === selected) {
+      const selectedPill = closestRangeWrapper(range, "pill");
+      if (selectedPill && selectedPill.textContent.trim() === selected.trim()) {
+        const editable = selectedPill.closest("[data-rich]");
         selectedPill.replaceWith(...selectedPill.childNodes);
-        selectedPill.closest("[data-rich]")?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatPill", data: null }));
+        editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatPill", data: null }));
         return;
       }
       const delaParent = rangeElement?.closest("[data-dela]");
@@ -621,40 +781,15 @@ function ensureEditToolbar(previewDocument) {
     }
     if (command === "dela") {
       const selection = previewDocument.getSelection();
-      const selected = selection?.toString().trim();
-      if (!selected && activeEditNode) {
+      const selected = selection?.toString() || "";
+      if (!selected.trim() && activeEditNode) {
         toggleDelaForNode(activeEditNode);
         return;
       }
-      if (selected) {
-        const range = savedRange?.cloneRange();
-        const selectedElement = selection.anchorNode?.nodeType === 1 ? selection.anchorNode : selection.anchorNode?.parentElement;
-        const rangeElement = range?.commonAncestorContainer?.nodeType === 1 ? range.commonAncestorContainer : range?.commonAncestorContainer?.parentElement;
-        const delaParent = selectedElement?.closest("[data-dela]") || rangeElement?.closest("[data-dela]");
-        if (delaParent) {
-          const editable = delaParent.closest("[data-rich]");
-          const block = email.blocks.find((item) => item.id === editable?.closest("[data-block-id]")?.dataset.blockId);
-          if (block && editable?.dataset.editPath) {
-            const plain = serializeRichRuns(parseRichMarkup(richToMarkdown(editable)).map((run) => ({ ...run, dela: false })));
-            setPath(block, editable.dataset.editPath, plain);
-            updatePreviewBlock(block);
-            renderBlockList();
-            renderBlockEditor();
-            persistSoon();
-          }
-          return;
-        }
-        if (range) {
-          const span = previewDocument.createElement("span");
-          span.dataset.dela = "1";
-          span.style.cssText = "font-family:'Dela Gothic One','Arial Black',Arial,sans-serif;font-weight:400;letter-spacing:.02em;text-transform:uppercase;";
-          span.textContent = selected;
-          const editable = (range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement)?.closest("[data-rich]");
-          range.deleteContents();
-          range.insertNode(span);
-          editable?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: selected }));
-        }
-      }
+      const range = savedRange?.cloneRange();
+      const editable = range && (range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement)?.closest("[data-rich]");
+      if (!range || !editable || !toggleDelaRange(editable, range)) return;
+      editable.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatDela", data: null }));
     }
     if (command === "list") previewDocument.execCommand("insertUnorderedList");
     if (command === "link") {
@@ -848,7 +983,8 @@ function renderBlockList() {
   elements.blockList.innerHTML = email.blocks.map((block, index) => {
     const definition = getDefinition(block.type);
     const hidden = Boolean(block.settings?.hidden);
-    return `<div class="email-block-row${block.id === selectedBlockId ? " is-selected" : ""}${hidden ? " is-hidden" : ""}" draggable="true" data-block-id="${escapeAttr(block.id)}"><i class="email-block-row__grip" data-lucide="grip-vertical" aria-hidden="true"></i><div><strong>${escapeAttr(definition?.label || block.type)}</strong><small>${hidden ? "Скрыт из письма" : escapeAttr(block.content.heading || block.content.text || block.content.body || "Системный интервал")}</small></div><div class="email-block-row__actions"><button type="button" data-action="up" title="Выше" ${index === 0 ? "disabled" : ""}><i data-lucide="chevron-up"></i></button><button type="button" data-action="down" title="Ниже" ${index === email.blocks.length - 1 ? "disabled" : ""}><i data-lucide="chevron-down"></i></button><button type="button" data-action="toggle-visibility" title="${hidden ? "Показать блок" : "Скрыть блок"}"><i data-lucide="${hidden ? "eye-off" : "eye"}"></i></button><button type="button" data-action="duplicate" title="Дублировать"><i data-lucide="copy"></i></button><button type="button" data-action="delete" title="Удалить"><i data-lucide="trash-2"></i></button></div></div>`;
+    const summary = plainUiText(block.content.heading || block.content.text || block.content.body || "Системный интервал");
+    return `<div class="email-block-row${block.id === selectedBlockId ? " is-selected" : ""}${hidden ? " is-hidden" : ""}" draggable="true" data-block-id="${escapeAttr(block.id)}"><i class="email-block-row__grip" data-lucide="grip-vertical" aria-hidden="true"></i><div><strong>${escapeAttr(definition?.label || block.type)}</strong><small>${hidden ? "Скрыт из письма" : escapeAttr(summary || "Системный интервал")}</small></div><div class="email-block-row__actions"><button type="button" data-action="up" title="Выше" ${index === 0 ? "disabled" : ""}><i data-lucide="chevron-up"></i></button><button type="button" data-action="down" title="Ниже" ${index === email.blocks.length - 1 ? "disabled" : ""}><i data-lucide="chevron-down"></i></button><button type="button" data-action="toggle-visibility" title="${hidden ? "Показать блок" : "Скрыть блок"}"><i data-lucide="${hidden ? "eye-off" : "eye"}"></i></button><button type="button" data-action="duplicate" title="Дублировать"><i data-lucide="copy"></i></button><button type="button" data-action="delete" title="Удалить"><i data-lucide="trash-2"></i></button></div></div>`;
   }).join("");
   iconRefresh(elements.blockList);
 }
@@ -856,9 +992,10 @@ function renderBlockList() {
 function field(label, path, value, { type = "text", rows = 0, hint = "", options = null } = {}) {
   let control = "";
   if (options) control = `<select data-field="${path}">${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${value === optionValue ? " selected" : ""}>${optionLabel}</option>`).join("")}</select>`;
-  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)" aria-label="Жирный">${formatIcon("bold")}</button><button type="button" data-fmt="dela" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button><button type="button" data-fmt="cyan" title="Циановый текст" aria-label="Циановый текст">${formatIcon("cyan")}</button><button type="button" data-fmt="purple" title="Пурпурный текст" aria-label="Пурпурный текст">${formatIcon("purple")}</button><button type="button" data-fmt="pill" title="Белый текст на голубой плашке" aria-label="Голубая плашка">${formatIcon("pill")}</button><button type="button" data-fmt="link" title="Ссылка" aria-label="Ссылка">${formatIcon("link")}</button><button type="button" data-fmt="list" title="Список с пунктами" aria-label="Список с пунктами">${formatIcon("list")}</button><button type="button" data-fmt="break" title="Ручной перенос строки" aria-label="Перенос строки">${formatIcon("break")}</button><button type="button" data-fmt="typograph" title="Типограф" aria-label="Типограф">${formatIcon("typograph")}</button></span><textarea data-field="${path}" rows="${rows}">${escapeAttr(value)}</textarea></div>`;
-  else control = `<input data-field="${path}" type="${type}" value="${escapeAttr(value)}">`;
-  return `<label class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</label>`;
+  else if (rows) control = `<div class="email-format"><span class="email-format__bar"><button type="button" data-fmt="bold" title="Жирный (Ctrl+B)" aria-label="Жирный">${formatIcon("bold")}</button><button type="button" data-fmt="dela" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button><button type="button" data-fmt="cyan" title="Циановый текст" aria-label="Циановый текст">${formatIcon("cyan")}</button><button type="button" data-fmt="purple" title="Пурпурный текст" aria-label="Пурпурный текст">${formatIcon("purple")}</button><button type="button" data-fmt="pill" title="Белый текст на голубой плашке" aria-label="Голубая плашка">${formatIcon("pill")}</button><button type="button" data-fmt="link" title="Ссылка" aria-label="Ссылка">${formatIcon("link")}</button><button type="button" data-fmt="list" title="Список с пунктами" aria-label="Список с пунктами">${formatIcon("list")}</button><button type="button" data-fmt="break" title="Ручной перенос строки" aria-label="Перенос строки">${formatIcon("break")}</button><button type="button" data-fmt="typograph" title="Типограф" aria-label="Типограф">${formatIcon("typograph")}</button></span><div class="email-rich-editor" contenteditable="true" data-rich-editor="1" data-field="${path}" spellcheck="true" style="min-height:${Math.max(84, rows * 24)}px;">${richMarkupToEditorHtml(value)}</div></div>`;
+  else control = `<input data-field="${path}" type="${type}" value="${escapeAttr(plainUiText(value))}">`;
+  const wrapper = rows ? "div" : "label";
+  return `<${wrapper} class="email-field"><span>${label}</span>${control}${hint ? `<small class="email-field__hint">${hint}</small>` : ""}</${wrapper}>`;
 }
 
 function buttonTonePicker(value) {
@@ -887,13 +1024,13 @@ function renderBlockEditor() {
   const definition = getDefinition(block.type);
   let controls = "";
   if (block.type === "title") controls = `${field("Композиция", "variant", block.variant, { options: [["plain", "Обычный"], ["subtitle", "С подзаголовком"], ["accent", "С акцентной плашкой"]] })}${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Крупная цифра", "content.bigNumber", block.content.bigNumber || "", { rows: 2, hint: "42 px · над заголовком" })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3, hint: "Рекомендуется до 90 символов" })}${field("Подзаголовок", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Фрагмент в плашке", "content.accent", block.content.accent)}`;
-  if (block.type === "text") controls = `${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Стиль списка", "content.listStyle", block.content.listStyle || "bullet", { options: [["bullet", "Маркеры"], ["number", "Цифры в кружках"]] })}${field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" })}<button class="email-button email-button--quiet" type="button" data-insert-image-after>+ Вставить картинку после текста</button>`;
+  if (block.type === "text") controls = `${field("Фоновая плашка", "content.plate", block.content.plate, { options: [["", "Без плашки"], ["1", "Белая плашка с отступами"]] })}${field("Стиль списка", "content.listStyle", block.content.listStyle || "bullet", { options: [["bullet", "Маркеры"], ["number", "Цифры в кружках"]] })}${field("Выравнивание", "content.align", block.content.align || "left", { options: [["left", "По левому краю"], ["center", "По центру"]] })}${field("Текст", "content.body", block.content.body, { rows: 8, hint: "Пустая строка — абзац, дефис — пункт, **текст** — жирный, [ссылка](https://…) — ссылка" })}<button class="email-button email-button--quiet" type="button" data-insert-image-after>+ Вставить картинку после текста</button>`;
   if (block.type === "promo") controls = `${field("Лейбл", "content.eyebrow", block.content.eyebrow)}${field("Цвет лейбла", "content.eyebrowTone", block.content.eyebrowTone || "purple", { options: [["purple", "Фиолетовый"], ["cyan", "Голубой"]] })}${field("Крупная цифра", "content.bigNumber", block.content.bigNumber || "", { rows: 2, hint: "42 px · над заголовком" })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Оффер / цифра", "content.offer", block.content.offer, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${field("Размер описания", "content.bodySize", block.content.bodySize || "14", { options: [["16", "Обычный · 16 px"], ["14", "Компактный · 14 px"]] })}${field("Фон", "content.gradient", block.content.gradient === false ? "false" : "true", { options: [["true", "Радиальный градиент"], ["false", "Тёмно-синий без градиента"]] })}${assetField(block)}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl || "", { type: "url", hint: "Кнопка остаётся отдельной ссылкой" })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка кнопки", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "image") controls = `${assetField(block)}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2, hint: "Виден, если картинки отключены" })}${field("Ссылка на весь блок", "content.linkUrl", block.content.linkUrl, { type: "url", hint: "При клике открывается весь блок" })}`;
   if (["imageText", "featureCard"].includes(block.type)) controls = `${field("Картинка", "variant", block.variant, { options: [["image-left", "Слева"], ["image-right", "Справа"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 2 })}${field("Описание", "content.body", block.content.body, { rows: 5 })}${assetField(block)}${block.type === "imageText" ? `${field("Текст ссылки", "content.linkText", block.content.linkText)}${field("Адрес ссылки", "content.linkUrl", block.content.linkUrl, { type: "url" })}` : ""}`;
   if (block.type === "brandTitle") controls = `${field("Цветовая схема", "variant", block.variant, { options: [["light-cyan", "Светло-голубая"], ["cyan", "Циановая"], ["navy", "Тёмно-синяя"], ["purple", "Фиолетовая"], ["magenta", "Розовая"], ["custom", "Свой цвет"]] })}${block.variant === "custom" ? field("Цвет фона", "content.backgroundColor", block.content.backgroundColor, { type: "color" }) : ""}${block.variant === "cyan" ? "" : field("Цвет текста", "content.textTone", block.content.textTone, { options: [["auto", "Автоматически"], ["dark", "Тёмно-синий"], ["light", "Белый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "Размер шрифта подстроится под длину" })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
   if (block.type === "brandScene") controls = `${field("Цветовая тема", "variant", block.variant, { options: [["navy-purple", "Синий — фиолетовый"], ["cyan-navy", "Циановый — синий"], ["purple-cyan", "Фиолетовый — циановый"]] })}${field("Заголовок Dela", "content.heading", block.content.heading, { rows: 3, hint: "До 70 символов" })}${field("Тезисы", "content.body", block.content.body, { rows: 5, hint: "Каждый тезис — с новой строки" })}${assetField(block, "content.background", "Фон или пятно")}${assetField(block, "content.image", "Вылезающая иллюстрация")}${field("Ссылка со всего блока", "content.linkUrl", block.content.linkUrl, { type: "url" })}${field("Описание картинки", "content.alt", block.content.alt, { rows: 2 })}${brandImageStatus(block)}<button class="email-button email-button--primary email-brand-publish" type="button" data-brand-publish>${block.content.renderedUrl ? "Обновить изображение" : "Создать изображение"}</button>`;
-  if (block.type === "iconGrid") controls = `${field("Заголовок блока", "content.heading", block.content.heading || "", { rows: 2 })}${field("Сетка преимуществ", "content.columns", block.content.columns || "2", { options: [["2", "По 2 в ряд"], ["1", "По 1 на всю ширину"]] })}<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><input data-field="content.items.${index}.heading" value="${escapeAttr(item.heading)}" placeholder="Заголовок"><button type="button" data-icon-dela="${index}" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(item.body)}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
+  if (block.type === "iconGrid") controls = `${field("Заголовок блока", "content.heading", block.content.heading || "", { rows: 2 })}${field("Сетка преимуществ", "content.columns", block.content.columns || "2", { options: [["2", "По 2 в ряд"], ["1", "По 1 на всю ширину"]] })}${field("Расположение иконки", "content.iconPosition", block.content.iconPosition || "top", { options: [["top", "Над текстом"], ["left", "Слева от текста"]] })}<div class="email-icon-items">${block.content.items.map((item, index) => `<div class="email-icon-item"><div class="email-icon-item__head"><strong>Преимущество ${index + 1}</strong>${block.content.items.length > 1 ? `<button type="button" data-icon-remove="${index}" title="Удалить преимущество">×</button>` : ""}</div><div class="email-icon-heading-field"><div class="email-rich-editor email-rich-editor--inline" contenteditable="true" data-rich-editor="1" data-field="content.items.${index}.heading" spellcheck="true">${richMarkupToEditorHtml(item.heading)}</div><button type="button" data-icon-dela="${index}" title="Шрифт Dela" aria-label="Шрифт Dela">${formatIcon("dela")}</button></div><input data-field="content.items.${index}.body" value="${escapeAttr(plainUiText(item.body))}" placeholder="Короткое описание"><button class="email-icon-picker" type="button" data-icon-pick="${index}"><img src="${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.previewSource || "")}" alt=""><span>${escapeAttr(window.CALLTOUCH_ASSETS.essentials[item.iconId]?.label || "Выбрать иконку")}</span></button><button class="email-button email-button--quiet email-icon-auto" type="button" data-icon-auto="${index}" title="Подобрать иконку по тексту"><i data-lucide="sparkles"></i><span>Подобрать по тексту</span></button></div>`).join("")}</div>${block.content.items.length < 6 ? `<button class="email-button email-button--quiet" type="button" data-icon-add>+ Добавить преимущество</button>` : ""}`;
   if (block.type === "ctaCard") controls = `${field("Тема", "variant", block.variant, { options: [["dark", "Тёмно-синяя"], ["dark-gradient", "Тёмно-синяя с пурпурным свечением"], ["light", "Светлая"]] })}${field("Выравнивание", "content.align", block.content.align || "center", { options: [["center", "По центру"], ["left", "По левому краю"]] })}${field("Заголовок", "content.heading", block.content.heading, { rows: 3 })}${field("Пояснение", "content.subtitle", block.content.subtitle, { rows: 3 })}${field("Текст кнопки", "content.ctaText", block.content.ctaText)}${field("Ссылка", "content.ctaUrl", block.content.ctaUrl, { type: "url" })}`;
   if (block.type === "button") controls = `${buttonTonePicker(block.variant)}${field("Выравнивание", "content.align", block.content.align || "center", { options: [["center", "По центру"], ["left", "По левому краю"]] })}${field("Текст", "content.text", block.content.text)}${field("Ссылка", "content.url", block.content.url, { type: "url" })}`;
   if (block.type === "divider") controls = field("Интервал", "variant", block.variant, { options: [["s", "S — компактный"], ["m", "M — обычный"], ["l", "L — большой"], ["xl", "XL — очень большой"]] });
@@ -1619,7 +1756,7 @@ elements.blockEditor.addEventListener("input", (event) => {
   const control = event.target.closest("[data-field]");
   const block = getSelectedBlock();
   if (!control || !block) return;
-  setPath(block, control.dataset.field, control.value);
+  setPath(block, control.dataset.field, control.matches("[data-rich-editor]") ? richToMarkdown(control) : control.value);
   updatePreviewBlock(block);
   const iconMatch = control.dataset.field.match(/^content\.items\.(\d+)\.(heading|body)$/);
   if (block.type === "iconGrid" && iconMatch) {
@@ -1633,11 +1770,14 @@ elements.blockEditor.addEventListener("change", (event) => {
   const control = event.target.closest("[data-field]");
   const block = getSelectedBlock();
   if (!control || !block) return;
-  if (control.matches("textarea")) setPath(block, control.dataset.field, normalizeRichMarkup(control.value));
+  if (control.matches("[data-rich-editor]")) setPath(block, control.dataset.field, richToMarkdown(control));
   updatePreviewBlock(block);
   renderBlockList();
   renderBlockEditor();
   persistSoon();
+});
+elements.blockEditor.addEventListener("mousedown", (event) => {
+  if (event.target.closest("[data-fmt]")) event.preventDefault();
 });
 elements.blockEditor.addEventListener("click", async (event) => {
   const toneButton = event.target.closest("[data-button-tone]");
@@ -1652,6 +1792,11 @@ elements.blockEditor.addEventListener("click", async (event) => {
   // Кнопки форматирования в боковой панели: оборачивают выделенный текст в markdown.
   const fmtButton = event.target.closest("[data-fmt]");
   if (fmtButton) {
+    const editor = fmtButton.closest(".email-format")?.querySelector("[data-rich-editor]");
+    if (editor) {
+      await formatPanelEditor(editor, fmtButton.dataset.fmt);
+      return;
+    }
     const textarea = fmtButton.closest(".email-format")?.querySelector("textarea");
     if (!textarea) return;
     const start = textarea.selectionStart;
@@ -1670,7 +1815,11 @@ elements.blockEditor.addEventListener("click", async (event) => {
     } else if (fmtButton.dataset.fmt === "cyan" || fmtButton.dataset.fmt === "purple") {
       replacement = toggleToneMarkup(selected, fmtButton.dataset.fmt);
     } else if (fmtButton.dataset.fmt === "pill") {
-      replacement = togglePillMarkup(selected);
+      const pill = togglePanelPill(textarea.value, start, end);
+      textarea.setRangeText(pill.replacement, pill.start, pill.end, "select");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      textarea.focus();
+      return;
     } else if (fmtButton.dataset.fmt === "list") {
       // Тоггл: если все выделенные строки уже пункты — снимаем маркеры, иначе добавляем.
       const lines = selected.split("\n");

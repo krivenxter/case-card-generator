@@ -142,8 +142,13 @@
 .email-block-row strong { font-size: 12px; }
 .email-block-row small { display: -webkit-box; margin-top: 3px; overflow: hidden; color: #7b878c; font-size: 10px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; word-break: break-word; }
 .email-format { display: grid; gap: 6px; }
-.email-format__bar { display: flex; gap: 4px; }
-.email-format__bar button { display: inline-flex; width: 32px; height: 30px; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--email-border); border-radius: 8px; background: #fff; color: var(--email-navy); cursor: pointer; }
+.email-rich-editor { width: 100%; min-height: 84px; padding: var(--email-space-xs) var(--email-space-sm); border: 1px solid var(--email-border); border-radius: 9px; box-sizing: border-box; color: var(--email-ink); background: #f7f9fa; font: 13px/1.45 "Museo Sans Cyrl", Arial, sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; outline: 0; }
+.email-rich-editor:focus { border-color: var(--email-cyan); background: #fff; box-shadow: 0 0 0 3px rgba(var(--email-cyan-rgb),.14); }
+.email-rich-editor--inline { min-height: 42px; padding: var(--email-space-xs) var(--email-space-sm); }
+.email-rich-editor [data-dela] { text-transform: uppercase; }
+.email-rich-editor [data-pill] { white-space: nowrap; }
+.email-format__bar { display: flex; width: max-content; gap: 4px; }
+.email-format__bar button { display: inline-flex; flex: 0 0 32px; width: 32px; height: 30px; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--email-border); border-radius: 8px; background: #fff; color: var(--email-navy); cursor: pointer; }
 .email-format__bar button svg { width: 17px; height: 17px; }
 .email-format__bar button:hover { background: var(--email-pale); }
 .email-icon-item__head { display: flex; align-items: center; justify-content: space-between; }
