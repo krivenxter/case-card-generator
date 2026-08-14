@@ -2691,6 +2691,7 @@ async function exportAllCreativeMp4s() {
 
 document.querySelectorAll("[data-tool-tab]").forEach((tab) => {
   tab.addEventListener("click", (event) => {
+    if (!tab.getAttribute("href")?.startsWith("#")) return;
     event.preventDefault();
     setActiveTool(tab.dataset.toolTab);
   });
@@ -2704,11 +2705,6 @@ mobileControlsScrim?.addEventListener("click", () => setMobileControlsOpen(false
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") setMobileControlsOpen(false);
-});
-
-document.querySelector(".app-brand")?.addEventListener("click", (event) => {
-  event.preventDefault();
-  setActiveTool("banners");
 });
 
 window.addEventListener("hashchange", () => {
@@ -2997,7 +2993,12 @@ setBannerFormat(BANNER_FORMATS[startupFormat] ? startupFormat : BANNER_FORMATS[a
 applyBannerAnimationFrame(1);
 resetBannerHistory();
 syncMp4Support();
-setActiveTool(getToolFromHash() || (startupParams.get("tool") === "cases" ? "cases" : restoredProject ? appState.ui.activeTool : "banners"));
+const requestedTool = startupParams.get("tool");
+setActiveTool(
+  requestedTool === "cases" || requestedTool === "banners"
+    ? requestedTool
+    : getToolFromHash() || (restoredProject ? appState.ui.activeTool : "banners")
+);
 document.fonts.ready.then(scheduleBannerFit);
 
 document.addEventListener("input", scheduleProjectSave, { passive: true });

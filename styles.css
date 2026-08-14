@@ -436,9 +436,9 @@ body {
 }
 
 .tool-tab.is-active {
-  background: var(--accent);
+  background: var(--brand-ink);
   color: #ffffff;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--brand-ink) 28%, transparent);
 }
 
 .tool-tab--coming {
