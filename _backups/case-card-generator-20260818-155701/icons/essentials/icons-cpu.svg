@@ -1,0 +1,23 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_4993_13465)">
+<path d="M55.9987 90.6668H71.9987C85.332 90.6668 90.6654 85.3335 90.6654 72.0002V56.0002C90.6654 42.6668 85.332 37.3335 71.9987 37.3335H55.9987C42.6654 37.3335 37.332 42.6668 37.332 56.0002V72.0002C37.332 85.3335 42.6654 90.6668 55.9987 90.6668Z" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M42.7188 21.3335V10.6669" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M64 21.3335V10.6669" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M85.332 21.3335V10.6669" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M106.668 42.667H117.335" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M106.668 64.0002H117.335" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M106.668 85.3335H117.335" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M85.332 106.667V117.334" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M64.0547 106.667V117.334" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M42.7188 106.667V117.334" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M10.668 42.667H21.3346" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M10.668 64H21.3346" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M10.668 85.3333H21.3346" stroke="#22B8DE" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M51.1987 106.667H76.7987C98.132 106.667 106.665 98.1333 106.665 76.7999V51.1999C106.665 29.8666 98.132 21.3333 76.7987 21.3333H51.1987C29.8654 21.3333 21.332 29.8666 21.332 51.1999V76.7999C21.332 98.1333 29.8654 106.667 51.1987 106.667Z" stroke="#196A82" stroke-width="7.99503" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_4993_13465">
+<rect width="128" height="128" fill="white"/>
+</clipPath>
+</defs>
+</svg>
