@@ -4,7 +4,7 @@ import { renderEmailDocument, renderBlock } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
 import { BRAND_SCENE_MIN_HEIGHT, BRAND_SCENE_WIDTH, brandSceneSignature, isBrandScenePublished, renderBrandSceneMarkup } from "./email-brand-scene.js";
 import { BRAND_TITLE_MIN_HEIGHT, BRAND_TITLE_WIDTH, brandTitleSignature, isBrandTitlePublished, renderBrandTitleMarkup, resolveBrandTitleColors } from "./email-brand-title.js";
-import { delaSegments, forceDelaMarkup, hasDelaMarkup, normalizeRichMarkup, parseRichMarkup, richPlainText, serializeRichRuns, toggleDelaMarkup, togglePillMarkup, toggleToneMarkup } from "./email-rich-text.js";
+import { bindDelaAmountPhrases, delaSegments, forceDelaMarkup, hasDelaMarkup, normalizeRichMarkup, parseRichMarkup, richPlainText, serializeRichRuns, toggleDelaMarkup, togglePillMarkup, toggleToneMarkup } from "./email-rich-text.js";
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
@@ -1409,7 +1409,8 @@ function isDelaGroup(text) {
 
 function normalizeDelaWrapText(value) {
   const keepBound = /^(?:без|для|над|под|при|про|[A-Za-zА-Яа-яЁё]{1,2})$/iu;
-  return String(value || "").replace(/\u2011/g, "-").replace(/([A-Za-zА-Яа-яЁё]+)[\u00a0\u202f]/gu, (match, word) => keepBound.test(word) ? match : `${word} `);
+  const normalized = String(value || "").replace(/\u2011/g, "-").replace(/([A-Za-zА-Яа-яЁё]+)[\u00a0\u202f]/gu, (match, word) => keepBound.test(word) ? match : `${word} `);
+  return bindDelaAmountPhrases(normalized);
 }
 
 function delaGroupMarkup(value) {

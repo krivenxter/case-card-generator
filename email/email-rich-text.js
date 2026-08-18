@@ -92,6 +92,12 @@ export function richPlainText(value = "") {
   return parseRichMarkup(value).map((run) => run.text).join("");
 }
 
+// Денежные пороги должны переноситься целиком: «от 1 млн ₽*», «500 тыс. ₽*».
+// Иначе браузер может разорвать выражение между числом и единицей измерения.
+export function bindDelaAmountPhrases(value = "") {
+  return String(value).replace(/(?<![\p{L}\d])((?:(?:от|до)\s+)?\d+(?:[.,]\s*\d+)?(?:\s+(?:млн|тыс|млрд|руб\.?)\.?)*(?:\s+₽)?\*?)/giu, (match) => match.replace(/\s+/g, "\u00a0"));
+}
+
 export function delaSegments(value = "") {
   return parseRichMarkup(value).filter((run) => run.dela && run.text.trim());
 }

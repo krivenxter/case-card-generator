@@ -1,7 +1,7 @@
 import { DELA_FONT_SIZES, EMAIL_TOKENS, SYSTEM_LINKS } from "./email-model.js";
 import { BRAND_SCENE_WIDTH, renderBrandSceneMarkup } from "./email-brand-scene.js";
 import { BRAND_TITLE_WIDTH, renderBrandTitleMarkup } from "./email-brand-title.js";
-import { forceDelaMarkup, hasDelaMarkup, normalizeRichMarkup, richPlainText } from "./email-rich-text.js";
+import { bindDelaAmountPhrases, forceDelaMarkup, hasDelaMarkup, normalizeRichMarkup, richPlainText } from "./email-rich-text.js";
 
 const C = EMAIL_TOKENS.colors;
 const textPurple = C.purpleText;
@@ -75,7 +75,8 @@ function delaPlainText(value = "") {
 
 function delaWrapText(value = "") {
   const keepBound = /^(?:без|для|над|под|при|про|[A-Za-zА-Яа-яЁё]{1,2})$/iu;
-  return String(value).replace(/\u2011/g, "-").replace(/([A-Za-zА-Яа-яЁё]+)[\u00a0\u202f]/gu, (match, word) => keepBound.test(word) ? match : `${word} `);
+  const normalized = String(value).replace(/\u2011/g, "-").replace(/([A-Za-zА-Яа-яЁё]+)[\u00a0\u202f]/gu, (match, word) => keepBound.test(word) ? match : `${word} `);
+  return bindDelaAmountPhrases(normalized);
 }
 
 function delaMarkup(value, preview, size = DELA_FONT_SIZES.small) {
@@ -89,13 +90,19 @@ function delaMarkup(value, preview, size = DELA_FONT_SIZES.small) {
 }
 
 function inlineMarkup(value, preview, delaSize = DELA_FONT_SIZES.small) {
-  return rubleSafe(normalizeRichMarkup(value))
-    .replace(/\{\{dela\|([\s\S]*?)\}\}/g, (_, inner) => delaMarkup(inner, preview, delaSize))
+  const delaMarkupPlaceholders = [];
+  const delaPlaceholder = (index) => `\u0001DELA_${index}\u0001`;
+  const normalized = normalizeRichMarkup(value).replace(/\{\{dela\|([\s\S]*?)\}\}/g, (_, inner) => {
+    const index = delaMarkupPlaceholders.push(delaMarkup(inner, preview, delaSize)) - 1;
+    return delaPlaceholder(index);
+  });
+  return rubleSafe(normalized)
     .replace(/\{\{pill\|([\s\S]*?)\}\}/g, (_, inner) => `<span data-pill="1" style="display:inline-block;padding:.1em .45em .16em;border-radius:999px;background:${C.cyan};color:#ffffff;line-height:1;white-space:nowrap;">${inner}</span>`)
     .replace(/\{\{(cyan|purple)\|([\s\S]*?)\}\}/g, (_, tone, inner) => `<span data-color="${tone}" style="color:${tone === "cyan" ? C.cyan : textPurple};">${inner}</span>`)
     .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\\\*/g, "*")
-    .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+    .replace(/\[([^\]]+)]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>')
+    .replace(/\u0001DELA_(\d+)\u0001/g, (_, index) => delaMarkupPlaceholders[Number(index)]);
 }
 
 function bodyText(value, color = C.ink, size = 16, path = "", preview = false, listStyle = "bullet", align = "left") {
