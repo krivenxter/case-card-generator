@@ -3181,12 +3181,14 @@ function waitForBannerImage(image) {
   if (image.complete) return Promise.resolve(image.naturalWidth > 0);
   return new Promise((resolve) => {
     const finish = (loaded) => {
+      clearTimeout(timeoutId);
       image.removeEventListener("load", handleLoad);
       image.removeEventListener("error", handleError);
       resolve(loaded);
     };
     const handleLoad = () => finish(true);
     const handleError = () => finish(false);
+    const timeoutId = setTimeout(() => finish(image.complete && image.naturalWidth > 0), 2000);
     image.addEventListener("load", handleLoad, { once: true });
     image.addEventListener("error", handleError, { once: true });
   });
@@ -3676,10 +3678,6 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
   const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
   document.body.appendChild(output);
   const chunks = [];
-  const started = new Promise((resolve, reject) => {
-    recorder.addEventListener("start", resolve, { once: true });
-    recorder.addEventListener("error", () => reject(recorder.error || new Error("Ошибка запуска записи MP4.")), { once: true });
-  });
   const stopped = new Promise((resolve, reject) => {
     recorder.addEventListener("dataavailable", (event) => {
       if (event.data?.size) chunks.push(event.data);
@@ -3687,21 +3685,46 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
     recorder.addEventListener("stop", resolve, { once: true });
     recorder.addEventListener("error", () => reject(recorder.error || new Error("Ошибка кодирования MP4.")), { once: true });
   });
+  const waitForStopped = () => new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => reject(new Error("Браузер не завершил запись MP4.")), 10000);
+    stopped.then(
+      () => {
+        clearTimeout(timeoutId);
+        resolve();
+      },
+      (error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
+    );
+  });
   const durationMs = getBannerAnimationDurationMs();
   let frameRequest = 0;
 
   try {
     drawCreativeVideoFrame(context, layers, config, 0);
     recorder.start();
-    await started;
     const startedAt = performance.now();
     await new Promise((resolve) => {
+      let completed = false;
+      const finish = () => {
+        if (completed) return;
+        completed = true;
+        clearTimeout(watchdogId);
+        resolve();
+      };
+      const watchdogId = setTimeout(() => {
+        drawCreativeVideoFrame(context, layers, config, 1);
+        onProgress?.(1);
+        finish();
+      }, durationMs + 1500);
       const renderFrame = (timestamp) => {
+        if (completed) return;
         const progress = Math.min(1, (timestamp - startedAt) / durationMs);
         drawCreativeVideoFrame(context, layers, config, progress);
         onProgress?.(progress);
         if (progress >= 1) {
-          resolve();
+          finish();
           return;
         }
         frameRequest = requestAnimationFrame(renderFrame);
@@ -3710,14 +3733,14 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
     recorder.stop();
-    await stopped;
+    await waitForStopped();
     await Promise.resolve();
   } finally {
     cancelAnimationFrame(frameRequest);
     if (recorder.state !== "inactive") {
       try {
         recorder.stop();
-        await stopped;
+        await waitForStopped();
       } catch {
         // Ошибка записи будет обработана основным try/catch экспорта.
       }

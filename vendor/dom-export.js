@@ -185,24 +185,42 @@
       const image = new Image();
       const objectUrl = URL.createObjectURL(new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" }));
       let triedDataUrl = false;
+      let timeoutId = 0;
+      let settled = false;
 
-      const cleanup = () => URL.revokeObjectURL(objectUrl);
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        URL.revokeObjectURL(objectUrl);
+      };
+      const armTimeout = () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(handleError, 4000);
+      };
 
       image.onload = () => {
+        if (settled) return;
+        settled = true;
         cleanup();
         resolve(image);
       };
-      image.onerror = () => {
+      const handleError = () => {
+        if (settled) return;
         if (!triedDataUrl) {
           triedDataUrl = true;
-          cleanup();
+          clearTimeout(timeoutId);
+          URL.revokeObjectURL(objectUrl);
           image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
+          armTimeout();
           return;
         }
 
+        settled = true;
+        cleanup();
         reject(new Error("Браузер не смог отрисовать SVG-копию слайда"));
       };
+      image.onerror = handleError;
       image.src = objectUrl;
+      armTimeout();
     });
   }
 
