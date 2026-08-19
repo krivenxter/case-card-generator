@@ -3301,20 +3301,25 @@ function getCreativeFilename(format, pixelRatio = 2) {
   return `${getCreativeTitlePrefix()}-${getCreativeFormatSuffix(format)}${ratioSuffix}.jpg`;
 }
 
-function getSupportedMp4MimeType() {
-  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
+function getSupportedMp4MimeTypes() {
+  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return [];
   const candidates = [
+    "video/mp4",
     "video/mp4;codecs=avc1.42E01E",
-    "video/mp4;codecs=avc1.64002A",
-    "video/mp4"
+    "video/mp4;codecs=avc3.42E01E",
+    "video/mp4;codecs=avc1.64002A"
   ];
-  return candidates.find((type) => {
+  return candidates.filter((type) => {
     try {
       return MediaRecorder.isTypeSupported(type);
     } catch {
       return false;
     }
-  }) || "";
+  });
+}
+
+function getSupportedMp4MimeType() {
+  return getSupportedMp4MimeTypes()[0] || "";
 }
 
 function syncMp4Support() {
@@ -3668,15 +3673,15 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
   const output = document.createElement("canvas");
   output.width = config.width;
   output.height = config.height;
-  output.setAttribute("aria-hidden", "true");
-  output.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:1px;pointer-events:none;z-index:-1";
   const context = output.getContext("2d", { alpha: false });
   if (!context) throw new Error("Браузер не смог создать холст для видео.");
 
   const stream = output.captureStream(30);
-  const bitrate = Math.max(5_000_000, Math.min(16_000_000, config.width * config.height * 4));
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
-  document.body.appendChild(output);
+  const videoTrack = stream.getVideoTracks()[0];
+  const requestCapturedFrame = () => {
+    if (typeof videoTrack?.requestFrame === "function") videoTrack.requestFrame();
+  };
+  const recorder = new MediaRecorder(stream, { mimeType });
   const chunks = [];
   const stopped = new Promise((resolve, reject) => {
     recorder.addEventListener("dataavailable", (event) => {
@@ -3703,6 +3708,7 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
 
   try {
     drawCreativeVideoFrame(context, layers, config, 0);
+    requestCapturedFrame();
     recorder.start(250);
     const startedAt = performance.now();
     await new Promise((resolve) => {
@@ -3715,6 +3721,7 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
       };
       const watchdogId = setTimeout(() => {
         drawCreativeVideoFrame(context, layers, config, 1);
+        requestCapturedFrame();
         onProgress?.(1);
         finish();
       }, durationMs + 1500);
@@ -3722,6 +3729,7 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
         if (completed) return;
         const progress = Math.min(1, (timestamp - startedAt) / durationMs);
         drawCreativeVideoFrame(context, layers, config, progress);
+        requestCapturedFrame();
         onProgress?.(progress);
         if (progress >= 1) {
           finish();
@@ -3732,14 +3740,6 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
       frameRequest = requestAnimationFrame(renderFrame);
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
-    if (recorder.state === "recording" && typeof recorder.requestData === "function") {
-      try {
-        recorder.requestData();
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch {
-        // Некоторые браузеры сами отдают последний чанк только при stop().
-      }
-    }
     recorder.stop();
     await waitForStopped();
     await Promise.resolve();
@@ -3754,7 +3754,6 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
       }
     }
     stream.getTracks().forEach((track) => track.stop());
-    output.remove();
   }
 
   if (!chunks.length) throw new Error("Браузер не вернул данные MP4.");
@@ -3763,12 +3762,23 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
 }
 
 async function createCreativeMp4(format, onProgress) {
-  const mimeType = getSupportedMp4MimeType();
-  if (!mimeType || !HTMLCanvasElement.prototype.captureStream) {
+  const mimeTypes = getSupportedMp4MimeTypes();
+  if (!mimeTypes.length || !HTMLCanvasElement.prototype.captureStream) {
     throw new Error("Запись MP4 не поддерживается в этом браузере.");
   }
   const layers = await createCreativeVideoLayers(format);
-  return recordCreativeCanvas(format, layers, mimeType, onProgress);
+  let lastError = null;
+
+  for (const mimeType of mimeTypes) {
+    try {
+      return await recordCreativeCanvas(format, layers, mimeType, onProgress);
+    } catch (error) {
+      lastError = error;
+      console.warn(`MP4-кодировщик ${mimeType} не сработал, пробуем следующий.`, error);
+    }
+  }
+
+  throw lastError || new Error("Браузер не вернул данные MP4.");
 }
 
 function setBannerExporting(isExporting, allFormats = false, kind = "jpg", progressLabel = "") {
