@@ -3703,7 +3703,7 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
 
   try {
     drawCreativeVideoFrame(context, layers, config, 0);
-    recorder.start();
+    recorder.start(250);
     const startedAt = performance.now();
     await new Promise((resolve) => {
       let completed = false;
@@ -3732,6 +3732,14 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
       frameRequest = requestAnimationFrame(renderFrame);
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
+    if (recorder.state === "recording" && typeof recorder.requestData === "function") {
+      try {
+        recorder.requestData();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } catch {
+        // Некоторые браузеры сами отдают последний чанк только при stop().
+      }
+    }
     recorder.stop();
     await waitForStopped();
     await Promise.resolve();
