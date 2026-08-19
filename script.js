@@ -3424,6 +3424,140 @@ function drawCreativeVideoFrame(context, layers, config, progress) {
   context.restore();
 }
 
+const MP4_CONTAINER_BOXES = new Set(["moov", "trak", "mdia", "mvex"]);
+
+function readMp4Box(data, offset, limit) {
+  if (offset + 8 > limit) return null;
+
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const size32 = view.getUint32(offset);
+  const type = String.fromCharCode(
+    data[offset + 4],
+    data[offset + 5],
+    data[offset + 6],
+    data[offset + 7]
+  );
+  let size = size32;
+  let headerSize = 8;
+
+  if (size32 === 1) {
+    if (offset + 16 > limit) return null;
+    size = Number(view.getBigUint64(offset + 8));
+    headerSize = 16;
+  } else if (size32 === 0) {
+    size = limit - offset;
+  }
+
+  if (!Number.isSafeInteger(size) || size < headerSize || offset + size > limit) return null;
+  return {
+    offset,
+    size,
+    size32,
+    type,
+    headerSize,
+    version: data[offset + headerSize],
+    payloadOffset: offset + headerSize,
+    end: offset + size
+  };
+}
+
+function walkMp4Boxes(data, start = 0, end = data.length, boxes = []) {
+  let offset = start;
+  while (offset < end) {
+    const box = readMp4Box(data, offset, end);
+    if (!box) break;
+    boxes.push(box);
+
+    if (MP4_CONTAINER_BOXES.has(box.type)) {
+      walkMp4Boxes(data, box.payloadOffset, box.end, boxes);
+    }
+    offset = box.end;
+  }
+  return boxes;
+}
+
+function getMp4TimingField(box) {
+  const version = box.version;
+  if (box.type === "mvhd") return { timescaleOffset: version ? 20 : 12, durationOffset: version ? 24 : 16 };
+  if (box.type === "tkhd") return { timescaleOffset: null, durationOffset: version ? 28 : 20 };
+  if (box.type === "mdhd") return { timescaleOffset: version ? 20 : 12, durationOffset: version ? 24 : 16 };
+  if (box.type === "mehd") return { timescaleOffset: null, durationOffset: 4 };
+  return null;
+}
+
+function writeMp4Uint64(view, offset, value) {
+  const safeValue = Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.round(value)));
+  view.setUint32(offset, Math.floor(safeValue / 4294967296));
+  view.setUint32(offset + 4, safeValue % 4294967296);
+}
+
+function writeMp4Duration(data, box, duration) {
+  const field = getMp4TimingField(box);
+  if (!field) return;
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const offset = box.payloadOffset + field.durationOffset;
+  if (box.version) writeMp4Uint64(view, offset, duration);
+  else view.setUint32(offset, Math.max(0, Math.min(0xffffffff, Math.round(duration))));
+}
+
+function getMp4Timescale(data, box) {
+  const field = getMp4TimingField(box);
+  if (!field?.timescaleOffset) return 0;
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  return view.getUint32(box.payloadOffset + field.timescaleOffset);
+}
+
+function addMp4Mehd(data, mvex, duration) {
+  const mehd = new Uint8Array(16);
+  const view = new DataView(mehd.buffer);
+  view.setUint32(0, 16);
+  mehd.set([0x6d, 0x65, 0x68, 0x64], 4);
+  view.setUint32(12, Math.max(0, Math.min(0xffffffff, Math.round(duration))));
+
+  const insertAt = mvex.payloadOffset;
+  const result = new Uint8Array(data.length + mehd.length);
+  result.set(data.subarray(0, insertAt));
+  result.set(mehd, insertAt);
+  result.set(data.subarray(insertAt), insertAt + mehd.length);
+
+  const boxes = walkMp4Boxes(data);
+  const resultView = new DataView(result.buffer);
+  boxes
+    .filter((box) => box.offset < insertAt && box.end >= insertAt)
+    .forEach((box) => {
+      if (box.size32 === 1) writeMp4Uint64(resultView, box.offset + 8, box.size + mehd.length);
+      else if (box.size32 !== 0) resultView.setUint32(box.offset, box.size + mehd.length);
+    });
+
+  return result;
+}
+
+async function addMp4DurationMetadata(blob, durationMs) {
+  const data = new Uint8Array(await blob.arrayBuffer());
+  const boxes = walkMp4Boxes(data);
+  const movieHeader = boxes.find((box) => box.type === "mvhd");
+  const moov = boxes.find((box) => box.type === "moov");
+  if (!movieHeader || !moov) return blob;
+
+  const movieTimescale = getMp4Timescale(data, movieHeader);
+  if (!movieTimescale) return blob;
+  const movieDuration = durationMs * movieTimescale / 1000;
+
+  writeMp4Duration(data, movieHeader, movieDuration);
+  boxes.filter((box) => box.type === "tkhd").forEach((box) => writeMp4Duration(data, box, movieDuration));
+  boxes.filter((box) => box.type === "mdhd").forEach((box) => {
+    const timescale = getMp4Timescale(data, box);
+    if (timescale) writeMp4Duration(data, box, durationMs * timescale / 1000);
+  });
+
+  const mvex = boxes.find((box) => box.type === "mvex");
+  const mehd = boxes.find((box) => box.type === "mehd");
+  if (mehd) writeMp4Duration(data, mehd, movieDuration);
+  else if (mvex) return new Blob([addMp4Mehd(data, mvex, movieDuration)], { type: blob.type || "video/mp4" });
+
+  return new Blob([data], { type: blob.type || "video/mp4" });
+}
+
 async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
   const config = BANNER_FORMATS[format];
   const output = document.createElement("canvas");
@@ -3448,7 +3582,7 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
 
   try {
     drawCreativeVideoFrame(context, layers, config, 0);
-    recorder.start(250);
+    recorder.start();
     const startedAt = performance.now();
     await new Promise((resolve) => {
       const renderFrame = (timestamp) => {
@@ -3472,7 +3606,8 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
   }
 
   if (!chunks.length) throw new Error("Браузер не вернул данные MP4.");
-  return new Blob(chunks, { type: recorder.mimeType || mimeType });
+  const blob = new Blob(chunks, { type: recorder.mimeType || mimeType });
+  return addMp4DurationMetadata(blob, durationMs);
 }
 
 async function createCreativeMp4(format, onProgress) {
