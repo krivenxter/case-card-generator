@@ -3345,6 +3345,8 @@ async function createCreativeVideoLayers(format) {
     await afterTwoFrames();
     const canvasRect = canvasNode.getBoundingClientRect();
     const visualRect = motionNode.getBoundingClientRect();
+    const keyvisualNode = canvasNode.querySelector(".creative-keyvisual");
+    const keyvisualRect = keyvisualNode.getBoundingClientRect();
     const visualCenter = {
       x: ((visualRect.left + visualRect.width / 2 - canvasRect.left) / canvasRect.width) * config.width,
       y: ((visualRect.top + visualRect.height / 2 - canvasRect.top) / canvasRect.height) * config.height
@@ -3386,15 +3388,23 @@ async function createCreativeVideoLayers(format) {
     });
     canvasNode.classList.remove("is-video-base-export");
 
-    canvasNode.classList.add("is-video-visual-export");
-    const visual = await window.DomExport.toCanvas(canvasNode, {
+    const visualSource = await window.DomExport.toCanvas(keyvisualNode, {
       ...exportOptions,
-      width: config.width,
-      height: config.height
+      width: Math.max(1, Math.ceil(keyvisualNode.offsetWidth * scaleX)),
+      height: Math.max(1, Math.ceil(keyvisualNode.offsetHeight * scaleY))
     });
-    canvasNode.classList.remove("is-video-visual-export");
-
-    return { base, visual, visualCenter, textLayers };
+    return {
+      base,
+      visual: visualSource,
+      visualBounds: {
+        x: (keyvisualRect.left - canvasRect.left) * scaleX,
+        y: (keyvisualRect.top - canvasRect.top) * scaleY,
+        width: keyvisualRect.width * scaleX,
+        height: keyvisualRect.height * scaleY
+      },
+      visualCenter,
+      textLayers
+    };
   } finally {
     canvasNode.classList.remove("is-video-base-export", "is-video-visual-export");
     restoreAnimatedElements();
@@ -3412,7 +3422,13 @@ function drawCreativeVideoFrame(context, layers, config, progress) {
   context.translate(layers.visualCenter.x + motion.x, layers.visualCenter.y + motion.y);
   context.rotate(motion.rotation * (Math.PI / 180));
   context.scale(motion.scale, motion.scale);
-  context.drawImage(layers.visual, -layers.visualCenter.x, -layers.visualCenter.y, config.width, config.height);
+  context.drawImage(
+    layers.visual,
+    layers.visualBounds.x - layers.visualCenter.x,
+    layers.visualBounds.y - layers.visualCenter.y,
+    layers.visualBounds.width,
+    layers.visualBounds.height
+  );
   context.restore();
 
   layers.textLayers.forEach((layer, index) => {
