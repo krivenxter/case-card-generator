@@ -183,11 +183,26 @@
   function svgToImage(svgMarkup) {
     return new Promise((resolve, reject) => {
       const image = new Image();
-      const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
+      const objectUrl = URL.createObjectURL(new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" }));
+      let triedDataUrl = false;
 
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("Браузер не смог отрисовать SVG-копию слайда"));
-      image.src = dataUrl;
+      const cleanup = () => URL.revokeObjectURL(objectUrl);
+
+      image.onload = () => {
+        cleanup();
+        resolve(image);
+      };
+      image.onerror = () => {
+        if (!triedDataUrl) {
+          triedDataUrl = true;
+          cleanup();
+          image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
+          return;
+        }
+
+        reject(new Error("Браузер не смог отрисовать SVG-копию слайда"));
+      };
+      image.src = objectUrl;
     });
   }
 

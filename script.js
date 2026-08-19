@@ -3177,6 +3177,21 @@ async function getBannerAssetDataUrl(url, { upscale = false } = {}) {
   return exportAsset;
 }
 
+function waitForBannerImage(image) {
+  if (image.complete) return Promise.resolve(image.naturalWidth > 0);
+  return new Promise((resolve) => {
+    const finish = (loaded) => {
+      image.removeEventListener("load", handleLoad);
+      image.removeEventListener("error", handleError);
+      resolve(loaded);
+    };
+    const handleLoad = () => finish(true);
+    const handleError = () => finish(false);
+    image.addEventListener("load", handleLoad, { once: true });
+    image.addEventListener("error", handleError, { once: true });
+  });
+}
+
 async function prepareCreativeAssets(canvas, resolvedVisual) {
   const backgroundBefore = canvas.style.getPropertyValue("--creative-background");
   const backgroundData = await getBannerAssetDataUrl(getBannerBackgroundUrl());
@@ -3198,9 +3213,11 @@ async function prepareCreativeAssets(canvas, resolvedVisual) {
 
   for (const [image, url] of imagePairs) {
     const dataUrl = await getBannerAssetDataUrl(url, { upscale: image === visualImage });
-    if (!dataUrl || !image.complete || image.naturalWidth === 0) continue;
-    changedImages.push([image, image.src]);
+    if (!dataUrl) continue;
+    const previousSrc = image.src;
     image.src = dataUrl;
+    if (await waitForBannerImage(image)) changedImages.push([image, previousSrc]);
+    else image.src = previousSrc;
   }
 
   return () => {
@@ -3314,6 +3331,37 @@ function getCreativeVideoFilename(format) {
   return `${getCreativeTitlePrefix()}-${getCreativeFormatSuffix(format)}.mp4`;
 }
 
+async function createCreativeVisualCanvas(keyvisualNode, width, height, exportOptions) {
+  const image = keyvisualNode.querySelector("img");
+  if (!keyvisualNode.classList.contains("has-image") || !image?.complete || !image.naturalWidth) {
+    return window.DomExport.toCanvas(keyvisualNode, {
+      ...exportOptions,
+      width: Math.max(1, keyvisualNode.offsetWidth),
+      height: Math.max(1, keyvisualNode.offsetHeight)
+    });
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.ceil(width));
+  canvas.height = Math.max(1, Math.ceil(height));
+  const context = canvas.getContext("2d", { alpha: true });
+  if (!context) throw new Error("Браузер не смог создать слой изображения для видео.");
+
+  const imageScale = Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+  const imageWidth = image.naturalWidth * imageScale;
+  const imageHeight = image.naturalHeight * imageScale;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(
+    image,
+    (canvas.width - imageWidth) / 2,
+    (canvas.height - imageHeight) / 2,
+    imageWidth,
+    imageHeight
+  );
+  return canvas;
+}
+
 async function createCreativeVideoLayers(format) {
   setBannerFormat(format);
   await document.fonts.ready;
@@ -3358,6 +3406,8 @@ async function createCreativeVideoLayers(format) {
     };
     const scaleX = config.width / canvasRect.width;
     const scaleY = config.height / canvasRect.height;
+    const visualWidth = keyvisualRect.width * scaleX;
+    const visualHeight = keyvisualRect.height * scaleY;
     const textLayers = [];
     const animatedElements = getBannerAnimatedElements(canvasNode);
 
@@ -3388,19 +3438,20 @@ async function createCreativeVideoLayers(format) {
     });
     canvasNode.classList.remove("is-video-base-export");
 
-    const visualSource = await window.DomExport.toCanvas(keyvisualNode, {
-      ...exportOptions,
-      width: Math.max(1, Math.ceil(keyvisualNode.offsetWidth * scaleX)),
-      height: Math.max(1, Math.ceil(keyvisualNode.offsetHeight * scaleY))
-    });
+    const visualSource = await createCreativeVisualCanvas(
+      keyvisualNode,
+      visualWidth,
+      visualHeight,
+      exportOptions
+    );
     return {
       base,
       visual: visualSource,
       visualBounds: {
         x: (keyvisualRect.left - canvasRect.left) * scaleX,
         y: (keyvisualRect.top - canvasRect.top) * scaleY,
-        width: keyvisualRect.width * scaleX,
-        height: keyvisualRect.height * scaleY
+        width: visualWidth,
+        height: visualHeight
       },
       visualCenter,
       textLayers
@@ -3592,12 +3643,15 @@ async function addMp4DurationMetadata(blob, durationMs) {
   const movieTimescale = getMp4Timescale(data, movieHeader);
   if (!movieTimescale) return blob;
   const movieDuration = durationMs * movieTimescale / 1000;
+  const fragmented = boxes.some((box) => box.type === "moof");
 
-  writeMp4Duration(data, movieHeader, movieDuration);
-  boxes.filter((box) => box.type === "tkhd").forEach((box) => writeMp4Duration(data, box, movieDuration));
+  writeMp4Duration(data, movieHeader, fragmented ? 0 : movieDuration);
+  boxes
+    .filter((box) => box.type === "tkhd")
+    .forEach((box) => writeMp4Duration(data, box, fragmented ? 0 : movieDuration));
   boxes.filter((box) => box.type === "mdhd").forEach((box) => {
     const timescale = getMp4Timescale(data, box);
-    if (timescale) writeMp4Duration(data, box, durationMs * timescale / 1000);
+    if (timescale) writeMp4Duration(data, box, fragmented ? 0 : durationMs * timescale / 1000);
   });
 
   const mediaHeader = boxes.find((box) => box.type === "mdhd");
@@ -3612,13 +3666,20 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
   const output = document.createElement("canvas");
   output.width = config.width;
   output.height = config.height;
+  output.setAttribute("aria-hidden", "true");
+  output.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:1px;pointer-events:none;z-index:-1";
   const context = output.getContext("2d", { alpha: false });
   if (!context) throw new Error("Браузер не смог создать холст для видео.");
 
   const stream = output.captureStream(30);
   const bitrate = Math.max(5_000_000, Math.min(16_000_000, config.width * config.height * 4));
   const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
+  document.body.appendChild(output);
   const chunks = [];
+  const started = new Promise((resolve, reject) => {
+    recorder.addEventListener("start", resolve, { once: true });
+    recorder.addEventListener("error", () => reject(recorder.error || new Error("Ошибка запуска записи MP4.")), { once: true });
+  });
   const stopped = new Promise((resolve, reject) => {
     recorder.addEventListener("dataavailable", (event) => {
       if (event.data?.size) chunks.push(event.data);
@@ -3631,7 +3692,8 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
 
   try {
     drawCreativeVideoFrame(context, layers, config, 0);
-    recorder.start(250);
+    recorder.start();
+    await started;
     const startedAt = performance.now();
     await new Promise((resolve) => {
       const renderFrame = (timestamp) => {
@@ -3646,12 +3708,22 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
       };
       frameRequest = requestAnimationFrame(renderFrame);
     });
+    await new Promise((resolve) => setTimeout(resolve, 50));
     recorder.stop();
     await stopped;
+    await Promise.resolve();
   } finally {
     cancelAnimationFrame(frameRequest);
+    if (recorder.state !== "inactive") {
+      try {
+        recorder.stop();
+        await stopped;
+      } catch {
+        // Ошибка записи будет обработана основным try/catch экспорта.
+      }
+    }
     stream.getTracks().forEach((track) => track.stop());
-    if (recorder.state !== "inactive") recorder.stop();
+    output.remove();
   }
 
   if (!chunks.length) throw new Error("Браузер не вернул данные MP4.");
