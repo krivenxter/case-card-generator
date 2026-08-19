@@ -3582,7 +3582,7 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
 
   try {
     drawCreativeVideoFrame(context, layers, config, 0);
-    recorder.start();
+    recorder.start(250);
     const startedAt = performance.now();
     await new Promise((resolve) => {
       const renderFrame = (timestamp) => {
