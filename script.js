@@ -3408,6 +3408,13 @@ function drawCreativeVideoFrame(context, layers, config, progress) {
   context.clearRect(0, 0, config.width, config.height);
   context.drawImage(layers.base, 0, 0, config.width, config.height);
 
+  context.save();
+  context.translate(layers.visualCenter.x + motion.x, layers.visualCenter.y + motion.y);
+  context.rotate(motion.rotation * (Math.PI / 180));
+  context.scale(motion.scale, motion.scale);
+  context.drawImage(layers.visual, -layers.visualCenter.x, -layers.visualCenter.y, config.width, config.height);
+  context.restore();
+
   layers.textLayers.forEach((layer, index) => {
     const entrance = getBannerEntranceState(progress, index, layers.textLayers.length);
     context.save();
@@ -3415,16 +3422,9 @@ function drawCreativeVideoFrame(context, layers, config, progress) {
     context.drawImage(layer.image, layer.x + entrance.x, layer.y + entrance.y, layer.width, layer.height);
     context.restore();
   });
-
-  context.save();
-  context.translate(layers.visualCenter.x + motion.x, layers.visualCenter.y + motion.y);
-  context.rotate(motion.rotation * (Math.PI / 180));
-  context.scale(motion.scale, motion.scale);
-  context.drawImage(layers.visual, -layers.visualCenter.x, -layers.visualCenter.y, config.width, config.height);
-  context.restore();
 }
 
-const MP4_CONTAINER_BOXES = new Set(["moov", "trak", "mdia", "mvex"]);
+const MP4_CONTAINER_BOXES = new Set(["moov", "trak", "mdia", "mvex", "moof", "traf"]);
 
 function readMp4Box(data, offset, limit) {
   if (offset + 8 > limit) return null;
@@ -3481,7 +3481,6 @@ function getMp4TimingField(box) {
   if (box.type === "mvhd") return { timescaleOffset: version ? 20 : 12, durationOffset: version ? 24 : 16 };
   if (box.type === "tkhd") return { timescaleOffset: null, durationOffset: version ? 28 : 20 };
   if (box.type === "mdhd") return { timescaleOffset: version ? 20 : 12, durationOffset: version ? 24 : 16 };
-  if (box.type === "mehd") return { timescaleOffset: null, durationOffset: 4 };
   return null;
 }
 
@@ -3507,29 +3506,64 @@ function getMp4Timescale(data, box) {
   return view.getUint32(box.payloadOffset + field.timescaleOffset);
 }
 
-function addMp4Mehd(data, mvex, duration) {
-  const mehd = new Uint8Array(16);
-  const view = new DataView(mehd.buffer);
-  view.setUint32(0, 16);
-  mehd.set([0x6d, 0x65, 0x68, 0x64], 4);
-  view.setUint32(12, Math.max(0, Math.min(0xffffffff, Math.round(duration))));
+function getMp4TrunDurationOffsets(data, box) {
+  const flags = (data[box.payloadOffset + 1] << 16)
+    | (data[box.payloadOffset + 2] << 8)
+    | data[box.payloadOffset + 3];
+  const sampleCount = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    .getUint32(box.payloadOffset + 4);
+  let offset = box.payloadOffset + 8;
+  if (flags & 0x001) offset += 4;
+  if (flags & 0x004) offset += 4;
 
-  const insertAt = mvex.payloadOffset;
-  const result = new Uint8Array(data.length + mehd.length);
-  result.set(data.subarray(0, insertAt));
-  result.set(mehd, insertAt);
-  result.set(data.subarray(insertAt), insertAt + mehd.length);
+  const durationOffsets = [];
+  for (let index = 0; index < sampleCount; index += 1) {
+    if (flags & 0x100) {
+      durationOffsets.push(offset);
+      offset += 4;
+    }
+    if (flags & 0x200) offset += 4;
+    if (flags & 0x400) offset += 4;
+    if (flags & 0x800) offset += 4;
+  }
+  return durationOffsets;
+}
 
-  const boxes = walkMp4Boxes(data);
-  const resultView = new DataView(result.buffer);
-  boxes
-    .filter((box) => box.offset < insertAt && box.end >= insertAt)
-    .forEach((box) => {
-      if (box.size32 === 1) writeMp4Uint64(resultView, box.offset + 8, box.size + mehd.length);
-      else if (box.size32 !== 0) resultView.setUint32(box.offset, box.size + mehd.length);
+function normalizeMp4FrameTiming(data, boxes, durationMs, timescale) {
+  const trafGroups = boxes
+    .filter((box) => box.type === "traf")
+    .map((traf) => ({
+      traf,
+      tfdt: boxes.find((box) => box.type === "tfdt" && box.offset > traf.offset && box.end <= traf.end),
+      truns: boxes
+        .filter((box) => box.type === "trun" && box.offset > traf.offset && box.end <= traf.end)
+        .sort((first, second) => first.offset - second.offset)
+    }))
+    .filter(({ truns }) => truns.length)
+    .sort((first, second) => first.traf.offset - second.traf.offset);
+  const durationOffsets = trafGroups.flatMap(({ truns }) => truns.flatMap((trun) => getMp4TrunDurationOffsets(data, trun)));
+  if (!durationOffsets.length) return;
+
+  const targetDuration = Math.max(1, Math.round(durationMs * timescale / 1000));
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  let frameIndex = 0;
+  let decodeTime = 0;
+
+  trafGroups.forEach(({ tfdt, truns }) => {
+    if (tfdt) {
+      if (tfdt.version) writeMp4Uint64(view, tfdt.payloadOffset + 4, decodeTime);
+      else view.setUint32(tfdt.payloadOffset + 4, decodeTime);
+    }
+
+    truns.forEach((trun) => {
+      getMp4TrunDurationOffsets(data, trun).forEach((offset) => {
+        const nextDecodeTime = Math.round((frameIndex + 1) * targetDuration / durationOffsets.length);
+        view.setUint32(offset, Math.max(1, nextDecodeTime - decodeTime));
+        decodeTime = nextDecodeTime;
+        frameIndex += 1;
+      });
     });
-
-  return result;
+  });
 }
 
 async function addMp4DurationMetadata(blob, durationMs) {
@@ -3550,10 +3584,9 @@ async function addMp4DurationMetadata(blob, durationMs) {
     if (timescale) writeMp4Duration(data, box, durationMs * timescale / 1000);
   });
 
-  const mvex = boxes.find((box) => box.type === "mvex");
-  const mehd = boxes.find((box) => box.type === "mehd");
-  if (mehd) writeMp4Duration(data, mehd, movieDuration);
-  else if (mvex) return new Blob([addMp4Mehd(data, mvex, movieDuration)], { type: blob.type || "video/mp4" });
+  const mediaHeader = boxes.find((box) => box.type === "mdhd");
+  const mediaTimescale = mediaHeader ? getMp4Timescale(data, mediaHeader) : 0;
+  if (mediaTimescale) normalizeMp4FrameTiming(data, boxes, durationMs, mediaTimescale);
 
   return new Blob([data], { type: blob.type || "video/mp4" });
 }
