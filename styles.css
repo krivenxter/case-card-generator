@@ -861,6 +861,53 @@ select:focus-visible,
   background: color-mix(in srgb, var(--ui-panel-raised) 60%, transparent);
 }
 
+.animation-panel__advanced {
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ui-panel-raised) 40%, transparent);
+}
+
+.animation-panel__advanced > summary {
+  padding: var(--ui-space-md);
+  color: var(--ui-text-soft);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.animation-panel__advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.animation-panel__advanced > summary::after {
+  float: right;
+  color: var(--ui-muted);
+  content: "+";
+  font-size: 16px;
+  line-height: 12px;
+}
+
+.animation-panel__advanced[open] > summary::after {
+  content: "−";
+}
+
+.animation-panel__advanced-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 var(--ui-space-md) var(--ui-space-md);
+}
+
+.animation-panel__advanced-content .animation-panel__subsection {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .animation-panel__subheading {
   display: flex;
   align-items: center;
@@ -3059,6 +3106,7 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
   --runtime-subtitle-size: 34px;
   --runtime-chip-size: 28px;
   --runtime-button-size: 24px;
+  --runtime-additional-size: 18px;
   position: absolute;
   inset: 0 auto auto 0;
   width: var(--creative-width);
@@ -3357,6 +3405,31 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
 
 .creative-button[data-button-color="purple"][data-button-style="ghost"] {
   color: var(--banner-rich-purple);
+}
+
+.creative-additional-text {
+  position: absolute;
+  right: var(--creative-padding-x);
+  bottom: var(--additional-text-bottom, 24px);
+  left: var(--creative-padding-x);
+  z-index: 4;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  color: var(--creative-muted);
+  font-size: var(--runtime-additional-size);
+  font-weight: 500;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.creative-canvas[data-text-align="center"] .creative-additional-text {
+  text-align: center;
+}
+
+.creative-canvas[data-text-align="right"] .creative-additional-text {
+  text-align: right;
 }
 
 .creative-visual {
@@ -3662,6 +3735,10 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
 
 .creative-canvas.is-textless .creative-topbar,
 .creative-canvas.is-textless .creative-copy {
+  display: none;
+}
+
+.creative-canvas.is-textless .creative-additional-text {
   display: none;
 }
 

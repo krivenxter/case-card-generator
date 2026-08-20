@@ -52,13 +52,13 @@ const BANNER_LOGOS = Object.freeze({
 });
 
 const BANNER_TYPE_SCALE = Object.freeze({
-  square: { title: 62, titleMin: 44, subtitle: 40, subtitleMin: 28, chip: 32, chipMin: 22, button: 28, buttonMin: 20 },
-  story: { title: 62, titleMin: 58, subtitle: 50, subtitleMin: 36, chip: 42, chipMin: 28, button: 38, buttonMin: 26 },
-  portrait: { title: 62, titleMin: 52, subtitle: 44, subtitleMin: 30, chip: 35, chipMin: 24, button: 32, buttonMin: 22 },
-  landscape: { title: 68, titleMin: 48, subtitle: 42, subtitleMin: 28, chip: 32, chipMin: 22, button: 34, buttonMin: 24 },
-  ad: { title: 42, titleMin: 32, subtitle: 28, subtitleMin: 20, chip: 27, chipMin: 19, button: 27, buttonMin: 19 },
-  adCenter: { title: 44, titleMin: 32, subtitle: 29, subtitleMin: 20, chip: 27, chipMin: 19, button: 27, buttonMin: 19 },
-  adVisual: { title: 60, titleMin: 40, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19 }
+  square: { title: 62, titleMin: 44, subtitle: 40, subtitleMin: 28, chip: 32, chipMin: 22, button: 28, buttonMin: 20, additional: 18, additionalMin: 12 },
+  story: { title: 62, titleMin: 58, subtitle: 50, subtitleMin: 36, chip: 42, chipMin: 28, button: 38, buttonMin: 26, additional: 24, additionalMin: 15 },
+  portrait: { title: 62, titleMin: 52, subtitle: 44, subtitleMin: 30, chip: 35, chipMin: 24, button: 32, buttonMin: 22, additional: 20, additionalMin: 13 },
+  landscape: { title: 68, titleMin: 48, subtitle: 42, subtitleMin: 28, chip: 32, chipMin: 22, button: 34, buttonMin: 24, additional: 18, additionalMin: 12 },
+  ad: { title: 42, titleMin: 32, subtitle: 28, subtitleMin: 20, chip: 27, chipMin: 19, button: 27, buttonMin: 19, additional: 14, additionalMin: 10 },
+  adCenter: { title: 44, titleMin: 32, subtitle: 29, subtitleMin: 20, chip: 27, chipMin: 19, button: 27, buttonMin: 19, additional: 14, additionalMin: 10 },
+  adVisual: { title: 60, titleMin: 40, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19, additional: 18, additionalMin: 12 }
 });
 
 // The layout slider remains a shared base value, while larger canvases receive
@@ -177,6 +177,15 @@ const BANNER_LAYOUT_KEYS = Object.freeze([
   "fontScale"
 ]);
 
+const BANNER_ANIMATION_PRESETS = Object.freeze({
+  sway: "Кей-вижуал плавно покачивается, текст появляется по очереди.",
+  slide: "Изображение мягко двигается из стороны в сторону, а текст заезжает следом.",
+  parallax: "Изображение и текст ощущаются как отдельные слои с лёгким параллаксом.",
+  pulse: "Изображение плавно пульсирует, сохраняя композицию на месте.",
+  bounce: "Изображение мягко пружинит снизу вверх при каждом цикле.",
+  shutter: "Изображение открывается плавной шторкой, затем остаётся в композиции."
+});
+
 function createBannerDefaults() {
   return {
     content: {
@@ -186,7 +195,8 @@ function createBannerDefaults() {
       subtitle: "Бесплатный вебинар о том, как находить точки роста и принимать решения на основе данных.",
       label1: { enabled: true, text: "Вебинар", style: "graphiteFill" },
       label2: { enabled: false, text: "15 августа", style: "graphiteOutline" },
-      button: { enabled: true, text: "Зарегистрироваться", style: "filled", color: "cyan", radius: "small" }
+      button: { enabled: true, text: "Зарегистрироваться", style: "filled", color: "cyan", radius: "small" },
+      additionalText: { enabled: false, text: "", bottomOffset: 24 }
     },
     branding: {
       theme: "light",
@@ -220,6 +230,9 @@ function createBannerDefaults() {
     },
     animation: {
       duration: 4,
+      preset: "sway",
+      speed: 100,
+      intensity: 100,
       entranceDirection: "up",
       entranceOffsetMin: 40,
       entranceOffsetMax: 120,
@@ -317,6 +330,9 @@ function normalizeBannerState(source) {
   const incomingLayout = incoming.layout && typeof incoming.layout === "object" ? incoming.layout : {};
   const incomingCompliance = incoming.compliance && typeof incoming.compliance === "object" ? incoming.compliance : {};
   const incomingAnimation = incoming.animation && typeof incoming.animation === "object" ? incoming.animation : {};
+  const incomingAdditionalText = incomingContent.additionalText && typeof incomingContent.additionalText === "object"
+    ? incomingContent.additionalText
+    : {};
 
   const state = {
     ...defaults,
@@ -326,7 +342,8 @@ function normalizeBannerState(source) {
       ...incomingContent,
       label1: { ...defaults.content.label1, ...(incomingContent.label1 || {}) },
       label2: { ...defaults.content.label2, ...(incomingContent.label2 || {}) },
-      button: { ...defaults.content.button, ...(incomingContent.button || {}) }
+      button: { ...defaults.content.button, ...(incomingContent.button || {}) },
+      additionalText: { ...defaults.content.additionalText, ...incomingAdditionalText }
     },
     branding: { ...defaults.branding, ...incomingBranding },
     visual: { ...defaults.visual, ...incomingVisual },
@@ -355,6 +372,12 @@ function normalizeBannerState(source) {
   state.content.label1.style = normalizeBannerChipStyle(state.content.label1.style);
   state.content.label2.style = normalizeBannerChipStyle(state.content.label2.style);
   state.content.button.color = state.content.button.color === "purple" ? "purple" : "cyan";
+  state.content.additionalText.enabled = Boolean(state.content.additionalText.enabled);
+  state.content.additionalText.text = String(state.content.additionalText.text || "");
+  const additionalTextBottomOffset = Number(state.content.additionalText.bottomOffset);
+  state.content.additionalText.bottomOffset = Number.isFinite(additionalTextBottomOffset)
+    ? Math.max(8, Math.min(120, additionalTextBottomOffset))
+    : defaults.content.additionalText.bottomOffset;
   state.content.title = normalizeBannerRichMarkup(state.content.title);
   state.content.subtitle = normalizeBannerRichMarkup(state.content.subtitle);
   return state;
@@ -1502,6 +1525,7 @@ const bannerElements = {
   label1Settings: document.getElementById("bannerLabel1Settings"),
   label2Settings: document.getElementById("bannerLabel2Settings"),
   buttonSettings: document.getElementById("bannerButtonSettings"),
+  additionalTextSettings: document.getElementById("bannerAdditionalTextSettings"),
   logoSettings: document.getElementById("bannerLogoSettings"),
   visualSettings: document.getElementById("bannerVisualSettings"),
   manualVisualSettings: document.getElementById("bannerManualVisualSettings"),
@@ -1546,6 +1570,7 @@ const bannerElements = {
   paddingValue: document.getElementById("bannerPaddingValue"),
   gapValue: document.getElementById("bannerGapValue"),
   fontScaleValue: document.getElementById("bannerFontScaleValue"),
+  additionalTextBottomOffsetValue: document.getElementById("bannerAdditionalTextBottomOffsetValue"),
   textCoverageStatus: document.getElementById("bannerTextCoverageStatus"),
   animationPanel: document.getElementById("bannerAnimationPanel"),
   animationPlayButton: document.getElementById("bannerAnimationPlayButton"),
@@ -1553,6 +1578,10 @@ const bannerElements = {
   animationTimeline: document.getElementById("bannerAnimationTimeline"),
   animationTime: document.getElementById("bannerAnimationTime"),
   animationDurationValue: document.getElementById("bannerAnimationDurationValue"),
+  animationPresetNote: document.getElementById("bannerAnimationPresetNote"),
+  animationPresetSpeedValue: document.getElementById("bannerAnimationPresetSpeedValue"),
+  animationPresetIntensityValue: document.getElementById("bannerAnimationPresetIntensityValue"),
+  animationPresetDelayValue: document.getElementById("bannerAnimationPresetDelayValue"),
   entranceOffsetMinValue: document.getElementById("bannerEntranceOffsetMinValue"),
   entranceOffsetMaxValue: document.getElementById("bannerEntranceOffsetMaxValue"),
   entranceStaggerValue: document.getElementById("bannerEntranceStaggerValue"),
@@ -1578,6 +1607,8 @@ const bannerExportAssetCache = new Map();
 const numericBannerPaths = new Set([
   "visual.scale",
   "animation.duration",
+  "animation.speed",
+  "animation.intensity",
   "animation.entranceOffsetMin",
   "animation.entranceOffsetMax",
   "animation.entranceStagger",
@@ -1585,6 +1616,7 @@ const numericBannerPaths = new Set([
   "animation.swayPosition",
   "animation.swayRotation",
   "animation.swayScale",
+  "content.additionalText.bottomOffset",
   "layout.contentWidth",
   "layout.padding",
   "layout.gap",
@@ -1981,6 +2013,7 @@ function createCreativeCanvas(format) {
           </div>
         </div>
       </div>
+      <span class="creative-additional-text creative-animated-element" data-banner-editable="content.additionalText.text" data-maxlength="180"></span>
     </div>
   `;
 
@@ -2015,14 +2048,70 @@ function getBannerAnimationDurationMs() {
 function getBannerMotionState(progress) {
   const animation = appState.banners.animation;
   const normalizedProgress = Math.max(0, Math.min(1, progress));
-  const cycles = Math.max(1, Math.round(animation.duration * animation.swaySpeed));
+  const preset = BANNER_ANIMATION_PRESETS[animation.preset] ? animation.preset : "sway";
+  const speed = Math.max(0.5, Math.min(1.8, Number(animation.speed) / 100 || 1));
+  const intensity = Math.max(0.4, Math.min(1.6, Number(animation.intensity) / 100 || 1));
+  const cycles = Math.max(1, Math.round(animation.duration * animation.swaySpeed * speed));
   const phase = normalizedProgress * cycles * Math.PI * 2;
+  const wave = Math.sin(phase);
+  const slowWave = Math.sin(phase * 0.62 + Math.PI / 3);
+  const position = animation.swayPosition * intensity;
+  const rotation = animation.swayRotation * intensity;
+  const scale = animation.swayScale * intensity;
+
+  if (preset === "slide") {
+    return {
+      x: wave * Math.max(48, position * 2),
+      y: Math.sin(phase * 2) * position * 0.08,
+      rotation: wave * rotation * 0.25,
+      scale: 1
+    };
+  }
+
+  if (preset === "parallax") {
+    return {
+      x: wave * position * 1.8,
+      y: slowWave * position * 0.9,
+      rotation: wave * rotation * 0.45,
+      scale: 1 + slowWave * 0.015
+    };
+  }
+
+  if (preset === "pulse") {
+    return {
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scale: 1 + wave * Math.max(0.025, scale / 100)
+    };
+  }
+
+  if (preset === "bounce") {
+    const bounce = Math.abs(Math.sin(phase));
+    return {
+      x: Math.sin(phase * 0.5) * position * 0.16,
+      y: -bounce * Math.max(34, position * 1.35),
+      rotation: Math.sin(phase * 0.5) * rotation * 0.2,
+      scale: 1 + bounce * 0.018
+    };
+  }
+
+  if (preset === "shutter") {
+    const revealDuration = Math.max(0.12, Math.min(0.6, 0.38 / speed));
+    return {
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scale: 1,
+      reveal: Math.min(1, normalizedProgress / revealDuration)
+    };
+  }
 
   return {
-    x: Math.sin(phase) * animation.swayPosition,
-    y: Math.sin(phase * 2) * animation.swayPosition * 0.58,
-    rotation: Math.sin(phase) * animation.swayRotation,
-    scale: 1 + Math.sin(phase * 2) * (animation.swayScale / 100)
+    x: wave * position,
+    y: Math.sin(phase * 2) * position * 0.58,
+    rotation: wave * rotation,
+    scale: 1 + Math.sin(phase * 2) * (scale / 100)
   };
 }
 
@@ -2036,8 +2125,11 @@ function getBannerAnimatedElements(canvas) {
 
 function getBannerEntranceState(progress, index, count) {
   const animation = appState.banners.animation;
+  const preset = BANNER_ANIMATION_PRESETS[animation.preset] ? animation.preset : "sway";
+  const speed = Math.max(0.5, Math.min(1.8, Number(animation.speed) / 100 || 1));
+  const intensity = Math.max(0.4, Math.min(1.6, Number(animation.intensity) / 100 || 1));
   const seconds = Math.max(0, Math.min(1, progress)) * animation.duration;
-  const entranceDuration = Math.min(0.82, Math.max(0.18, animation.duration * 0.22));
+  const entranceDuration = Math.min(0.82, Math.max(0.18, animation.duration * 0.22 / speed));
   const maximumStagger = count <= 1 ? 0 : (animation.duration - entranceDuration) / (count - 1);
   const delay = index * Math.min(animation.entranceStagger, maximumStagger);
   const localProgress = Math.max(0, Math.min(1, (seconds - delay) / entranceDuration));
@@ -2046,7 +2138,8 @@ function getBannerEntranceState(progress, index, count) {
   const maximum = Math.max(animation.entranceOffsetMin, animation.entranceOffsetMax);
   const spread = count <= 1 ? 0.5 : index / (count - 1);
   const distance = minimum + (maximum - minimum) * spread;
-  const offset = distance * (1 - eased);
+  const offset = distance * intensity * (1 - eased);
+  const entranceDirection = preset === "slide" ? "left" : animation.entranceDirection;
   const vectors = {
     up: { x: 0, y: offset },
     left: { x: offset, y: 0 },
@@ -2056,7 +2149,7 @@ function getBannerEntranceState(progress, index, count) {
 
   return {
     opacity: eased,
-    ...(vectors[animation.entranceDirection] || vectors.up)
+    ...(vectors[entranceDirection] || vectors.up)
   };
 }
 
@@ -2094,6 +2187,9 @@ function applyBannerAnimationFrame(progress = bannerAnimationRuntime.progress) {
   bannerCanvases.forEach((canvas) => {
     const motionNode = canvas.querySelector(".creative-keyvisual-motion");
     motionNode.style.transform = `translate(${motion.x.toFixed(2)}px, ${motion.y.toFixed(2)}px) rotate(${motion.rotation.toFixed(3)}deg) scale(${motion.scale.toFixed(4)})`;
+    motionNode.style.clipPath = Number.isFinite(motion.reveal)
+      ? `inset(0 ${(Math.max(0, Math.min(1, 1 - motion.reveal)) * 100).toFixed(3)}% 0 0)`
+      : "none";
     const animatedElements = getBannerAnimatedElements(canvas);
     animatedElements.forEach((element, index) => {
       const entrance = getBannerEntranceState(bannerAnimationRuntime.progress, index, animatedElements.length);
@@ -2555,6 +2651,7 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   canvas.style.setProperty("--vertical-align", formatConfig.centered ? "center" : layout.verticalAlign);
   canvas.style.setProperty("--button-radius", buttonRadius);
   canvas.style.setProperty("--chip-radius", chipRadius);
+  canvas.style.setProperty("--additional-text-bottom", `${state.content.additionalText.bottomOffset}px`);
   canvas.style.setProperty("--visual-x", `${formatState.visualX}px`);
   canvas.style.setProperty("--visual-y", `${formatState.visualY}px`);
   const defaultVisualScale = BANNER_VISUAL_BASE_SCALES[format] ?? 1.5;
@@ -2566,6 +2663,7 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   const title = canvas.querySelector(".creative-title");
   const subtitle = canvas.querySelector(".creative-subtitle");
   const button = canvas.querySelector(".creative-button");
+  const additionalText = canvas.querySelector(".creative-additional-text");
   const chips = canvas.querySelectorAll(".creative-chip");
   const logo = canvas.querySelector(".creative-logo");
   const logoImage = logo.querySelector("img");
@@ -2583,6 +2681,10 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   button.dataset.buttonStyle = state.content.button.style;
   button.dataset.buttonColor = state.content.button.color === "purple" ? "purple" : "cyan";
   setEditableBannerText(button, state.content.button.text);
+
+  const additionalTextValue = String(state.content.additionalText.text || "");
+  additionalText.hidden = !state.content.additionalText.enabled || !additionalTextValue.trim();
+  setEditableBannerText(additionalText, additionalTextValue);
 
   chips[0].hidden = !state.content.label1.enabled;
   chips[0].dataset.chipStyle = normalizeBannerChipStyle(state.content.label1.style);
@@ -2608,8 +2710,9 @@ function renderBannerCanvas(canvas, resolvedVisual) {
 function isCreativeOverflowing(canvas) {
   const topbar = canvas.querySelector(".creative-topbar");
   const copy = canvas.querySelector(".creative-copy");
+  const additionalText = canvas.querySelector(".creative-additional-text");
   const canvasBounds = canvas.getBoundingClientRect();
-  const visibleElements = [topbar, ...copy.children].filter((element) => !element.hidden);
+  const visibleElements = [topbar, ...copy.children, additionalText].filter((element) => element && !element.hidden);
 
   return visibleElements.some((element) => {
     const bounds = element.getBoundingClientRect();
@@ -2634,7 +2737,8 @@ function getCreativeTextCoverage(canvas) {
 
   const lineTextElements = [
     ".creative-title",
-    ".creative-subtitle:not([hidden])"
+    ".creative-subtitle:not([hidden])",
+    ".creative-additional-text:not([hidden])"
   ];
   const blockTextElements = [
     ".creative-logo:not([hidden])",
@@ -2671,17 +2775,20 @@ function fitCreativeCanvas(canvas) {
   let subtitleSize = Math.round(scale.subtitle * fontScale);
   let chipSize = Math.round(scale.chip * fontScale);
   let buttonSize = Math.round(scale.button * fontScale);
+  let additionalSize = Math.round(scale.additional * fontScale);
   let runtimeGap = layout.gap;
   const minimumGap = Math.max(12, Math.round(runtimeGap * 0.5));
   const titleMinimum = Math.round(scale.titleMin * fontScale);
   const subtitleMinimum = Math.round(scale.subtitleMin * fontScale);
   const chipMinimum = Math.round(scale.chipMin * fontScale);
   const buttonMinimum = Math.round(scale.buttonMin * fontScale);
+  const additionalMinimum = Math.round(scale.additionalMin * fontScale);
 
   canvas.style.setProperty("--runtime-title-size", `${titleSize}px`);
   canvas.style.setProperty("--runtime-subtitle-size", `${subtitleSize}px`);
   canvas.style.setProperty("--runtime-chip-size", `${chipSize}px`);
   canvas.style.setProperty("--runtime-button-size", `${buttonSize}px`);
+  canvas.style.setProperty("--runtime-additional-size", `${additionalSize}px`);
   canvas.style.setProperty("--runtime-gap", `${runtimeGap}px`);
 
   while (isCreativeOverflowing(canvas) && runtimeGap > minimumGap) {
@@ -2699,6 +2806,11 @@ function fitCreativeCanvas(canvas) {
     canvas.style.setProperty("--runtime-chip-size", `${chipSize}px`);
   }
 
+  while (isCreativeOverflowing(canvas) && additionalSize > additionalMinimum) {
+    additionalSize -= 1;
+    canvas.style.setProperty("--runtime-additional-size", `${additionalSize}px`);
+  }
+
   while (isCreativeOverflowing(canvas) && buttonSize > buttonMinimum) {
     buttonSize -= 1;
     canvas.style.setProperty("--runtime-button-size", `${buttonSize}px`);
@@ -2714,6 +2826,7 @@ function fitCreativeCanvas(canvas) {
       titleSize > titleMinimum
       || subtitleSize > subtitleMinimum
       || chipSize > chipMinimum
+      || additionalSize > additionalMinimum
       || buttonSize > buttonMinimum
     )) {
       if (titleSize > titleMinimum) {
@@ -2725,6 +2838,9 @@ function fitCreativeCanvas(canvas) {
       } else if (chipSize > chipMinimum) {
         chipSize -= 1;
         canvas.style.setProperty("--runtime-chip-size", `${chipSize}px`);
+      } else if (additionalSize > additionalMinimum) {
+        additionalSize -= 1;
+        canvas.style.setProperty("--runtime-additional-size", `${additionalSize}px`);
       } else if (buttonSize > buttonMinimum) {
         buttonSize -= 1;
         canvas.style.setProperty("--runtime-button-size", `${buttonSize}px`);
@@ -2857,6 +2973,7 @@ function syncBannerControls() {
   bannerElements.label1Settings.hidden = !state.content.label1.enabled;
   bannerElements.label2Settings.hidden = !state.content.label2.enabled;
   bannerElements.buttonSettings.hidden = !state.content.button.enabled;
+  bannerElements.additionalTextSettings.hidden = !state.content.additionalText.enabled;
   bannerElements.logoSettings.hidden = !state.branding.logoEnabled;
   bannerElements.visualSettings.hidden = !state.visual.enabled;
   bannerElements.manualVisualSettings.hidden = state.visual.mode !== "manual";
@@ -2867,7 +2984,13 @@ function syncBannerControls() {
   bannerElements.paddingValue.textContent = state.layout.padding;
   bannerElements.gapValue.textContent = state.layout.gap;
   bannerElements.fontScaleValue.textContent = `${state.layout.fontScale}%`;
+  bannerElements.additionalTextBottomOffsetValue.textContent = `${state.content.additionalText.bottomOffset} px`;
   bannerElements.animationDurationValue.textContent = `${state.animation.duration.toFixed(1)} с`;
+  const animationPreset = BANNER_ANIMATION_PRESETS[state.animation.preset] ? state.animation.preset : "sway";
+  bannerElements.animationPresetNote.textContent = BANNER_ANIMATION_PRESETS[animationPreset];
+  bannerElements.animationPresetSpeedValue.textContent = `${state.animation.speed}%`;
+  bannerElements.animationPresetIntensityValue.textContent = `${state.animation.intensity}%`;
+  bannerElements.animationPresetDelayValue.textContent = `${state.animation.entranceStagger.toFixed(2)} с`;
   bannerElements.entranceOffsetMinValue.textContent = `${state.animation.entranceOffsetMin} px`;
   bannerElements.entranceOffsetMaxValue.textContent = `${state.animation.entranceOffsetMax} px`;
   bannerElements.entranceStaggerValue.textContent = `${state.animation.entranceStagger.toFixed(2)} с`;
@@ -3296,9 +3419,11 @@ async function createCreativeJpg(format, pixelRatio = 2) {
   const restoreAssets = await prepareCreativeAssets(canvasNode, resolvedVisual);
   const motionNode = canvasNode.querySelector(".creative-keyvisual-motion");
   const motionTransform = motionNode.style.transform;
+  const motionClipPath = motionNode.style.clipPath;
   const restoreAnimatedElements = setBannerAnimatedElementsToFinal(canvasNode);
   canvasNode.classList.add("is-static-export");
   motionNode.style.transform = "none";
+  motionNode.style.clipPath = "none";
 
   try {
     await afterTwoFrames();
@@ -3315,6 +3440,7 @@ async function createCreativeJpg(format, pixelRatio = 2) {
   } finally {
     restoreAnimatedElements();
     motionNode.style.transform = motionTransform;
+    motionNode.style.clipPath = motionClipPath;
     canvasNode.classList.remove("is-static-export");
     restoreAssets();
   }
@@ -3436,6 +3562,8 @@ async function createCreativeVideoLayers(format) {
   const motionTransform = motionNode.style.transform;
   const restoreAnimatedElements = setBannerAnimatedElementsToFinal(canvasNode);
   motionNode.style.transform = "none";
+  const motionClipPath = motionNode.style.clipPath;
+  motionNode.style.clipPath = "none";
 
   try {
     await afterTwoFrames();
@@ -3508,6 +3636,7 @@ async function createCreativeVideoLayers(format) {
     canvasNode.classList.remove("is-video-base-export", "is-video-visual-export");
     restoreAnimatedElements();
     motionNode.style.transform = motionTransform;
+    motionNode.style.clipPath = motionClipPath;
     restoreAssets();
   }
 }
@@ -3521,6 +3650,17 @@ function drawCreativeVideoFrame(context, layers, config, progress) {
   context.translate(layers.visualCenter.x + motion.x, layers.visualCenter.y + motion.y);
   context.rotate(motion.rotation * (Math.PI / 180));
   context.scale(motion.scale, motion.scale);
+  if (Number.isFinite(motion.reveal)) {
+    const reveal = Math.max(0, Math.min(1, motion.reveal));
+    context.beginPath();
+    context.rect(
+      layers.visualBounds.x - layers.visualCenter.x,
+      layers.visualBounds.y - layers.visualCenter.y,
+      layers.visualBounds.width * reveal,
+      layers.visualBounds.height
+    );
+    context.clip();
+  }
   context.drawImage(
     layers.visual,
     layers.visualBounds.x - layers.visualCenter.x,
