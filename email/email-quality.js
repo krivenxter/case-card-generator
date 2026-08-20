@@ -59,7 +59,13 @@ export function normalizeEmailDesign(email) {
   normalized.blocks = normalized.blocks.filter((block) => block?.type && block?.id).map((block) => {
     block.content = block.content || {};
     block.settings = { ...(block.settings || {}), hidden: Boolean(block.settings?.hidden) };
-    if (["imageText", "featureCard"].includes(block.type)) block.variant = ["image-left", "image-right"].includes(block.variant) ? block.variant : "image-left";
+    if (block.type === "imageText") block.variant = ["image-left", "image-right", "image-top"].includes(block.variant) ? block.variant : "image-left";
+    if (block.type === "imageText") {
+      block.content.plate = block.content.plate === "0" ? "0" : "1";
+      block.content.imageWidth = ["30", "40", "60", "80"].includes(String(block.content.imageWidth)) ? String(block.content.imageWidth) : "100";
+      block.content.imageAlign = block.content.imageAlign === "left" ? "left" : "center";
+    }
+    if (block.type === "featureCard") block.variant = ["image-left", "image-right"].includes(block.variant) ? block.variant : "image-left";
     if (block.type === "brandTitle") block.variant = ["light-cyan", "cyan", "navy", "purple", "magenta", "custom"].includes(block.variant) ? block.variant : "light-cyan";
     if (block.type === "brandScene") block.variant = ["navy-purple", "cyan-navy", "purple-cyan"].includes(block.variant) ? block.variant : "navy-purple";
     if (block.type === "divider") block.variant = ["s", "m", "l", "xl"].includes(block.variant) ? block.variant : "m";
@@ -68,6 +74,10 @@ export function normalizeEmailDesign(email) {
     if (block.type === "text") block.content.align = block.content.align === "center" ? "center" : "left";
     if (block.type === "iconGrid") {
       block.content.iconPosition = block.content.iconPosition === "left" ? "left" : "top";
+      block.content.align = block.content.align === "center" ? "center" : "left";
+      block.content.ctaText = String(block.content.ctaText || "");
+      block.content.ctaUrl = String(block.content.ctaUrl || "");
+      block.content.ctaVariant = block.content.ctaVariant === "secondary" ? "secondary" : "primary";
       block.content.columns = block.content.columns === "1" ? "1" : "2";
       block.content.items = Array.isArray(block.content.items) ? block.content.items : [];
     }
@@ -84,11 +94,11 @@ export function validateEmail(email) {
     if (block.settings?.hidden) return;
     const label = `Блок ${index + 1}`;
     const content = block.content || {};
-    if (["promo", "imageText", "brandTitle", "brandScene", "featureCard", "ctaCard"].includes(block.type) && !String(content.heading || "").trim()) errors.push(`${label}: пустой заголовок.`);
     if (visibleText(content.heading).length > 120) warnings.push(`${label}: заголовок длиннее 120 символов.`);
     if (String(content.body || "").length > 900) warnings.push(`${label}: текстовый блок слишком длинный.`);
     const url = content.ctaUrl || content.url || content.linkUrl;
-    if (["promo", "ctaCard", "button"].includes(block.type)) {
+    const ctaText = content.ctaText || content.text;
+    if (["promo", "ctaCard", "button", "iconGrid"].includes(block.type) && String(ctaText || "").trim()) {
       ctaBlocks.push(block);
       if (!String(url || "").trim()) errors.push(`${label}: у CTA нет ссылки.`);
     }

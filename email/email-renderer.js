@@ -37,10 +37,11 @@ function plainLabel(value = "") {
   return richPlainText(value).replace(/\[([^\]]+)]\(https:\/\/[^)\s]+\)/g, "$1");
 }
 
-function img(asset, alt, preview, width = 176, radius = 0, scale = 1) {
+function img(asset, alt, preview, width = 176, radius = 0, scale = 1, align = "center") {
   const source = assetSource(asset, preview);
   if (!source) return "";
-  return `<img src="${source}" width="${width}" alt="${escapeHtml(plainLabel(alt || asset.label || ""))}" style="display:block;width:${scale * 100}%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;${radius ? `border-radius:${radius}px;` : ""}">`;
+  const margin = align === "left" ? "0" : "0 auto";
+  return `<img src="${source}" width="${width}" alt="${escapeHtml(plainLabel(alt || asset.label || ""))}" style="display:block;width:${scale * 100}%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:${margin};${radius ? `border-radius:${radius}px;` : ""}">`;
 }
 
 function td(content, style = "", attributes = "") {
@@ -52,10 +53,11 @@ function table(content, style = "", attributes = "") {
 }
 
 function editAttrs(preview, path) {
-  return preview && path ? ` data-edit-path="${escapeHtml(path)}"` : "";
+  return preview && path ? ` data-rich="1" data-edit-path="${escapeHtml(path)}"` : "";
 }
 
 function displayText(value, color = C.navy, size = 24, align = "left", path = "", preview = false, delaSize = DELA_FONT_SIZES.large, weight = 700) {
+  if (!hasText(value)) return "";
   const normalized = normalizeRichMarkup(value);
   const hasDela = hasDelaMarkup(normalized);
   const normalizedValue = hasDela ? forceDelaMarkup(normalized) : normalized;
@@ -107,6 +109,7 @@ function inlineMarkup(value, preview, delaSize = DELA_FONT_SIZES.small) {
 
 function bodyText(value, color = C.ink, size = 16, path = "", preview = false, listStyle = "bullet", align = "left") {
   const lines = String(value || "").split("\n").map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) return "";
   const textAlign = align === "center" ? "center" : "left";
   let listIndex = 0;
   const html = lines.map((line, lineIndex) => {
@@ -182,13 +185,22 @@ function renderPromo(block, preview) {
   const eyebrow = String(content.eyebrow || "").trim();
   const eyebrowColor = content.eyebrowTone === "cyan" ? C.cyan : C.magenta;
   const visual = img(content.image, content.heading, preview, 216, 16, 1.1);
-  const hasLower = [content.offer, content.body, content.image?.exportUrl, content.image?.previewSource].some(hasText);
-  const offerHtml = displayText(content.offer || "", "#ffffff", 16, "left", "content.offer", preview, DELA_FONT_SIZES.small, 400);
+  const hasOffer = hasText(content.offer);
+  const hasBody = hasText(content.body);
+  const hasVisual = Boolean(visual);
+  const hasLower = hasOffer || hasBody || hasVisual;
+  const offerHtml = hasOffer ? displayText(content.offer, "#ffffff", 16, "left", "content.offer", preview, DELA_FONT_SIZES.small, 400) : "";
   const bodySize = String(content.bodySize) === "16" ? 16 : 14;
-  const lower = hasLower ? table(`<tr>${td(`${hasText(content.offer) ? `<div style="padding-bottom:${hasText(content.body) ? "10px" : "0"};">${offerHtml}</div>` : ""}${bodyText(content.body, "#D6E8F2", bodySize, "content.body", preview)}`, visual ? "width:62%;padding:20px;vertical-align:middle;" : "width:100%;padding:20px;vertical-align:middle;", 'class="stack-column"')}${visual ? td(visual, "width:38%;padding:12px 12px 12px 0;vertical-align:middle;", 'class="stack-column"') : ""}</tr>`, "table-layout:fixed;") : "";
+  const textHtml = hasOffer || hasBody
+    ? `${offerHtml ? `<div style="padding-bottom:${hasBody ? "10px" : "0"};">${offerHtml}</div>` : ""}${hasBody ? bodyText(content.body, "#D6E8F2", bodySize, "content.body", preview) : ""}`
+    : "";
+  const lowerCells = [];
+  if (textHtml) lowerCells.push(td(textHtml, hasVisual ? "width:62%;padding:20px;vertical-align:middle;" : "width:100%;padding:20px;vertical-align:middle;", 'class="stack-column"'));
+  if (hasVisual) lowerCells.push(td(visual, textHtml ? "width:38%;padding:12px 12px 12px 0;vertical-align:middle;" : "width:100%;padding:12px;text-align:center;vertical-align:middle;", 'class="stack-column"'));
+  const lower = hasLower ? table(`<tr>${lowerCells.join("")}</tr>`, "table-layout:fixed;") : "";
   const gradient = content.gradient === false || content.gradient === "false" ? C.navy : `radial-gradient(circle at 100% 100%,${C.purple} 0%,rgba(156,46,221,.72) 0%,${C.navy} 64%)`;
   const wholeLink = !preview && content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" aria-label="${escapeHtml(plainLabel(content.heading || content.eyebrow || "Открыть предложение"))}" style="position:absolute;inset:0;z-index:1;display:block;text-decoration:none;">&nbsp;</a>` : "";
-  const contentHtml = `<div style="position:relative;">${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;max-width:80%;box-sizing:border-box;padding:9px 16px;background:${eyebrowColor};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;word-break:normal;overflow-wrap:normal;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};background:${gradient};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};">${hasText(content.bigNumber) ? `<div style="padding-bottom:${hasText(content.heading) ? "8px" : "18px"};">${displayText(content.bigNumber, "#ffffff", 42, "left", "content.bigNumber", preview, 42)}</div>` : ""}${hasText(content.heading) ? `<div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 24, "left", "content.heading", preview)}</div>` : ""}${hasLower ? `<div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>` : ""}${content.ctaText ? `<div style="position:relative;z-index:2;padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>${wholeLink}</div>`;
+  const contentHtml = `<div style="position:relative;">${eyebrow ? `<div${editAttrs(preview, "content.eyebrow")} style="display:inline-block;max-width:80%;box-sizing:border-box;padding:9px 16px;background:${eyebrowColor};border-radius:14px 14px 0 0;font-family:${fontBody};font-size:14px;font-weight:700;color:#ffffff;word-break:normal;overflow-wrap:normal;">${escapeHtml(eyebrow)}</div>` : ""}<div style="padding:26px;background:${C.navy};background:${gradient};border-radius:${eyebrow ? "0 28px 28px 28px" : "28px"};">${hasText(content.bigNumber) ? `<div style="padding-bottom:${hasText(content.heading) ? "8px" : "18px"};">${displayText(content.bigNumber, "#ffffff", 42, "left", "content.bigNumber", preview, 42)}</div>` : ""}${hasText(content.heading) ? `<div style="padding-bottom:18px;">${displayText(content.heading, "#ffffff", 24, "left", "content.heading", preview)}</div>` : ""}${hasLower ? `<div style="background:rgba(255,255,255,.16);border-radius:18px;overflow:hidden;">${lower}</div>` : ""}${hasText(content.ctaText) ? `<div style="position:relative;z-index:2;padding-top:22px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : ""}</div>${wholeLink}</div>`;
   return wrapBlock(block, contentHtml, "transparent", "0 0 28px");
 }
 
@@ -202,11 +214,34 @@ function renderImageBlock(block, preview) {
 
 function renderImageText(block, preview, feature = false) {
   const content = block.content;
-  if (![content.heading, content.body, content.linkText, content.image?.previewSource, content.image?.exportUrl].some(hasText)) return "";
+  const hasImage = Boolean(content.image?.previewSource || content.image?.exportUrl);
+  const hasHeading = hasText(content.heading);
+  const hasBody = hasText(content.body);
+  const hasLink = hasText(content.linkText);
+  const isImageText = block.type === "imageText";
+  const hasPlate = !isImageText || content.plate !== "0";
+  const bodyColor = isImageText ? C.ink : C.muted;
+  const linkColor = isImageText ? C.ink : C.navy;
+  if (!hasImage && !hasHeading && !hasBody && !hasLink) return "";
+  const topAlign = content.imageAlign === "left" ? "left" : "center";
+  const textAlign = block.variant === "image-top" ? topAlign : "left";
+  const textContent = `${hasHeading ? displayText(content.heading, C.ink, 24, textAlign, "content.heading", preview, DELA_FONT_SIZES.small) : ""}${hasBody ? `<div style="padding-top:${hasHeading ? "10px" : "0"};text-align:${textAlign};">${bodyText(content.body, bodyColor, 16, "content.body", preview, "bullet", textAlign)}</div>` : ""}${hasLink ? `<div style="text-align:${textAlign};"><a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="display:inline-block;margin-top:${hasHeading || hasBody ? "14px" : "0"};font-family:${fontBody};font-weight:700;color:${linkColor};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a></div>` : ""}`;
+  if (!hasImage) {
+    return wrapBlock(block, `<div style="padding:${feature ? "22px" : "14px 18px"};background:${hasPlate ? "#ffffff" : "transparent"};border-radius:${feature ? "22px" : "28px"};">${textContent}</div>`, "transparent", "0 0 12px");
+  }
+  if (!textContent) {
+    return wrapBlock(block, img(content.image, content.heading, preview, 604, 18), "transparent", "0 0 12px");
+  }
+  if (block.variant === "image-top") {
+    const imageWidth = ["30", "40", "60", "80"].includes(String(content.imageWidth)) ? Number(content.imageWidth) : 100;
+    const topImage = td(img(content.image, content.heading, preview, 604, 0, imageWidth / 100, topAlign), `padding:0;vertical-align:top;text-align:${topAlign};`);
+    const bottomText = td(textContent, `padding:${feature ? 22 : 24}px;vertical-align:top;`, 'class="stack-column"');
+    return wrapBlock(block, table(`<tr>${topImage}</tr><tr>${bottomText}</tr>`, `background:${hasPlate ? "#ffffff" : "transparent"};border-radius:${feature ? 22 : 28}px;overflow:${hasPlate ? "hidden" : "visible"};`, 'class="image-text-table image-text-table--top"'), "transparent", "0 0 12px");
+  }
   const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 140, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : "10px 16px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
-  const textCell = td(`${displayText(content.heading, C.ink, 24, "left", "content.heading", preview, DELA_FONT_SIZES.small)}<div style="padding-top:10px;">${bodyText(content.body, C.muted, 16, "content.body", preview)}</div>${content.linkText ? `<a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="font-family:${fontBody};font-weight:700;color:${C.navy};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a>` : ""}`, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : "14px 18px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
+  const textCell = td(textContent, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : "14px 18px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
   const direction = block.variant === "image-right" ? "rtl" : "ltr";
-  return wrapBlock(block, table(`<tr>${imageCell}${textCell}</tr>`, `direction:${direction};table-layout:fixed;background:#ffffff;border-radius:${feature ? 22 : 28}px;overflow:hidden;`, 'class="image-text-table"'), "transparent", `0 0 ${feature ? 12 : 12}px`);
+  return wrapBlock(block, table(`<tr>${imageCell}${textCell}</tr>`, `direction:${direction};table-layout:fixed;background:${hasPlate ? "#ffffff" : "transparent"};border-radius:${feature ? 22 : 28}px;overflow:${hasPlate ? "hidden" : "visible"};`, 'class="image-text-table"'), "transparent", `0 0 ${feature ? 12 : 12}px`);
 }
 
 function renderBrandScene(block, preview) {
@@ -229,32 +264,37 @@ function renderBrandTitle(block, preview) {
 function renderIconGrid(block, preview) {
   const items = (block.content.items || []).slice(0, 6);
   const columns = block.content.columns === "1" ? 1 : 2;
-  if (!items.some((item) => [item.heading, item.body, item.iconId].some(hasText))) return "";
+  const visibleItems = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => [item.heading, item.body, item.iconId].some(hasText));
+  if (!visibleItems.length) return "";
   const icons = window.CALLTOUCH_ASSETS.essentials || {};
   const fallbackIds = ["send", "verify", "clock", "message", "send", "verify"];
   const rows = [];
-  const iconPosition = block.content.iconPosition === "left" ? "left" : "top";
+  const align = block.content.align === "center" ? "center" : "left";
+  const iconPosition = align === "center" ? "top" : (block.content.iconPosition === "left" ? "left" : "top");
   // Размеры иконки с подложкой уменьшены на 30%: 35/10/14 -> 25/7/10.
-  for (let start = 0; start < items.length; start += columns) {
-    const rowItems = items.slice(start, start + columns);
-    rows.push(`<tr class="benefits-row">${rowItems.map((item, index) => {
+  for (let start = 0; start < visibleItems.length; start += columns) {
+    const rowItems = visibleItems.slice(start, start + columns);
+    rows.push(`<tr class="benefits-row">${rowItems.map(({ item, index: originalIndex }, index) => {
       const icon = icons[item.iconId] || icons[fallbackIds[start + index]];
       // Подложка под иконку — залитая ячейка таблицы: в старом Outlook border-radius
       // не сработает, подложка станет квадратной, но ничего не сломается.
-      const iconMarkup = icon ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;"><tr><td bgcolor="${C.pale}" style="background:${C.pale};border-radius:10px;padding:7px;"><img src="${assetSource(icon, preview)}" width="25" height="25" alt="${escapeHtml(icon.label)}" style="display:block;width:25px;height:25px;border:0;"></td></tr></table>` : "";
+      const iconMarkup = icon ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:auto;${align === "center" ? "margin:0 auto;" : ""}"><tr><td bgcolor="${C.pale}" style="background:${C.pale};border-radius:10px;padding:7px;"><img src="${assetSource(icon, preview)}" width="25" height="25" alt="${escapeHtml(icon.label)}" style="display:block;width:25px;height:25px;border:0;"></td></tr></table>` : "";
       const heading = String(item.heading || "").replace(/\*\*/g, "");
       const body = String(item.body || "").replace(/\*\*/g, "");
       const span = columns === 1 ? 2 : 1;
-      const headingHtml = displayText(heading, C.ink, 16, "left", `content.items.${start + index}.heading`, preview);
-      const bodyHtml = body ? `<div style="padding-top:5px;">${bodyText(body, C.ink, 16, `content.items.${start + index}.body`, preview)}</div>` : "";
+      const headingHtml = hasText(heading) ? displayText(heading, C.ink, 16, align, `content.items.${originalIndex}.heading`, preview) : "";
+      const bodyHtml = hasText(body) ? `<div style="padding-top:${headingHtml ? "5px" : "0"};">${bodyText(body, C.ink, 16, `content.items.${originalIndex}.body`, preview, "bullet", align)}</div>` : "";
       const itemHtml = iconPosition === "left"
-        ? table(`<tr>${td(iconMarkup, "width:39px;padding:0 12px 0 0;vertical-align:top;")}${td(`${headingHtml}${bodyHtml}`, "vertical-align:top;")}</tr>`, "width:100%;border-collapse:collapse;")
-        : `${iconMarkup}<div style="padding-top:13px;">${headingHtml}</div>${bodyHtml}`;
-      return td(itemHtml, `width:${span === 2 ? "100" : "50"}%;padding:18px;vertical-align:top;`, `class="grid-column" colspan="${span}"`);
+        ? table(`<tr>${td(iconMarkup, "width:39px;padding:0 12px 0 0;vertical-align:top;")}${td(`${headingHtml}${bodyHtml}`, `vertical-align:top;text-align:${align};`)}</tr>`, "width:100%;border-collapse:collapse;")
+        : `${iconMarkup}${headingHtml ? `<div style="padding-top:13px;text-align:${align};">${headingHtml}</div>` : ""}${bodyHtml}`;
+      return td(itemHtml, `width:${span === 2 ? "100" : "50"}%;padding:18px;vertical-align:top;text-align:${align};`, `class="grid-column" colspan="${span}"`);
     }).join("")}${columns === 2 && rowItems.length === 1 ? td("", "width:50%;padding:0;", 'class="grid-column grid-column--empty" aria-hidden="true"') : ""}</tr>`);
   }
-  const heading = hasText(block.content.heading) ? `<tr><td colspan="2" style="padding:22px 22px 0;">${displayText(block.content.heading, C.ink, 24, "left", "content.heading", preview)}</td></tr>` : "";
-  return wrapBlock(block, table(`${heading}${rows.join("")}`, "background:#ffffff;border-radius:28px;overflow:hidden;table-layout:fixed;", 'class="benefits-grid"'), "transparent", "0 0 24px");
+  const heading = hasText(block.content.heading) ? `<tr><td colspan="2" style="padding:22px 22px 0;text-align:${align};">${displayText(block.content.heading, C.ink, 24, align, "content.heading", preview)}</td></tr>` : "";
+  const cta = hasText(block.content.ctaText) ? `<tr><td colspan="2" style="padding:4px 18px 22px;text-align:${align};">${button(block.content.ctaText, block.content.ctaUrl, block.content.ctaVariant === "secondary" ? "secondary" : "primary", "content.ctaText", preview, align)}</td></tr>` : "";
+  return wrapBlock(block, table(`${heading}${rows.join("")}${cta}`, "background:#ffffff;border-radius:28px;overflow:hidden;table-layout:fixed;", 'class="benefits-grid"'), "transparent", "0 0 24px");
 }
 
 function renderCtaCard(block, preview) {
@@ -265,7 +305,13 @@ function renderCtaCard(block, preview) {
   const color = light ? C.navy : "#ffffff";
   const fallbackBackground = light ? "#ffffff" : C.navy;
   const align = block.content.align === "left" ? "left" : "center";
-  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;text-align:${align};">${displayText(block.content.heading, color, 24, align, "content.heading", preview)}${block.content.subtitle ? `<div style="padding:12px 0 18px;text-align:${align};">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview)}</div>` : ""}${block.content.ctaText ? `<div style="padding-top:22px;text-align:${align};">${button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview, align)}</div>` : ""}</div>`, "transparent", "0 0 24px");
+  const hasHeading = hasText(block.content.heading);
+  const hasSubtitle = hasText(block.content.subtitle);
+  const hasCta = hasText(block.content.ctaText);
+  const headingHtml = hasHeading ? displayText(block.content.heading, color, 24, align, "content.heading", preview) : "";
+  const subtitleHtml = hasSubtitle ? `<div style="padding:${hasHeading ? "12px" : "0"} 0 ${hasCta ? "18px" : "0"};text-align:${align};">${bodyText(block.content.subtitle, light ? C.ink : "#D6E8F2", 16, "content.subtitle", preview, "bullet", align)}</div>` : "";
+  const ctaHtml = hasCta ? `<div style="padding-top:${hasHeading || hasSubtitle ? "22px" : "0"};text-align:${align};">${button(block.content.ctaText, block.content.ctaUrl, "primary", "content.ctaText", preview, align)}</div>` : "";
+  return wrapBlock(block, `<div style="padding:30px;background:${fallbackBackground};background:${background};border-radius:28px;text-align:${align};">${headingHtml}${subtitleHtml}${ctaHtml}</div>`, "transparent", "0 0 24px");
 }
 
 function renderButton(block, preview) {
