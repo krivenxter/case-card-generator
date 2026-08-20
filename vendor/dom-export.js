@@ -105,13 +105,15 @@
     clone.style.setProperty("animation", "none", "important");
     clone.style.setProperty("transition", "none", "important");
     copyFormState(source, clone);
+    return computedStyle;
   }
 
   async function cloneNodeWithStyles(source, cacheBust) {
     const clone = source.cloneNode(false);
 
     if (source.nodeType === Node.ELEMENT_NODE) {
-      await copyComputedStyles(source, clone, cacheBust);
+      const computedStyle = await copyComputedStyles(source, clone, cacheBust);
+      if (computedStyle.display === "none" || computedStyle.visibility === "hidden") return clone;
     }
 
     const sourceChildren = Array.from(source.childNodes);
@@ -145,6 +147,7 @@
             src: url("${dataUrl}") format("${face.format || "woff2"}");
             font-style: ${face.style || "normal"};
             font-weight: ${face.weight || "400"};
+            ${face.unicodeRange ? `unicode-range: ${face.unicodeRange};` : ""}
           }
         `);
       } catch (error) {
@@ -183,14 +186,15 @@
   function svgToImage(svgMarkup) {
     return new Promise((resolve, reject) => {
       const image = new Image();
-      const objectUrl = URL.createObjectURL(new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" }));
-      let triedDataUrl = false;
+      const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
+      let objectUrl = "";
+      let triedObjectUrl = false;
       let timeoutId = 0;
       let settled = false;
 
       const cleanup = () => {
         clearTimeout(timeoutId);
-        URL.revokeObjectURL(objectUrl);
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
       };
       const armTimeout = () => {
         clearTimeout(timeoutId);
@@ -205,11 +209,11 @@
       };
       const handleError = () => {
         if (settled) return;
-        if (!triedDataUrl) {
-          triedDataUrl = true;
+        if (!triedObjectUrl) {
+          triedObjectUrl = true;
           clearTimeout(timeoutId);
-          URL.revokeObjectURL(objectUrl);
-          image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
+          objectUrl = URL.createObjectURL(new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" }));
+          image.src = objectUrl;
           armTimeout();
           return;
         }
@@ -219,7 +223,7 @@
         reject(new Error("Браузер не смог отрисовать SVG-копию слайда"));
       };
       image.onerror = handleError;
-      image.src = objectUrl;
+      image.src = dataUrl;
       armTimeout();
     });
   }
@@ -263,6 +267,12 @@
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = "high";
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    try {
+      context.getImageData(0, 0, 1, 1);
+    } catch {
+      throw new Error("SVG-копия содержит небезопасный внешний ресурс");
+    }
 
     return canvas;
   }

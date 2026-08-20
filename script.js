@@ -3148,6 +3148,15 @@ function loadBannerAsset(url) {
   return promise;
 }
 
+function blobToBannerDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Не удалось прочитать изображение."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function getBannerAssetDataUrl(url, { upscale = false } = {}) {
   if (!upscale && BACKGROUND_DATA[url]) return BACKGROUND_DATA[url];
   if (!upscale && url.startsWith("data:")) return url;
@@ -3155,19 +3164,22 @@ async function getBannerAssetDataUrl(url, { upscale = false } = {}) {
   if (bannerExportAssetCache.has(cacheKey)) return bannerExportAssetCache.get(cacheKey);
 
   const exportAsset = (async () => {
-    if (/\.svg(?:$|[?#])/i.test(url)) {
+    let cleanUrl = url;
+    if (!url.startsWith("data:")) {
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { cache: "force-cache" });
         if (response.ok) {
-          const svg = await response.text();
-          return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+          cleanUrl = await blobToBannerDataUrl(await response.blob());
         }
       } catch (error) {
-        console.warn("SVG не удалось встроить в экспорт как вектор.", error);
+        console.warn("Изображение не удалось встроить в экспорт.", error);
       }
     }
 
-    const image = await loadBannerAsset(url);
+    if (!cleanUrl.startsWith("data:")) return null;
+    if (!upscale) return cleanUrl;
+
+    const image = await loadBannerAsset(cleanUrl);
     return image
       ? imageToDataUrlWithOptions(image, upscale ? { minWidth: 1600, minHeight: 1600 } : {})
       : null;
@@ -3197,11 +3209,16 @@ function waitForBannerImage(image) {
 async function prepareCreativeAssets(canvas, resolvedVisual) {
   const backgroundBefore = canvas.style.getPropertyValue("--creative-background");
   const backgroundData = await getBannerAssetDataUrl(getBannerBackgroundUrl());
-  if (backgroundData) {
-    canvas.style.setProperty("--creative-background", `url("${backgroundData}")`);
-  }
+  if (!backgroundData) throw new Error("Не удалось безопасно встроить фон в экспорт.");
+  canvas.style.setProperty("--creative-background", `url("${backgroundData}")`);
 
   const changedImages = [];
+  const restore = () => {
+    canvas.style.setProperty("--creative-background", backgroundBefore);
+    changedImages.forEach(([image, src]) => {
+      image.src = src;
+    });
+  };
   const logoImage = canvas.querySelector(".creative-logo img");
   const visualImage = canvas.querySelector(".creative-keyvisual img");
   const imagePairs = [];
@@ -3213,27 +3230,44 @@ async function prepareCreativeAssets(canvas, resolvedVisual) {
     imagePairs.push([visualImage, resolvedVisual.src]);
   }
 
-  for (const [image, url] of imagePairs) {
-    const dataUrl = await getBannerAssetDataUrl(url, { upscale: image === visualImage });
-    if (!dataUrl) continue;
-    const previousSrc = image.src;
-    image.src = dataUrl;
-    if (await waitForBannerImage(image)) changedImages.push([image, previousSrc]);
-    else image.src = previousSrc;
+  try {
+    for (const [image, url] of imagePairs) {
+      const dataUrl = await getBannerAssetDataUrl(url, { upscale: image === visualImage });
+      if (!dataUrl) throw new Error("Не удалось безопасно встроить изображение в экспорт.");
+      const previousSrc = image.src;
+      image.src = dataUrl;
+      if (await waitForBannerImage(image)) {
+        changedImages.push([image, previousSrc]);
+      } else {
+        image.src = previousSrc;
+        throw new Error("Встроенное изображение не загрузилось для экспорта.");
+      }
+    }
+  } catch (error) {
+    restore();
+    throw error;
   }
 
-  return () => {
-    canvas.style.setProperty("--creative-background", backgroundBefore);
-    changedImages.forEach(([image, src]) => {
-      image.src = src;
-    });
-  };
+  return restore;
 }
 
 function getCreativeFontFaces() {
   if (location.protocol === "file:") return [];
   return [
-    { family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" },
+    {
+      family: "Dela Gothic One",
+      src: "fonts/DelaGothicOne-Cyrillic.woff2",
+      format: "woff2",
+      weight: "400",
+      unicodeRange: "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116"
+    },
+    {
+      family: "Dela Gothic One",
+      src: "fonts/DelaGothicOne-Latin.woff2",
+      format: "woff2",
+      weight: "400",
+      unicodeRange: "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
+    },
     { family: "Museo Sans Cyrl", src: "fonts/museosanscyrl-500.woff2", format: "woff2", weight: "500" },
     { family: "Museo Sans Cyrl", src: "fonts/museosanscyrl-700.woff2", format: "woff2", weight: "700" }
   ];
@@ -3368,6 +3402,11 @@ async function createCreativeVisualCanvas(keyvisualNode, width, height, exportOp
     imageWidth,
     imageHeight
   );
+  try {
+    context.getImageData(0, 0, 1, 1);
+  } catch {
+    throw new Error("Основное изображение содержит небезопасный внешний ресурс.");
+  }
   return canvas;
 }
 
