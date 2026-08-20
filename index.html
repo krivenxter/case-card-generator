@@ -365,6 +365,25 @@
                   </div>
                 </div>
               </label>
+              <div class="field-group">
+                <label class="toggle-row" for="bannerSubtitleBackgroundToggle">
+                  <span><strong><i data-lucide="panels-top-left" aria-hidden="true"></i>Подложка подзаголовка</strong><small>Плашка с отступами и скруглением</small></span>
+                  <input id="bannerSubtitleBackgroundToggle" type="checkbox" role="switch" data-banner-path="content.subtitleBackground.enabled">
+                </label>
+                <div class="field-stack" id="bannerSubtitleBackgroundSettings">
+                  <label class="field">
+                    <span class="field__label">Цвет плашки</span>
+                    <select data-banner-path="content.subtitleBackground.color">
+                      <option value="white">Белая</option>
+                      <option value="lightBlue">Светло-голубая</option>
+                    </select>
+                  </label>
+                  <div class="range-group">
+                    <div class="range-group__header"><span>Внутренний отступ</span><output id="bannerSubtitleBackgroundPaddingValue">22 px</output></div>
+                    <input type="range" min="8" max="64" step="2" value="22" data-banner-path="content.subtitleBackground.padding">
+                  </div>
+                </div>
+              </div>
 
               <div class="field-group">
                 <label class="toggle-row" for="bannerLabel1Toggle">

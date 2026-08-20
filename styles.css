@@ -3358,6 +3358,19 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
   letter-spacing: 0;
 }
 
+.creative-canvas.has-subtitle-background .creative-subtitle {
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--subtitle-background-padding-y) var(--subtitle-background-padding-x);
+  border-radius: var(--subtitle-background-radius);
+  background: #ffffff;
+  color: #1f282c;
+}
+
+.creative-canvas.has-subtitle-background[data-subtitle-background-color="lightBlue"] .creative-subtitle {
+  background: #def4f9;
+}
+
 .creative-button {
   display: inline-flex;
   align-items: center;

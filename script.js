@@ -193,6 +193,7 @@ function createBannerDefaults() {
       titleStyle: "dela",
       subtitleEnabled: true,
       subtitle: "Бесплатный вебинар о том, как находить точки роста и принимать решения на основе данных.",
+      subtitleBackground: { enabled: false, color: "white", padding: 22, radius: 24 },
       label1: { enabled: true, text: "Вебинар", style: "graphiteFill" },
       label2: { enabled: false, text: "15 августа", style: "graphiteOutline" },
       button: { enabled: true, text: "Зарегистрироваться", style: "filled", color: "cyan", radius: "small" },
@@ -330,6 +331,9 @@ function normalizeBannerState(source) {
   const incomingLayout = incoming.layout && typeof incoming.layout === "object" ? incoming.layout : {};
   const incomingCompliance = incoming.compliance && typeof incoming.compliance === "object" ? incoming.compliance : {};
   const incomingAnimation = incoming.animation && typeof incoming.animation === "object" ? incoming.animation : {};
+  const incomingSubtitleBackground = incomingContent.subtitleBackground && typeof incomingContent.subtitleBackground === "object"
+    ? incomingContent.subtitleBackground
+    : {};
   const incomingAdditionalText = incomingContent.additionalText && typeof incomingContent.additionalText === "object"
     ? incomingContent.additionalText
     : {};
@@ -340,6 +344,7 @@ function normalizeBannerState(source) {
     content: {
       ...defaults.content,
       ...incomingContent,
+      subtitleBackground: { ...defaults.content.subtitleBackground, ...incomingSubtitleBackground },
       label1: { ...defaults.content.label1, ...(incomingContent.label1 || {}) },
       label2: { ...defaults.content.label2, ...(incomingContent.label2 || {}) },
       button: { ...defaults.content.button, ...(incomingContent.button || {}) },
@@ -372,6 +377,21 @@ function normalizeBannerState(source) {
   state.content.label1.style = normalizeBannerChipStyle(state.content.label1.style);
   state.content.label2.style = normalizeBannerChipStyle(state.content.label2.style);
   state.content.button.color = state.content.button.color === "purple" ? "purple" : "cyan";
+  state.content.subtitleBackground.enabled = Boolean(state.content.subtitleBackground.enabled);
+  state.content.subtitleBackground.color = state.content.subtitleBackground.color === "lightBlue" ? "lightBlue" : "white";
+  const savedPadding = Number(state.content.subtitleBackground.padding);
+  const legacyPaddingX = Number(state.content.subtitleBackground.paddingX);
+  const legacyPaddingY = Number(state.content.subtitleBackground.paddingY);
+  const padding = Number.isFinite(savedPadding)
+    ? savedPadding
+    : (Number.isFinite(legacyPaddingX) && Number.isFinite(legacyPaddingY)
+      ? (legacyPaddingX + legacyPaddingY) / 2
+      : defaults.content.subtitleBackground.padding);
+  state.content.subtitleBackground.padding = Math.max(8, Math.min(64, padding));
+  const radius = Number(state.content.subtitleBackground.radius);
+  state.content.subtitleBackground.radius = Number.isFinite(radius)
+    ? Math.max(0, Math.min(56, radius))
+    : defaults.content.subtitleBackground.radius;
   state.content.additionalText.enabled = Boolean(state.content.additionalText.enabled);
   state.content.additionalText.text = String(state.content.additionalText.text || "");
   const additionalTextBottomOffset = Number(state.content.additionalText.bottomOffset);
@@ -1522,6 +1542,7 @@ const bannerElements = {
   scaleIndicator: document.getElementById("bannerScaleIndicator"),
   warning: document.getElementById("creativeWarning"),
   subtitleSettings: document.getElementById("bannerSubtitleSettings"),
+  subtitleBackgroundSettings: document.getElementById("bannerSubtitleBackgroundSettings"),
   label1Settings: document.getElementById("bannerLabel1Settings"),
   label2Settings: document.getElementById("bannerLabel2Settings"),
   buttonSettings: document.getElementById("bannerButtonSettings"),
@@ -1570,6 +1591,7 @@ const bannerElements = {
   paddingValue: document.getElementById("bannerPaddingValue"),
   gapValue: document.getElementById("bannerGapValue"),
   fontScaleValue: document.getElementById("bannerFontScaleValue"),
+  subtitleBackgroundPaddingValue: document.getElementById("bannerSubtitleBackgroundPaddingValue"),
   additionalTextBottomOffsetValue: document.getElementById("bannerAdditionalTextBottomOffsetValue"),
   textCoverageStatus: document.getElementById("bannerTextCoverageStatus"),
   animationPanel: document.getElementById("bannerAnimationPanel"),
@@ -1617,6 +1639,7 @@ const numericBannerPaths = new Set([
   "animation.swayRotation",
   "animation.swayScale",
   "content.additionalText.bottomOffset",
+  "content.subtitleBackground.padding",
   "layout.contentWidth",
   "layout.padding",
   "layout.gap",
@@ -2636,6 +2659,13 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   canvas.classList.toggle("is-active", format === appState.ui.activeBannerFormat);
   canvas.classList.toggle("has-keyvisual", state.visual.enabled);
   canvas.classList.toggle("has-brand-logo", Boolean(state.branding.logoEnabled));
+  const hasSubtitleBackground = Boolean(
+    state.content.subtitleEnabled
+      && state.content.subtitleBackground.enabled
+      && String(state.content.subtitle).trim()
+  );
+  canvas.classList.toggle("has-subtitle-background", hasSubtitleBackground);
+  canvas.dataset.subtitleBackgroundColor = state.content.subtitleBackground.color;
   canvas.style.setProperty("--creative-background", `url("${backgroundUrl}")`);
   canvas.style.setProperty(
     "--overlay-opacity",
@@ -2651,6 +2681,9 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   canvas.style.setProperty("--vertical-align", formatConfig.centered ? "center" : layout.verticalAlign);
   canvas.style.setProperty("--button-radius", buttonRadius);
   canvas.style.setProperty("--chip-radius", chipRadius);
+  canvas.style.setProperty("--subtitle-background-padding-x", `${state.content.subtitleBackground.padding + 8}px`);
+  canvas.style.setProperty("--subtitle-background-padding-y", `${state.content.subtitleBackground.padding}px`);
+  canvas.style.setProperty("--subtitle-background-radius", `${Math.min(56, state.content.subtitleBackground.radius + 2)}px`);
   canvas.style.setProperty("--additional-text-bottom", `${state.content.additionalText.bottomOffset}px`);
   canvas.style.setProperty("--visual-x", `${formatState.visualX}px`);
   canvas.style.setProperty("--visual-y", `${formatState.visualY}px`);
@@ -2970,6 +3003,7 @@ function syncBannerControls() {
     ? state.visual.customVisualName || "Своя картинка загружена"
     : "Файл не выбран";
   bannerElements.subtitleSettings.hidden = !state.content.subtitleEnabled;
+  bannerElements.subtitleBackgroundSettings.hidden = !state.content.subtitleBackground.enabled;
   bannerElements.label1Settings.hidden = !state.content.label1.enabled;
   bannerElements.label2Settings.hidden = !state.content.label2.enabled;
   bannerElements.buttonSettings.hidden = !state.content.button.enabled;
@@ -2984,6 +3018,7 @@ function syncBannerControls() {
   bannerElements.paddingValue.textContent = state.layout.padding;
   bannerElements.gapValue.textContent = state.layout.gap;
   bannerElements.fontScaleValue.textContent = `${state.layout.fontScale}%`;
+  bannerElements.subtitleBackgroundPaddingValue.textContent = `${state.content.subtitleBackground.padding} px`;
   bannerElements.additionalTextBottomOffsetValue.textContent = `${state.content.additionalText.bottomOffset} px`;
   bannerElements.animationDurationValue.textContent = `${state.animation.duration.toFixed(1)} с`;
   const animationPreset = BANNER_ANIMATION_PRESETS[state.animation.preset] ? state.animation.preset : "sway";
