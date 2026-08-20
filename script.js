@@ -3324,7 +3324,9 @@ function getSupportedMp4MimeType() {
 
 function syncMp4Support() {
   const mimeType = getSupportedMp4MimeType();
-  const supported = Boolean(mimeType && HTMLCanvasElement.prototype.captureStream);
+  const supportsWebCodecs = typeof VideoEncoder !== "undefined" && typeof VideoFrame !== "undefined";
+  const supportsMediaRecorder = Boolean(mimeType && HTMLCanvasElement.prototype.captureStream);
+  const supported = supportsWebCodecs || supportsMediaRecorder;
   bannerElements.exportCurrentMp4Button.disabled = !supported;
   bannerElements.exportAllMp4Button.disabled = !supported;
   bannerElements.mp4SupportStatus.classList.toggle("is-error", !supported);
@@ -3668,6 +3670,125 @@ async function addMp4DurationMetadata(blob, durationMs) {
   return new Blob([data], { type: blob.type || "video/mp4" });
 }
 
+let creativeMp4MuxerModulePromise = null;
+
+function loadCreativeMp4Muxer() {
+  if (!creativeMp4MuxerModulePromise) {
+    creativeMp4MuxerModulePromise = import("./vendor/mp4-muxer.mjs");
+  }
+  return creativeMp4MuxerModulePromise;
+}
+
+async function getSupportedWebCodecsConfig(config) {
+  if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") return null;
+
+  const bitrate = Math.max(5_000_000, Math.min(16_000_000, config.width * config.height * 4));
+  const codecs = ["avc1.42002A", "avc1.4D402A", "avc1.64002A"];
+  for (const codec of codecs) {
+    const baseConfig = {
+      codec,
+      width: config.width,
+      height: config.height,
+      bitrate,
+      framerate: 30
+    };
+    const candidates = [
+      { ...baseConfig, hardwareAcceleration: "prefer-hardware", latencyMode: "quality" },
+      baseConfig
+    ];
+
+    for (const candidate of candidates) {
+      try {
+        const support = await VideoEncoder.isConfigSupported(candidate);
+        if (support.supported) return support.config;
+      } catch {
+        // Пробуем более простой конфиг или следующий профиль H.264.
+      }
+    }
+  }
+  return null;
+}
+
+async function encodeCreativeCanvasWithWebCodecs(format, layers, onProgress) {
+  const config = BANNER_FORMATS[format];
+  const encoderConfig = await getSupportedWebCodecsConfig(config);
+  if (!encoderConfig) throw new Error("WebCodecs не нашёл доступный H.264-кодировщик.");
+
+  const { Muxer, ArrayBufferTarget } = await loadCreativeMp4Muxer();
+  const target = new ArrayBufferTarget();
+  const muxer = new Muxer({
+    target,
+    video: {
+      codec: "avc",
+      width: config.width,
+      height: config.height,
+      frameRate: 30
+    },
+    fastStart: "in-memory"
+  });
+  const output = document.createElement("canvas");
+  output.width = config.width;
+  output.height = config.height;
+  const context = output.getContext("2d", { alpha: false });
+  if (!context) throw new Error("Браузер не смог создать холст для видео.");
+
+  let encoderError = null;
+  let muxerError = null;
+  const encoder = new VideoEncoder({
+    output: (chunk, metadata) => {
+      try {
+        muxer.addVideoChunk(chunk, metadata);
+      } catch (error) {
+        muxerError = error;
+      }
+    },
+    error: (error) => {
+      encoderError = error;
+    }
+  });
+  const durationMs = getBannerAnimationDurationMs();
+  const frameRate = 30;
+  const frameCount = Math.max(1, Math.round(durationMs * frameRate / 1000));
+
+  try {
+    encoder.configure(encoderConfig);
+    for (let index = 0; index < frameCount; index += 1) {
+      const progress = frameCount === 1 ? 1 : index / (frameCount - 1);
+      const timestamp = Math.round(index * 1_000_000 / frameRate);
+      const nextTimestamp = Math.round((index + 1) * 1_000_000 / frameRate);
+      drawCreativeVideoFrame(context, layers, config, progress);
+
+      const frame = new VideoFrame(output, {
+        timestamp,
+        duration: nextTimestamp - timestamp
+      });
+      try {
+        encoder.encode(frame, { keyFrame: index % (frameRate * 2) === 0 });
+      } finally {
+        frame.close();
+      }
+
+      onProgress?.((index + 1) / frameCount);
+      if ((index + 1) % frameRate === 0) {
+        await encoder.flush();
+        if (encoderError) throw encoderError;
+        if (muxerError) throw muxerError;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    await encoder.flush();
+    if (encoderError) throw encoderError;
+    if (muxerError) throw muxerError;
+    muxer.finalize();
+  } finally {
+    if (encoder.state !== "closed") encoder.close();
+  }
+
+  if (!target.buffer?.byteLength) throw new Error("H.264-кодировщик не вернул данные MP4.");
+  return new Blob([target.buffer], { type: "video/mp4" });
+}
+
 async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
   const config = BANNER_FORMATS[format];
   const output = document.createElement("canvas");
@@ -3763,13 +3884,24 @@ async function recordCreativeCanvas(format, layers, mimeType, onProgress) {
 
 async function createCreativeMp4(format, onProgress) {
   const mimeTypes = getSupportedMp4MimeTypes();
-  if (!mimeTypes.length || !HTMLCanvasElement.prototype.captureStream) {
+  const supportsWebCodecs = typeof VideoEncoder !== "undefined" && typeof VideoFrame !== "undefined";
+  const supportsMediaRecorder = Boolean(mimeTypes.length && HTMLCanvasElement.prototype.captureStream);
+  if (!supportsWebCodecs && !supportsMediaRecorder) {
     throw new Error("Запись MP4 не поддерживается в этом браузере.");
   }
   const layers = await createCreativeVideoLayers(format);
   let lastError = null;
 
-  for (const mimeType of mimeTypes) {
+  if (supportsWebCodecs) {
+    try {
+      return await encodeCreativeCanvasWithWebCodecs(format, layers, onProgress);
+    } catch (error) {
+      lastError = error;
+      console.warn("Покадровый WebCodecs-экспорт не сработал, пробуем MediaRecorder.", error);
+    }
+  }
+
+  for (const mimeType of supportsMediaRecorder ? mimeTypes : []) {
     try {
       return await recordCreativeCanvas(format, layers, mimeType, onProgress);
     } catch (error) {
