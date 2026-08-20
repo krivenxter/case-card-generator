@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rdf:Description><dc:creator>RealFaviconGenerator</dc:creator><dc:source>https://realfavicongenerator.net</dc:source></rdf:Description></rdf:RDF></metadata><rect x="4" y="7" width="17" height="12" fill="white"></rect><path d="M7 2C5.9 2 5 2.9 5 4V6H4C2.9 6 2 6.9 2 8V20H4V21C4 21.55 4.45 22 5 22H6C6.55 22 7 21.55 7 21V20H17V21C17 21.55 17.45 22 18 22H19C19.55 22 20 21.55 20 21V20H22V8C22 7.46957 21.7893 6.96086 21.4142 6.58579C21.0391 6.21071 20.5304 6 20 6H19V4C19 3.46957 18.7893 2.96086 18.4142 2.58579C18.0391 2.21071 17.5304 2 17 2H7ZM14 10V8H20V10H14ZM14 14V12H20V14H14ZM7 4H17V6H7V4ZM7 8V12H9L6 18V14H4L7 8Z" fill="url(#paint0_radial_9169_12044)"></path><defs>
+<radialGradient id="paint0_radial_9169_12044" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(12 14) rotate(90) scale(10.5)">
+<stop offset="0.0818033" stop-color="#00457D"></stop>
+<stop offset="0.604952" stop-color="#0069C0"></stop>
+<stop offset="1" stop-color="#00C2E8"></stop>
+</radialGradient>
+</defs></svg>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>png size</title></head>
+<body>
+<pre id="out">measuring…</pre>
+<script src="shared/assets.js"></script>
+<script src="vendor/dom-export.js"></script>
+<script type="module">
+  import { createBlock } from "./email/email-model.js";
+  import { BRAND_TITLE_WIDTH, BRAND_TITLE_MIN_HEIGHT, renderBrandTitleMarkup, resolveBrandTitleColors } from "./email/email-brand-title.js";
+  import { BRAND_SCENE_WIDTH, BRAND_SCENE_MIN_HEIGHT, renderBrandSceneMarkup } from "./email/email-brand-scene.js";
+
+  const out = [];
+  async function measure(label, width, minHeight, markup, background) {
+    const host = document.createElement("div");
+    host.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;min-height:${minHeight}px;pointer-events:none;`;
+    host.innerHTML = markup;
+    document.body.append(host);
+    try {
+      if (document.fonts?.ready) await document.fonts.ready;
+      const measured = Math.ceil(host.firstElementChild.getBoundingClientRect().height);
+      const height = Math.max(measured, minHeight);
+      host.firstElementChild.style.height = `${height}px`;
+      const canvas = await window.DomExport.toCanvas(host.firstElementChild, {
+        width, height, pixelRatio: 2, cacheBust: true, backgroundColor: background,
+        fontFaces: [
+          { family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" },
+          { family: "Museo Sans Cyrl", src: "fonts/museosanscyrl-500.woff2", format: "woff2", weight: "500" }
+        ]
+      });
+      out.push(`${label}: measured=${measured} height=${height} -> PNG ${canvas.width}x${canvas.height}`);
+    } catch (e) {
+      out.push(`${label}: ERROR ${e.message}`);
+    } finally { host.remove(); }
+  }
+
+  const title = createBlock("brandTitle");
+  await measure("brandTitle", BRAND_TITLE_WIDTH, BRAND_TITLE_MIN_HEIGHT, renderBrandTitleMarkup(title), resolveBrandTitleColors(title).background);
+  const scene = createBlock("brandScene");
+  await measure("brandScene", BRAND_SCENE_WIDTH, BRAND_SCENE_MIN_HEIGHT, renderBrandSceneMarkup(scene, { preview: true, editable: false }), "#064b79");
+  document.getElementById("out").textContent = out.join("\n");
+</script>
+</body>
+</html>

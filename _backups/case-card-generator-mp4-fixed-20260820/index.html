@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="Генераторы Calltouch: создавайте баннеры разных размеров с возможностью анимации, карточки кейсов, презентации, настраивайте оформление и экспортируйте готовые материалы.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://case-carder.vercel.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:url" content="https://case-carder.vercel.app/">
+  <meta property="og:title" content="Генераторы Calltouch">
+  <meta property="og:description" content="Создавайте баннеры разных размеров с возможностью анимации, карточки кейсов, презентации, настраивайте оформление и экспортируйте готовые материалы.">
+  <meta property="og:image" content="https://case-carder.vercel.app/og-cover.jpg">
+  <meta property="og:image:width" content="1920">
+  <meta property="og:image:height" content="1080">
+  <meta property="og:image:alt" content="Генераторы Calltouch — инструменты для создания брендированных маркетинговых материалов">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Генераторы Calltouch">
+  <meta name="twitter:description" content="Инструменты для создания брендированных маркетинговых материалов">
+  <meta name="twitter:image" content="https://case-carder.vercel.app/og-cover.jpg">
+  <title>Генераторы Calltouch</title>
+  <link rel="icon" href="favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="favicon/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon/favicon-96x96.png" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="favicon/apple-touch-icon.png">
+  <link rel="manifest" href="favicon/site.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="light">
+  <section class="access-gate" id="accessGate" aria-labelledby="accessGateTitle">
+    <div class="access-gate__glow access-gate__glow--one" aria-hidden="true"></div>
+    <div class="access-gate__glow access-gate__glow--two" aria-hidden="true"></div>
+    <div class="access-gate__grid" aria-hidden="true"></div>
+    <div class="access-gate__card">
+      <div class="access-gate__symbol" aria-hidden="true">
+        <img src="icons/lock.svg" alt="">
+      </div>
+      <p class="access-gate__eyebrow">ДОСТУП К МАТЕРИАЛАМ</p>
+      <h1 id="accessGateTitle">Генераторы<br><span>Calltouch</span></h1>
+      <p class="access-gate__copy">Введите пароль, чтобы перейти на сайт</p>
+      <form class="access-gate__form" id="accessGateForm">
+        <label class="access-gate__field" for="accessGatePassword">
+
+          <input id="accessGatePassword" type="password" autocomplete="current-password" placeholder="Пароль" required>
+        </label>
+        <button class="access-gate__submit" type="submit">Открыть генераторы <span aria-hidden="true">→</span></button>
+        <p class="access-gate__error" id="accessGateError" role="alert" hidden>Пароль не подошёл. Попробуйте ещё раз.</p>
+      </form>
+    </div>
+  </section>
+  <div class="app-frame">
+    <header class="app-toolbar">
+      <a class="app-brand" href="banners.html" target="_top" aria-label="Calltouch | Генераторы">
+        <span>Calltouch</span>
+        <i class="app-brand__divider" aria-hidden="true"></i>
+        <strong>Генераторы</strong>
+      </a>
+
+      <nav class="tool-tabs" aria-label="Выбор генератора">
+        <a class="tool-tab is-active" href="banners.html" target="_top" data-tool-tab="banners" aria-selected="true">
+          <i data-lucide="image" aria-hidden="true"></i>
+          Баннеры
+        </a>
+        <a class="tool-tab" href="cases.html" target="_top" data-tool-tab="cases" aria-selected="false">
+          <i data-lucide="layout-template" aria-hidden="true"></i>
+          Карточки кейсов
+        </a>
+        <a class="tool-tab" href="email.html" target="_top">
+          <i data-lucide="mail" aria-hidden="true"></i>
+          Рассылки
+        </a>
+        <span class="tool-tab tool-tab--coming" aria-disabled="true">
+          <i data-lucide="presentation" aria-hidden="true"></i>
+          Презентации
+          <small>СКОРО. а может и нет</small>
+        </span>
+      </nav>
+
+      <button class="mobile-controls-toggle" id="mobileControlsToggle" type="button" aria-expanded="false" aria-controls="casesView bannersView">
+        <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
+        <span id="mobileControlsLabel">Настройки</span>
+      </button>
+
+      <div class="app-toolbar__actions">
+        <div id="caseToolbarExport">
+          <button class="export-button export-button--toolbar export-button--one-x" id="caseExportOneButton" type="button">
+            <span class="export-button__label">Экспорт JPG</span>
+          </button>
+          <button class="export-button export-button--toolbar" id="exportButton" type="button">
+            <span class="export-button__label">Экспорт JPG 2x</span>
+          </button>
+        </div>
+        <div id="bannerToolbarExport" hidden>
+          <button class="export-button export-button--toolbar export-button--one-x" id="bannerExportTopOneButton" type="button">
+            Экспорт JPG
+          </button>
+          <button class="export-button export-button--toolbar" id="bannerExportTopButton" type="button">
+            Экспорт JPG 2x
+          </button>
+        </div>
+      </div>
+    </header>
+    <button class="mobile-controls-scrim" id="mobileControlsScrim" type="button" tabindex="-1" aria-label="Закрыть настройки"></button>
+
+    <section class="generator-view" id="casesView" data-tool-view="cases" hidden>
+      <div class="app-shell">
+        <aside class="control-panel" aria-label="Панель управления карточкой">
+          <header class="control-panel__header">
+            <p class="control-panel__eyebrow">Calltouch</p>
+            <h1>Генератор карточек кейсов</h1>
+            <p>Заполните данные — слайд справа обновится автоматически.</p>
+          </header>
+
+          <form class="editor-form" id="editorForm" autocomplete="off">
+            <section class="form-section form-section--appearance">
+              <h2><i data-lucide="sun" aria-hidden="true"></i>Режим</h2>
+
+              <label class="toggle-row" for="lightThemeToggle">
+                <span>
+                  <strong>Белая тема</strong>
+                  <small>Светлый интерфейс и светлая версия слайда</small>
+                </span>
+                <input id="lightThemeToggle" type="checkbox" role="switch" checked>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Композиция</span>
+                <select id="caseCompositionSelect">
+                  <option value="standard" selected>Стандартная</option>
+                  <option value="cards">Карточки данных</option>
+                </select>
+                <span class="field__hint">Компания, задача и инструмент — компактными карточками</span>
+              </label>
+            </section>
+
+            <section class="form-section">
+              <h2><i data-lucide="type" aria-hidden="true"></i>Содержание</h2>
+
+              <label class="field">
+                <span class="field__label">Краткое содержание</span>
+                <textarea id="summaryInput" rows="7" maxlength="520" data-output="summaryOutput">Сеть клиник ОЛМЕД хотела получать больше записей по приоритетным направлениям без покупки нового трафика. С помощью CDP Calltouch посетителей сегментировали и показывали им персональные поп-апы. За шесть месяцев инструмент принес 154 записи по 406 ₽ за качественный лид.</textarea>
+                <span class="field__counter" data-counter-for="summaryInput"></span>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Компания</span>
+                <textarea id="companyInput" rows="3" maxlength="90" data-output="companyOutput">ОЛМЕД</textarea>
+                <span class="field__counter" data-counter-for="companyInput"></span>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Задача</span>
+                <textarea id="taskInput" rows="4" maxlength="260" data-output="taskOutput">Увеличить число записей по приоритетным медицинским направлениям без привлечения нового трафика.</textarea>
+                <span class="field__counter" data-counter-for="taskInput"></span>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Инструмент</span>
+                <textarea id="toolInput" rows="2" maxlength="72" data-output="toolOutput">CDP Calltouch</textarea>
+                <span class="field__counter" data-counter-for="toolInput"></span>
+              </label>
+            </section>
+
+            <section class="form-section">
+              <h2><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i>Результаты</h2>
+
+              <div class="result-editor">
+                <p class="result-editor__title">Показатель №1</p>
+                <label class="field field--compact">
+                  <span class="field__label">Значение</span>
+                  <input id="resultValue1Input" type="text" maxlength="20" value="154" data-output="resultValue1Output">
+                </label>
+                <label class="field field--compact">
+                  <span class="field__label">Подпись</span>
+                  <textarea id="resultLabel1Input" rows="2" maxlength="100" data-output="resultLabel1Output">Качественных лида за 6 месяцев</textarea>
+                </label>
+              </div>
+
+              <label class="toggle-row" for="secondResultToggle">
+                <span>
+                  <strong>Второй показатель</strong>
+                  <small>Отключите, чтобы оставить на слайде один результат</small>
+                </span>
+                <input id="secondResultToggle" type="checkbox" role="switch" checked>
+              </label>
+
+              <div class="result-editor" id="secondResultControls">
+                <p class="result-editor__title">Показатель №2</p>
+                <label class="field field--compact">
+                  <span class="field__label">Значение</span>
+                  <input id="resultValue2Input" type="text" maxlength="20" value="406 ₽" data-output="resultValue2Output">
+                </label>
+                <label class="field field--compact">
+                  <span class="field__label">Подпись</span>
+                  <textarea id="resultLabel2Input" rows="2" maxlength="100" data-output="resultLabel2Output">За качественный лид</textarea>
+                </label>
+              </div>
+
+              <label class="toggle-row" id="thirdResultToggleRow" for="thirdResultToggle">
+                <span>
+                  <strong>Третий показатель</strong>
+                  <small>Доступен, когда включён второй показатель</small>
+                </span>
+                <input id="thirdResultToggle" type="checkbox" role="switch">
+              </label>
+
+              <div class="result-editor" id="thirdResultControls" hidden>
+                <p class="result-editor__title">Показатель №3</p>
+                <label class="field field--compact">
+                  <span class="field__label">Значение</span>
+                  <input id="resultValue3Input" type="text" maxlength="20" value="+27%" data-output="resultValue3Output">
+                </label>
+                <label class="field field--compact">
+                  <span class="field__label">Подпись</span>
+                  <textarea id="resultLabel3Input" rows="2" maxlength="100" data-output="resultLabel3Output">К конверсии приоритетных страниц</textarea>
+                </label>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <h2><i data-lucide="image" aria-hidden="true"></i>Фон</h2>
+
+              <fieldset class="background-picker">
+                <legend class="visually-hidden">Выбор фонового изображения</legend>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-1.webp'); --thumb-light: url('backgrounds-light/prez-bg-1.png')"><input type="radio" name="background" value="1" checked><span>01</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-2.webp'); --thumb-light: url('backgrounds-light/prez-bg-2.png')"><input type="radio" name="background" value="2"><span>02</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-3.webp'); --thumb-light: url('backgrounds-light/prez-bg-3.png')"><input type="radio" name="background" value="3"><span>03</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-4.webp'); --thumb-light: url('backgrounds-light/prez-bg-4.png')"><input type="radio" name="background" value="4"><span>04</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-5.webp'); --thumb-light: url('backgrounds-light/prez-bg-5.png')"><input type="radio" name="background" value="5"><span>05</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-6.webp'); --thumb-light: url('backgrounds-light/prez-bg-6.png')"><input type="radio" name="background" value="6"><span>06</span></label>
+              </fieldset>
+
+              <p class="background-note" id="backgroundNote">Используются изображения из папки <code>backgrounds</code>.</p>
+
+              <label class="toggle-row" for="backgroundShadeToggle">
+                <span>
+                  <strong>Скорректировать фон на 30%</strong>
+                  <small>В тёмной теме затемняет, в светлой высветляет фон</small>
+                </span>
+                <input id="backgroundShadeToggle" type="checkbox" role="switch" checked>
+              </label>
+            </section>
+          </form>
+        </aside>
+
+        <main class="workspace">
+          <header class="workspace__header">
+            <div>
+              <p>Предпросмотр</p>
+              <strong>1920 × 1080 px</strong>
+            </div>
+            <div class="workspace__actions">
+              <span id="scaleIndicator">Масштаб 100%</span>
+            </div>
+          </header>
+
+          <div class="preview-area" id="previewArea">
+            <div class="preview-shell" id="previewShell">
+              <div class="slide-scaler" id="slideScaler">
+                <article class="case-slide" id="caseSlide" aria-label="Карточка кейса Calltouch">
+                  <div class="case-slide__background" aria-hidden="true"></div>
+                  <div class="case-slide__content">
+                    <section class="story-column">
+                      <p class="summary-text" id="summaryOutput">Сеть клиник ОЛМЕД хотела получать больше записей по приоритетным направлениям без покупки нового трафика. С помощью CDP Calltouch посетителей сегментировали и показывали им персональные поп-апы. За шесть месяцев инструмент принес 154 записи по 406 ₽ за качественный лид.</p>
+                      <div class="meta-grid">
+                        <div class="meta-block meta-block--company">
+                          <p class="meta-label">КОМПАНИЯ</p>
+                          <p class="company-name" id="companyOutput">ОЛМЕД</p>
+                        </div>
+                        <div class="meta-block meta-block--task">
+                          <p class="meta-label">ЗАДАЧА</p>
+                          <p class="task-text" id="taskOutput">Увеличить число записей по приоритетным медицинским направлениям без привлечения нового трафика.</p>
+                        </div>
+                      </div>
+                      <div class="tool-block">
+                        <p class="meta-label">ИНСТРУМЕНТ</p>
+                        <p class="tool-name" id="toolOutput">CDP Calltouch</p>
+                      </div>
+                    </section>
+
+                    <section class="results-column">
+                      <p class="results-heading">РЕЗУЛЬТАТ</p>
+                      <div class="results-list results-count-2" id="resultsList">
+                        <article class="result-card">
+                          <p class="result-value" id="resultValue1Output">154</p>
+                          <p class="result-label" id="resultLabel1Output">Качественных лида за 6 месяцев</p>
+                        </article>
+                        <article class="result-card" id="secondResultCard">
+                          <p class="result-value" id="resultValue2Output">406 ₽</p>
+                          <p class="result-label" id="resultLabel2Output">За качественный лид</p>
+                        </article>
+                        <article class="result-card" id="thirdResultCard" hidden>
+                          <p class="result-value" id="resultValue3Output">+27%</p>
+                          <p class="result-label" id="resultLabel3Output">К конверсии приоритетных страниц</p>
+                        </article>
+                      </div>
+                    </section>
+                  </div>
+                </article>
+              </div>
+            </div>
+            <button class="canvas-center-button" id="caseCenterCanvasButton" type="button" hidden>
+              <i data-lucide="crosshair" aria-hidden="true"></i>
+              К центру
+            </button>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <section class="generator-view is-active" id="bannersView" data-tool-view="banners">
+      <div class="app-shell app-shell--banners">
+        <aside class="control-panel" aria-label="Панель управления баннером">
+          <header class="control-panel__header">
+            <p class="control-panel__eyebrow">Calltouch</p>
+            <h1>Генератор баннеров</h1>
+            <p>Один набор данных — семь готовых размеров.</p>
+            <label class="toggle-row control-panel__theme-toggle" for="bannerLightThemeToggle">
+              <span><strong><i data-lucide="sun" aria-hidden="true"></i>Светлая тема</strong><small>Светлый фон и тёмный текст</small></span>
+              <input id="bannerLightThemeToggle" type="checkbox" role="switch" checked>
+            </label>
+          </header>
+
+          <form class="editor-form" id="bannerForm" autocomplete="off">
+            <section class="form-section">
+              <h2><i data-lucide="type" aria-hidden="true"></i>Содержание</h2>
+
+              <label class="field">
+                <span class="field__label">Заголовок</span>
+                <div class="banner-rich-editor-shell">
+                  <div id="bannerTitleInput" class="banner-rich-editor" contenteditable="true" spellcheck="false" tabindex="0" role="textbox" aria-multiline="true" data-banner-rich-editor="true" data-banner-path="content.title" data-maxlength="160"></div>
+                  <div class="banner-inline-toolbar" data-banner-inline-toolbar="bannerTitleInput" aria-label="Форматирование заголовка">
+                    <button class="banner-rich-tool banner-rich-tool--cyan" type="button" data-banner-format-command="cyan" data-banner-format-editor="bannerTitleInput" title="Голубой акцент" aria-label="Голубой акцент"><span>A</span></button>
+                    <button class="banner-rich-tool banner-rich-tool--purple" type="button" data-banner-format-command="purple" data-banner-format-editor="bannerTitleInput" title="Пурпурный акцент" aria-label="Пурпурный акцент"><span>A</span></button>
+                    <button class="banner-rich-tool banner-rich-tool--pill-cyan" type="button" data-banner-format-command="pill-cyan" data-banner-format-editor="bannerTitleInput" title="Голубая плашка с белым текстом" aria-label="Голубая плашка с белым текстом"><span>A</span></button>
+                    <button class="banner-rich-tool banner-rich-tool--pill-purple" type="button" data-banner-format-command="pill-purple" data-banner-format-editor="bannerTitleInput" title="Пурпурная плашка с белым текстом" aria-label="Пурпурная плашка с белым текстом"><span>A</span></button>
+                  </div>
+                </div>
+                <span class="field__hint">Выделите слова и нажмите нужный цвет. Повторное нажатие снимает оформление.</span>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Стиль заголовка</span>
+                <select data-banner-path="content.titleStyle">
+                  <option value="dela">Акцентный, прописными</option>
+                  <option value="museo">Спокойный, обычный регистр</option>
+                </select>
+              </label>
+
+              <label class="toggle-row" for="bannerSubtitleToggle">
+                <span><strong><i data-lucide="text-quote" aria-hidden="true"></i>Подзаголовок</strong><small>Пояснение или основной оффер</small></span>
+                <input id="bannerSubtitleToggle" type="checkbox" role="switch" data-banner-path="content.subtitleEnabled" checked>
+              </label>
+              <label class="field" id="bannerSubtitleSettings">
+                <span class="field__label">Текст подзаголовка</span>
+                <div class="banner-rich-editor-shell">
+                  <div id="bannerSubtitleInput" class="banner-rich-editor" contenteditable="true" spellcheck="false" tabindex="0" role="textbox" aria-multiline="true" data-banner-rich-editor="true" data-banner-path="content.subtitle" data-maxlength="280"></div>
+                  <div class="banner-inline-toolbar" data-banner-inline-toolbar="bannerSubtitleInput" aria-label="Форматирование подзаголовка">
+                    <button class="banner-rich-tool banner-rich-tool--cyan" type="button" data-banner-format-command="cyan" data-banner-format-editor="bannerSubtitleInput" title="Голубой акцент" aria-label="Голубой акцент"><span>A</span></button>
+                    <button class="banner-rich-tool banner-rich-tool--purple" type="button" data-banner-format-command="purple" data-banner-format-editor="bannerSubtitleInput" title="Пурпурный акцент" aria-label="Пурпурный акцент"><span>A</span></button>
+                    <button class="banner-rich-tool banner-rich-tool--pill-cyan" type="button" data-banner-format-command="pill-cyan" data-banner-format-editor="bannerSubtitleInput" title="Голубая плашка с белым текстом" aria-label="Голубая плашка с белым текстом"><span>A</span></button>
+                    <button class="banner-rich-tool banner-rich-tool--pill-purple" type="button" data-banner-format-command="pill-purple" data-banner-format-editor="bannerSubtitleInput" title="Пурпурная плашка с белым текстом" aria-label="Пурпурная плашка с белым текстом"><span>A</span></button>
+                  </div>
+                </div>
+              </label>
+
+              <div class="field-group">
+                <label class="toggle-row" for="bannerLabel1Toggle">
+                  <span><strong><i data-lucide="tag" aria-hidden="true"></i>Плашка №1</strong></span>
+                  <input id="bannerLabel1Toggle" type="checkbox" role="switch" data-banner-path="content.label1.enabled" checked>
+                </label>
+                <div class="inline-fields" id="bannerLabel1Settings">
+                  <label class="field"><span class="field__label">Текст</span><input type="text" maxlength="48" data-banner-path="content.label1.text" value="Вебинар"></label>
+                  <label class="field"><span class="field__label">Оформление</span><div class="chip-style-select" data-chip-style-select><select class="visually-hidden" data-banner-path="content.label1.style" aria-hidden="true" tabindex="-1"><option value="graphiteFill" selected>Графитовая заливка</option><option value="graphiteOutline">Графитовый контур</option><option value="white">Белая заливка</option><option value="glass">Серо-голубая прозрачная</option></select><button class="chip-style-select__trigger" type="button" data-chip-style-trigger aria-haspopup="listbox" aria-expanded="false"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg><span data-chip-style-label></span><svg class="chip-style-select__chevron" aria-hidden="true" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" /></svg></button><div class="chip-style-select__menu" data-chip-style-menu role="listbox" hidden><button type="button" role="option" data-chip-style-option data-value="graphiteFill"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg>Графитовая заливка</button><button type="button" role="option" data-chip-style-option data-value="graphiteOutline"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg>Графитовый контур</button><button type="button" role="option" data-chip-style-option data-value="white"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg>Белая заливка</button><button type="button" role="option" data-chip-style-option data-value="glass"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg>Серо-голубая прозрачная</button></div></div></label>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="toggle-row" for="bannerLabel2Toggle">
+                  <span><strong><i data-lucide="tag" aria-hidden="true"></i>Плашка №2</strong></span>
+                  <input id="bannerLabel2Toggle" type="checkbox" role="switch" data-banner-path="content.label2.enabled">
+                </label>
+                <div class="inline-fields" id="bannerLabel2Settings">
+                  <label class="field"><span class="field__label">Текст</span><input type="text" maxlength="48" data-banner-path="content.label2.text" value="15 августа"></label>
+                  <label class="field"><span class="field__label">Оформление</span><div class="chip-style-select" data-chip-style-select><select class="visually-hidden" data-banner-path="content.label2.style" aria-hidden="true" tabindex="-1"><option value="graphiteFill">Графитовая заливка</option><option value="graphiteOutline" selected>Графитовый контур</option><option value="white">Белая заливка</option><option value="glass">Серо-голубая прозрачная</option></select><button class="chip-style-select__trigger" type="button" data-chip-style-trigger aria-haspopup="listbox" aria-expanded="false"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg><span data-chip-style-label></span><svg class="chip-style-select__chevron" aria-hidden="true" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" /></svg></button><div class="chip-style-select__menu" data-chip-style-menu role="listbox" hidden><button type="button" role="option" data-chip-style-option data-value="graphiteFill"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg>Графитовая заливка</button><button type="button" role="option" data-chip-style-option data-value="graphiteOutline"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg>Графитовый контур</button><button type="button" role="option" data-chip-style-option data-value="white"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg>Белая заливка</button><button type="button" role="option" data-chip-style-option data-value="glass"><svg class="chip-style-select__swatch" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /></svg>Серо-голубая прозрачная</button></div></div></label>
+                </div>
+              </div>
+
+              <label class="toggle-row" for="bannerButtonToggle">
+                <span><strong><i data-lucide="mouse-pointer-click" aria-hidden="true"></i>Кнопка</strong><small>Призыв к действию</small></span>
+                <input id="bannerButtonToggle" type="checkbox" role="switch" data-banner-path="content.button.enabled" checked>
+              </label>
+              <div class="field-stack" id="bannerButtonSettings">
+                <label class="field"><span class="field__label">Текст кнопки</span><input type="text" maxlength="48" data-banner-path="content.button.text" value="Зарегистрироваться"></label>
+                <div class="inline-fields">
+                  <label class="field"><span class="field__label">Стиль</span><select data-banner-path="content.button.style"><option value="filled">Заливка</option><option value="outline">Контур</option><option value="ghost">Без рамки</option></select></label>
+                  <label class="field"><span class="field__label">Цвет</span><select data-banner-path="content.button.color"><option value="cyan" selected>Циановый</option><option value="purple">Пурпурный</option></select></label>
+                </div>
+              </div>
+              <label class="field field--shared-radius">
+                <span class="field__label">Скругление плашек и кнопки</span>
+                <select data-banner-path="content.button.radius"><option value="small">Небольшое</option><option value="pill">Капсула</option></select>
+                <span class="field__hint">Общая настройка: применяется к плашкам и кнопке, даже когда кнопка скрыта.</span>
+              </label>
+            </section>
+
+            <section class="form-section">
+              <h2><i data-lucide="badge-check" aria-hidden="true"></i>Брендинг</h2>
+
+              <label class="field">
+                <span class="field__label">Тема баннера</span>
+                <select data-banner-path="branding.theme">
+                  <option value="dark">Тёмная</option>
+                  <option value="light" selected>Светлая</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Акцент</span>
+                <select data-banner-path="branding.accentStyle">
+                  <option value="cyan" selected>Циановый</option>
+                  <option value="gradient">Циан → пурпур</option>
+                </select>
+              </label>
+
+              <label class="toggle-row" for="bannerLogoToggle">
+                <span><strong><i data-lucide="badge" aria-hidden="true"></i>Логотип</strong><small>Автоматически подстраивается под тему</small></span>
+                <input id="bannerLogoToggle" type="checkbox" role="switch" data-banner-path="branding.logoEnabled" checked>
+              </label>
+              <label class="field" id="bannerLogoSettings">
+                <span class="field__label">Вариант логотипа</span>
+                <select data-banner-path="branding.logoMode">
+                  <option value="auto">Автоматически</option>
+                  <option value="light">Светлый</option>
+                  <option value="dark">Тёмный</option>
+                  <option value="color">Цветной</option>
+                </select>
+              </label>
+            </section>
+
+            <section class="form-section">
+              <h2><i data-lucide="image" aria-hidden="true"></i>Фон баннера</h2>
+
+              <fieldset class="background-picker">
+                <legend class="visually-hidden">Выбор фонового изображения баннера</legend>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-1.webp'); --thumb-light: url('backgrounds-light/prez-bg-1.png')"><input type="radio" name="bannerBackground" value="1" checked><span>01</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-2.webp'); --thumb-light: url('backgrounds-light/prez-bg-2.png')"><input type="radio" name="bannerBackground" value="2"><span>02</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-3.webp'); --thumb-light: url('backgrounds-light/prez-bg-3.png')"><input type="radio" name="bannerBackground" value="3"><span>03</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-4.webp'); --thumb-light: url('backgrounds-light/prez-bg-4.png')"><input type="radio" name="bannerBackground" value="4"><span>04</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-5.webp'); --thumb-light: url('backgrounds-light/prez-bg-5.png')"><input type="radio" name="bannerBackground" value="5"><span>05</span></label>
+                <label class="background-option" style="--thumb-dark: url('backgrounds/prez-bg-6.webp'); --thumb-light: url('backgrounds-light/prez-bg-6.png')"><input type="radio" name="bannerBackground" value="6"><span>06</span></label>
+              </fieldset>
+
+              <div class="field file-upload-field">
+                <span class="field__label">Свой фон</span>
+                <label class="file-upload-control">
+                  <input id="bannerCustomBackgroundInput" type="file" accept="image/*">
+                  <span class="file-upload-control__button"><i data-lucide="upload" aria-hidden="true"></i>Выбрать</span>
+                  <span class="file-upload-control__name" id="bannerCustomBackgroundName">Файл не выбран</span>
+                </label>
+              </div>
+
+              <label class="toggle-row" for="bannerOverlayToggle">
+                <span><strong><i data-lucide="contrast" aria-hidden="true"></i>Коррекция фона</strong><small>Всегда 30%: затемняет или высветляет изображение</small></span>
+                <input id="bannerOverlayToggle" type="checkbox" role="switch" data-banner-path="visual.overlayEnabled" checked>
+              </label>
+            </section>
+
+            <section class="form-section form-section--keyvisual">
+              <h2><i data-lucide="sparkles" aria-hidden="true"></i>Кей-вижуал</h2>
+              <p class="form-section__hint">Главный объект баннера: подберите его по тексту или выберите вручную.</p>
+              <label class="toggle-row" for="bannerVisualToggle">
+                <span><strong><i data-lucide="sparkles" aria-hidden="true"></i>Основное изображение</strong><small>Подбирается автоматически или вручную</small></span>
+                <input id="bannerVisualToggle" type="checkbox" role="switch" data-banner-path="visual.enabled" checked>
+              </label>
+              <div class="field-stack" id="bannerVisualSettings">
+                <div class="field file-upload-field">
+                  <span class="field__label">Своя картинка</span>
+                  <label class="file-upload-control">
+                    <input id="bannerCustomVisualInput" type="file" accept="image/*">
+                    <span class="file-upload-control__button"><i data-lucide="upload" aria-hidden="true"></i>Выбрать</span>
+                    <span class="file-upload-control__name" id="bannerCustomVisualName">Файл не выбран</span>
+                  </label>
+                </div>
+                <label class="field">
+                  <span class="field__label">Способ выбора</span>
+                  <select data-banner-path="visual.mode"><option value="auto">Автоматически</option><option value="manual">Вручную</option><option value="custom">Своя картинка</option></select>
+                </label>
+                <p class="selection-note" id="bannerAutoVisualNote"></p>
+                <section class="field field--visual-picker" id="bannerManualVisualSettings" hidden>
+                  <span class="field__label">Изображение</span>
+                  <div class="visual-picker" id="bannerVisualPicker" role="radiogroup" aria-label="Выбор изображения"></div>
+                </section>
+
+                <div class="range-group">
+                  <div class="range-group__header"><span>Размер изображения</span><output id="bannerVisualScaleValue">100%</output></div>
+                  <input id="bannerVisualScaleInput" type="range" min="60" max="160" step="1" value="100" data-banner-path="visual.scale">
+                </div>
+                <div class="range-group">
+                  <div class="range-group__header"><span>Положение по горизонтали</span><output id="bannerVisualXValue">0</output></div>
+                  <input id="bannerVisualXInput" type="range" min="-520" max="520" step="4" value="0">
+                </div>
+                <div class="range-group">
+                  <div class="range-group__header"><span>Положение по вертикали</span><output id="bannerVisualYValue">0</output></div>
+                  <input id="bannerVisualYInput" type="range" min="-520" max="520" step="4" value="0">
+                </div>
+                <small class="field__hint" id="bannerPositionFormatLabel">Настройка для формата «Квадрат»</small>
+                <p class="selection-note" id="bannerVisualQualityNote">Проверяем исходное разрешение…</p>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <h2><i data-lucide="sliders-horizontal" aria-hidden="true"></i>Компоновка</h2>
+
+              <label class="field"><span class="field__label">Схема</span><select data-banner-path="layout.composition"><option value="classic">Классическая</option><option value="alternate">Альтернативная</option></select></label>
+              <label class="field"><span class="field__label">Выравнивание текста</span><select data-banner-path="layout.textAlign"><option value="left">По левому краю</option><option value="center">По центру</option><option value="right">По правому краю</option></select></label>
+              <label class="field"><span class="field__label">По вертикали</span><select data-banner-path="layout.verticalAlign"><option value="start">Сверху</option><option value="center" selected>По центру</option><option value="end">Снизу</option></select></label>
+
+              <div class="range-group">
+                <div class="range-group__header"><span>Ширина текста</span><output id="bannerContentWidthValue">92%</output></div>
+                <input type="range" min="55" max="100" step="1" value="92" data-banner-path="layout.contentWidth">
+              </div>
+              <div class="range-group">
+                <div class="range-group__header"><span>Поля</span><output id="bannerPaddingValue">72</output></div>
+                <input type="range" min="48" max="120" step="4" value="72" data-banner-path="layout.padding">
+              </div>
+              <div class="range-group">
+                <div class="range-group__header"><span>Интервалы</span><output id="bannerGapValue">32</output></div>
+                <input type="range" min="16" max="64" step="4" value="32" data-banner-path="layout.gap">
+              </div>
+
+              <div class="range-group">
+                <div class="range-group__header"><span>Размер текста</span><output id="bannerFontScaleValue">100%</output></div>
+                <input type="range" min="70" max="130" step="1" value="100" data-banner-path="layout.fontScale">
+              </div>
+
+              <div class="banner-format-overrides">
+                <label class="toggle-row" for="bannerFormatLockToggle">
+                  <span><strong><i data-lucide="lock-keyhole" aria-hidden="true"></i>Индивидуальный размер текста</strong><small>Включите, чтобы настроить только этот формат</small></span>
+                  <input id="bannerFormatLockToggle" type="checkbox" role="switch">
+                </label>
+                <div class="range-group banner-format-overrides__range">
+                  <div class="range-group__header"><span>Размер текста этого формата</span><output id="bannerFontScaleOverrideValue">100%</output></div>
+                  <input id="bannerFontScaleOverrideInput" type="range" min="70" max="130" step="1" value="100">
+                </div>
+                <p class="selection-note" id="bannerFormatOverrideNote">Размер текста следует общему ползунку.</p>
+
+                <div class="banner-format-overrides__visual" id="bannerVisualScaleOverrideSettings">
+                  <label class="toggle-row" for="bannerVisualScaleOverrideToggle">
+                    <span><strong><i data-lucide="image-up" aria-hidden="true"></i>Индивидуальный размер картинки</strong><small>Настройка только для выбранного формата</small></span>
+                    <input id="bannerVisualScaleOverrideToggle" type="checkbox" role="switch">
+                  </label>
+                  <div class="range-group banner-format-overrides__range">
+                    <div class="range-group__header"><span>Размер картинки этого формата</span><output id="bannerVisualScaleOverrideValue">100%</output></div>
+                    <input id="bannerVisualScaleOverrideInput" type="range" min="60" max="160" step="1" value="100">
+                  </div>
+                  <p class="selection-note" id="bannerVisualScaleOverrideNote">Размер картинки следует общему ползунку.</p>
+                </div>
+              </div>
+
+              <label class="toggle-row" for="bannerTextCoverageToggle">
+                <span><strong><i data-lucide="shield-check" aria-hidden="true"></i>Лимит текста для площадок</strong><small>Не более 20% площади баннера</small></span>
+                <input id="bannerTextCoverageToggle" type="checkbox" role="switch" data-banner-path="compliance.limitTextCoverage">
+              </label>
+              <p class="selection-note" id="bannerTextCoverageStatus">Текст на баннере: —</p>
+
+            </section>
+
+            <details class="form-section form-section--collapsible animation-panel" id="bannerAnimationPanel">
+              <summary class="form-section__summary">
+                <span><i data-lucide="clapperboard" aria-hidden="true"></i>Анимация</span>
+                <i class="form-section__chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+              </summary>
+
+              <div class="animation-panel__content">
+                <div class="animation-panel__body">
+                <p class="form-section__hint">До 6 секунд. Текстовые элементы появляются по очереди из прозрачности и смещённой точки, а кей-вижуал плавно покачивается по зацикленной траектории.</p>
+
+                <div class="animation-transport" aria-label="Управление предпросмотром анимации">
+                  <button class="animation-transport__button animation-transport__button--primary" id="bannerAnimationPlayButton" type="button">
+                    <i class="animation-icon--play" data-lucide="play" aria-hidden="true"></i>
+                    <i class="animation-icon--pause" data-lucide="pause" aria-hidden="true"></i>
+                    <span>Запустить</span>
+                  </button>
+                  <button class="animation-transport__button" id="bannerAnimationRestartButton" type="button" title="С начала" aria-label="Запустить с начала">
+                    <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+                  </button>
+                  <output class="animation-transport__time" id="bannerAnimationTime">0.0 / 4.0 с</output>
+                </div>
+
+                <label class="animation-timeline">
+                  <span class="field__label">Таймлайн</span>
+                  <input id="bannerAnimationTimeline" type="range" min="0" max="4000" step="10" value="0" aria-label="Позиция анимации">
+                </label>
+
+                <div class="range-group">
+                  <div class="range-group__header"><span>Длительность</span><output id="bannerAnimationDurationValue">4.0 с</output></div>
+                  <input type="range" min="1" max="6" step="0.1" value="4" data-banner-path="animation.duration">
+                </div>
+
+                <div class="animation-panel__subsection">
+                  <div class="animation-panel__subheading"><i data-lucide="captions" aria-hidden="true"></i><span>Появление текста</span></div>
+                  <label class="field">
+                    <span class="field__label">Направление</span>
+                    <select data-banner-path="animation.entranceDirection">
+                      <option value="up">Снизу вверх · Fade in up</option>
+                      <option value="left">Справа налево · Fade in left</option>
+                      <option value="down">Сверху вниз · Fade in down</option>
+                      <option value="right">Слева направо · Fade in right</option>
+                    </select>
+                  </label>
+                  <div class="range-group">
+                    <div class="range-group__header"><span>Минимальное смещение</span><output id="bannerEntranceOffsetMinValue">40 px</output></div>
+                    <input type="range" min="0" max="200" step="5" value="40" data-banner-path="animation.entranceOffsetMin">
+                  </div>
+                  <div class="range-group">
+                    <div class="range-group__header"><span>Максимальное смещение</span><output id="bannerEntranceOffsetMaxValue">120 px</output></div>
+                    <input type="range" min="20" max="360" step="10" value="120" data-banner-path="animation.entranceOffsetMax">
+                  </div>
+                  <div class="range-group">
+                    <div class="range-group__header"><span>Задержка между элементами</span><output id="bannerEntranceStaggerValue">0.12 с</output></div>
+                    <input type="range" min="0.04" max="0.8" step="0.02" value="0.12" data-banner-path="animation.entranceStagger">
+                  </div>
+                </div>
+
+                <div class="animation-panel__subsection">
+                  <div class="animation-panel__subheading"><i data-lucide="move-3d" aria-hidden="true"></i><span>Покачивание изображения</span></div>
+                  <div class="range-group">
+                    <div class="range-group__header"><span>Скорость</span><output id="bannerSwaySpeedValue">0.6 цик./с</output></div>
+                    <input type="range" min="0.2" max="2" step="0.1" value="0.6" data-banner-path="animation.swaySpeed">
+                  </div>
+                  <div class="range-group">
+                    <div class="range-group__header"><span>Смещение</span><output id="bannerSwayPositionValue">24 px</output></div>
+                    <input type="range" min="0" max="100" step="2" value="24" data-banner-path="animation.swayPosition">
+                  </div>
+                  <div class="range-group">
+                    <div class="range-group__header"><span>Поворот</span><output id="bannerSwayRotationValue">3°</output></div>
+                    <input type="range" min="0" max="15" step="0.5" value="3" data-banner-path="animation.swayRotation">
+                  </div>
+                  <div class="range-group">
+                    <div class="range-group__header"><span>Масштаб</span><output id="bannerSwayScaleValue">4%</output></div>
+                    <input type="range" min="0" max="20" step="1" value="4" data-banner-path="animation.swayScale">
+                  </div>
+                </div>
+
+                <label class="toggle-row" for="bannerAnimationLoopToggle">
+                  <span><strong><i data-lucide="repeat-2" aria-hidden="true"></i>Зациклить предпросмотр</strong><small>После конца таймлайн начинается заново</small></span>
+                  <input id="bannerAnimationLoopToggle" type="checkbox" role="switch" data-banner-path="animation.loop" checked>
+                </label>
+
+                <div class="animation-panel__export">
+                  <button class="panel-button panel-button--primary" id="bannerExportCurrentMp4Button" type="button">Скачать текущий MP4</button>
+                  <button class="panel-button" id="bannerExportAllMp4Button" type="button">Скачать все MP4 в ZIP</button>
+                  <p class="animation-panel__support" id="bannerMp4SupportStatus">Проверяем поддержку MP4 в браузере…</p>
+                </div>
+                </div>
+              </div>
+            </details>
+
+            <section class="form-section">
+              <h2><i data-lucide="files" aria-hidden="true"></i>Пакетный экспорт</h2>
+              <button class="panel-button" id="bannerExportAllButton" type="button">Скачать семь размеров в ZIP</button>
+              <button class="panel-button panel-button--quiet" id="bannerResetButton" type="button">Сбросить настройки</button>
+            </section>
+          </form>
+        </aside>
+
+        <main class="workspace banner-workspace" id="bannerWorkspace">
+          <header class="workspace__header workspace__header--banners">
+            <div>
+              <p>Семь размеров</p>
+              <strong id="bannerSizeLabel">Выбран: квадрат 1080 × 1080 px</strong>
+            </div>
+            <div class="workspace__actions workspace__actions--banners">
+              <span id="bannerScaleIndicator">Нажмите на размер, чтобы настроить его</span>
+              <div class="banner-template-toolbar" id="bannerTemplateToolbar">
+                <button class="workspace-icon-button" id="bannerTemplateMenuButton" type="button" aria-expanded="false" aria-controls="bannerTemplatePopover" title="Шаблоны и черновики">
+                  <i data-lucide="layout-template" aria-hidden="true"></i>
+                  <span>Шаблоны</span>
+                </button>
+                <div class="banner-template-popover" id="bannerTemplatePopover" hidden>
+                  <div class="banner-template-popover__heading">
+                    <div><strong>Шаблоны и черновики</strong><small>Сохраняются здесь или передаются JSON-файлом</small></div>
+                    <button class="banner-template-popover__close" id="bannerTemplatePopoverClose" type="button" aria-label="Закрыть шаблоны">×</button>
+                  </div>
+                  <label class="field">
+                    <span class="field__label">Название черновика</span>
+                    <input id="bannerTemplateNameInput" type="text" maxlength="80" value="Мой баннер">
+                  </label>
+                  <div class="banner-template-actions">
+                    <button class="panel-button panel-button--primary" id="bannerSaveDraftButton" type="button"><i data-lucide="save" aria-hidden="true"></i>Сохранить</button>
+                    <button class="panel-button" id="bannerLoadDraftButton" type="button"><i data-lucide="folder-open" aria-hidden="true"></i>Открыть</button>
+                  </div>
+                  <label class="field">
+                    <span class="field__label">Черновик на этом устройстве</span>
+                    <select id="bannerDraftSelect"><option value="">Нет сохранённых черновиков</option></select>
+                  </label>
+                  <div class="banner-template-actions">
+                    <button class="panel-button" id="bannerExportTemplateButton" type="button"><i data-lucide="download" aria-hidden="true"></i>Скачать JSON</button>
+                    <button class="panel-button" id="bannerImportTemplateButton" type="button"><i data-lucide="upload" aria-hidden="true"></i>Загрузить JSON</button>
+                    <input id="bannerImportTemplateInput" type="file" accept="application/json,.json" hidden>
+                  </div>
+                  <p class="banner-template-status" id="bannerTemplateStatus">В JSON встроятся свои фон и картинка.</p>
+                </div>
+              </div>
+              <label class="mobile-format-select" for="mobileBannerFormat">
+                <span>Формат</span>
+                <select id="mobileBannerFormat">
+                  <option value="landscape">Широкий · 1920 × 1080</option>
+                  <option value="square" selected>Квадрат · 1080 × 1080</option>
+                  <option value="story">История · 1080 × 1920</option>
+                  <option value="portrait">Портрет · 1080 × 1350</option>
+                  <option value="ad">Реклама · 1200 × 628</option>
+                  <option value="adCenter">Реклама по центру · 1200 × 628</option>
+                  <option value="adVisual">Реклама без текста · 1200 × 628</option>
+                </select>
+              </label>
+            </div>
+          </header>
+
+          <div class="creative-preview-area" id="creativePreviewArea">
+            <div class="creative-canvas-host" id="creativeCanvasHost"></div>
+            <div class="banner-rich-toolbar banner-rich-toolbar--canvas" id="bannerCanvasRichToolbar" hidden aria-label="Форматирование выделенного текста">
+              <button class="banner-rich-tool banner-rich-tool--cyan" type="button" data-banner-format-command="cyan" title="Голубой акцент" aria-label="Голубой акцент"><span>A</span></button>
+              <button class="banner-rich-tool banner-rich-tool--purple" type="button" data-banner-format-command="purple" title="Пурпурный акцент" aria-label="Пурпурный акцент"><span>A</span></button>
+              <button class="banner-rich-tool banner-rich-tool--pill-cyan" type="button" data-banner-format-command="pill-cyan" title="Голубая плашка с белым текстом" aria-label="Голубая плашка с белым текстом"><span>A</span></button>
+              <button class="banner-rich-tool banner-rich-tool--pill-purple" type="button" data-banner-format-command="pill-purple" title="Пурпурная плашка с белым текстом" aria-label="Пурпурная плашка с белым текстом"><span>A</span></button>
+            </div>
+            <p class="creative-warning" id="creativeWarning" hidden>Текст слишком длинный для безопасной области. Сократите его перед экспортом.</p>
+            <button class="canvas-center-button" id="bannerCenterCanvasButton" type="button" hidden>
+              <i data-lucide="crosshair" aria-hidden="true"></i>
+              К центру
+            </button>
+          </div>
+        </main>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <div class="app-dialog-backdrop" id="bannerResetDialog" hidden>
+    <section class="app-dialog" role="dialog" aria-modal="true" aria-labelledby="bannerResetDialogTitle">
+      <div class="app-dialog__icon"><i data-lucide="rotate-ccw" aria-hidden="true"></i></div>
+      <div class="app-dialog__copy">
+        <p>СБРОС НАСТРОЕК</p>
+        <h2 id="bannerResetDialogTitle">Вернуть исходный шаблон?</h2>
+        <span>Текущие тексты, фон, позиции и закрепления будут заменены начальными значениями.</span>
+      </div>
+      <div class="app-dialog__actions">
+        <button class="panel-button" id="bannerResetDialogCancel" type="button">Оставить как есть</button>
+        <button class="panel-button panel-button--primary" id="bannerResetDialogConfirm" type="button">Сбросить</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="shared/assets.js"></script>
+  <script src="vendor/dom-export.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
