@@ -1,0 +1,39 @@
+name: Deploy to Yandex Cloud Object Storage
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Sync to Yandex Object Storage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Yandex Object Storage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ru-central1
+          BUCKET_NAME: ${{ secrets.YC_BUCKET_NAME || 'calltouch-dsgn' }}
+        run: |
+          aws s3 sync . "s3://$BUCKET_NAME" \
+            --endpoint-url https://storage.yandexcloud.net \
+            --delete \
+            --exclude ".git/*" \
+            --exclude ".github/*" \
+            --exclude ".vscode/*" \
+            --exclude ".DS_Store" \
+            --exclude "*/.DS_Store" \
+            --exclude ".gitignore" \
+            --exclude "README.md" \
+            --exclude "_backups/*" \
+            --exclude "backup-govna/*" \
+            --exclude "references/*" \
+            --exclude "cloud/*" \
+            --exclude "ui-pics/*" \
+            --exclude "_tmp-pngsize.html"
