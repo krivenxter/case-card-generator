@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Иллюстрация Calltouch</title>
+
+<style>
+
+@font-face{font-family:"Museo Cyrl Sans";font-style:normal;font-weight:300;font-display:swap;src:url("assets/fonts/museosanscyrl-300.woff2") format("woff2"),url("../fonts/museosanscyrl-300.woff2") format("woff2"),url("https://calltouch-public.website.yandexcloud.net/fonts/museosanscyrl-300.woff2") format("woff2")}
+
+@font-face{font-family:"Museo Cyrl Sans";font-style:normal;font-weight:500;font-display:swap;src:url("assets/fonts/museosanscyrl-500.woff2") format("woff2"),url("../fonts/museosanscyrl-500.woff2") format("woff2"),url("https://calltouch-public.website.yandexcloud.net/fonts/museosanscyrl-500.woff2") format("woff2")}
+
+@font-face{font-family:"Museo Cyrl Sans";font-style:normal;font-weight:700;font-display:swap;src:url("assets/fonts/museosanscyrl-700.woff2") format("woff2"),url("../fonts/museosanscyrl-700.woff2") format("woff2"),url("https://calltouch-public.website.yandexcloud.net/fonts/museosanscyrl-700.woff2") format("woff2")}
+
+:root{
+
+  --page-bg:#fff;
+
+  --bg:#F2F7FA;
+
+  --frame-bg:var(--bg);
+
+  --plate-bg:#fff;
+
+  --ink:#1F282C;
+
+  --accent:#22B8DE;
+
+  --accent-soft:#B8EAF4;
+
+  --accent-deep:#087FA4;
+
+  --mint:#20A88A;
+
+  --line:#E0EAF0;
+
+  --skeleton:#E4EDF2;
+
+  --card-shadow:0 18px 18px rgba(73,153,190,.22);
+
+  --connector-width:12px;
+
+  --arrowhead-size:24px;
+
+  --ft:"Museo Cyrl Sans",system-ui,sans-serif;
+
+}
+
+*{box-sizing:border-box}
+
+body{margin:0;background:var(--page-bg);font-family:var(--ft);font-weight:500;color:var(--ink)}
+
+.workspace{width:min(100%,960px);margin:0 auto;padding-top:24px}
+
+.scene-frame{position:relative;width:100%;height:420px;overflow:hidden;background:var(--frame-bg);padding:20px 20px 0}
+
+.scene-frame[data-mode="blue-plates"]{--frame-bg:#fff;--plate-bg:#F2F7FA}
+
+.scene-inner{position:relative;width:100%;height:100%;max-width:960px;margin:0 auto}
+
+.surface,.node,.result{position:absolute;background:var(--plate-bg);border:1px solid var(--line);box-shadow:var(--card-shadow);z-index:3}
+
+.node{width:150px;height:74px;border-radius:18px;display:flex;align-items:center;gap:14px;padding:12px 14px}
+
+.node-icon{width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;flex:none}
+
+.node-phone .node-icon,.node-form .node-icon{background:var(--accent)}
+
+.node-message .node-icon{background:#63CDE5}
+
+.node-lines{display:flex;flex-direction:column;gap:8px;flex:1}
+
+.skeleton{height:10px;border-radius:9px;background:var(--skeleton)}
+
+.skeleton.long{width:100%}
+
+.skeleton.medium{width:72%}
+
+.skeleton.short{width:48%}
+
+.node-phone{left:40px;top:62px}
+
+.node-message{left:40px;top:166px}
+
+.node-form{left:40px;top:270px}
+
+.product-window{left:290px;top:42px;width:420px;height:300px;border-radius:24px;overflow:hidden}
+
+.product-top{height:48px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:8px;background:#FAFCFD}
+
+.browser-dot{width:11px;height:11px;border-radius:50%;background:#C8D8E0}
+
+.product-body{height:calc(100% - 48px);display:grid;grid-template-columns:112px 1fr;gap:22px;padding:24px}
+
+.product-symbol{width:112px;height:112px;border-radius:24px;background:linear-gradient(145deg,#B8EAF4 0%,#22B8DE 64%,#087FA4 100%);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 18px 18px rgba(34,184,222,.28)}
+
+.product-content{display:flex;flex-direction:column;justify-content:center;gap:18px}
+
+.product-bars{display:flex;flex-direction:column;gap:12px}
+
+.product-bars .skeleton{height:14px}
+
+.product-status{height:58px;border-radius:18px;background:#E5F7F3;display:flex;align-items:center;justify-content:center;color:var(--mint)}
+
+.result{right:38px;top:150px;width:142px;height:112px;border-radius:18px;display:flex;align-items:center;justify-content:center}
+
+.result-core{width:68px;height:68px;border-radius:18px;background:var(--mint);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 18px 18px rgba(32,168,138,.24)}
+
+.connector-layer{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+
+.connector-path{fill:none;stroke-width:var(--connector-width);stroke-linecap:round;stroke-linejoin:round}
+
+.arrowhead{stroke:none}
+
+.export-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+
+.export-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border-radius:10px;font-family:var(--ft);font-size:13px;font-weight:600;cursor:pointer}
+
+.export-copy{background:#F2F7FA;color:#1F282C;border:1px solid #DDE8EE}
+
+.export-png{background:#22B8DE;color:#fff;border:1px solid #22B8DE}
+
+.theme-toggle{background:#fff;color:#1F282C;border:1px solid #DDE8EE}
+
+.export-btn:focus-visible{outline:3px solid #A8E6F2;outline-offset:2px}
+
+@media(max-width:700px){
+
+  .workspace{padding-top:16px}
+
+  .scene-frame{height:690px;padding:16px 12px 0}
+
+  .scene-inner{height:100%}
+
+  .node{left:calc(50% - 75px);width:150px}
+
+  .node-phone{top:24px}
+
+  .node-message{top:122px}
+
+  .node-form{top:220px}
+
+  .product-window{left:calc(50% - 190px);top:328px;width:380px;height:250px}
+
+  .product-body{grid-template-columns:88px 1fr;gap:16px;padding:18px}
+
+  .product-symbol{width:88px;height:88px}
+
+  .result{top:602px;right:calc(50% - 71px);width:142px;height:70px}
+
+  .result-core{width:50px;height:50px;border-radius:14px}
+
+  .connector-layer{display:none}
+
+  .export-row{margin:16px 12px 0}
+
+  .export-btn{flex:1;justify-content:center;min-width:150px}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<main class="workspace">
+
+  <div id="illus" class="scene-frame" data-mode="white-plates" aria-label="Схематичная иллюстрация сбора обращений">
+
+    <div class="scene-inner">
+
+      <svg class="connector-layer" viewBox="0 0 960 420" preserveAspectRatio="none" aria-hidden="true">
+
+        <defs>
+
+          <linearGradient id="gPhone" x1="0" y1="0" x2="1" y2="0">
+
+            <stop offset="0" stop-color="#B8EAF4"/>
+
+            <stop offset="1" stop-color="#22B8DE"/>
+
+          </linearGradient>
+
+          <linearGradient id="gMessage" x1="0" y1="0" x2="1" y2="0">
+
+            <stop offset="0" stop-color="#C6EEF5"/>
+
+            <stop offset="1" stop-color="#35B8D6"/>
+
+          </linearGradient>
+
+          <linearGradient id="gForm" x1="0" y1="0" x2="1" y2="0">
+
+            <stop offset="0" stop-color="#A9E3F0"/>
+
+            <stop offset="1" stop-color="#149BC0"/>
+
+          </linearGradient>
+
+          <linearGradient id="gResult" x1="0" y1="0" x2="1" y2="0">
+
+            <stop offset="0" stop-color="#B5E8DE"/>
+
+            <stop offset="1" stop-color="#20A88A"/>
+
+          </linearGradient>
+
+        </defs>
+
+        <path class="connector-path" d="M198 99 C232 99 244 99 258 99 C270 99 278 94 282 94" stroke="url(#gPhone)"/>
+
+        <path class="arrowhead" d="M282 82 L306 94 L282 106 Z" fill="#22B8DE"/>
+
+        <path class="connector-path" d="M198 203 C232 203 246 203 260 203 C272 203 278 204 282 204" stroke="url(#gMessage)"/>
+
+        <path class="arrowhead" d="M282 192 L306 204 L282 216 Z" fill="#35B8D6"/>
+
+        <path class="connector-path" d="M198 307 C232 307 246 307 260 307 C272 307 278 314 282 314" stroke="url(#gForm)"/>
+
+        <path class="arrowhead" d="M282 302 L306 314 L282 326 Z" fill="#149BC0"/>
+
+        <path class="connector-path" d="M716 202 C732 202 742 202 754 202" stroke="url(#gResult)"/>
+
+        <path class="arrowhead" d="M754 190 L778 202 L754 214 Z" fill="#20A88A"/>
+
+      </svg>
+
+
+
+      <div class="node node-phone">
+
+        <div class="node-icon"><i data-lucide="phone" aria-hidden="true"></i></div>
+
+        <div class="node-lines"><span class="skeleton long"></span><span class="skeleton medium"></span></div>
+
+      </div>
+
+      <div class="node node-message">
+
+        <div class="node-icon"><i data-lucide="message-circle" aria-hidden="true"></i></div>
+
+        <div class="node-lines"><span class="skeleton long"></span><span class="skeleton short"></span></div>
+
+      </div>
+
+      <div class="node node-form">
+
+        <div class="node-icon"><i data-lucide="clipboard-pen-line" aria-hidden="true"></i></div>
+
+        <div class="node-lines"><span class="skeleton long"></span><span class="skeleton medium"></span></div>
+
+      </div>
+
+
+
+      <section class="surface product-window" aria-label="Единое окно обращений">
+
+        <div class="product-top">
+
+          <span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span>
+
+          <span class="skeleton" style="width:150px;margin-left:14px"></span>
+
+        </div>
+
+        <div class="product-body">
+
+          <div class="product-symbol"><i data-lucide="inbox" size="58" aria-hidden="true"></i></div>
+
+          <div class="product-content">
+
+            <div class="product-bars">
+
+              <span class="skeleton long"></span>
+
+              <span class="skeleton medium"></span>
+
+              <span class="skeleton short"></span>
+
+            </div>
+
+            <div class="product-status"><i data-lucide="check" size="34" stroke-width="3" aria-hidden="true"></i></div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <div class="result" aria-label="Собранное обращение">
+
+        <div class="result-core"><i data-lucide="circle-check" size="38" stroke-width="2.5" aria-hidden="true"></i></div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="export-row">
+
+    <button type="button" class="export-btn theme-toggle" id="theme-toggle" aria-pressed="false">Режим: белые плашки</button>
+
+    <button type="button" class="export-btn export-copy" id="copy-html">
+
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+
+      Скопировать HTML
+
+    </button>
+
+    <button type="button" class="export-btn export-png" id="export-png">
+
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+
+      Сохранить PNG ×2
+
+    </button>
+
+  </div>
+
+</main>
+
+
+
+<script src="vendor/lucide.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+  if(window.lucide) lucide.createIcons();
+
+  const frame=document.getElementById("illus");
+
+  const toggle=document.getElementById("theme-toggle");
+
+  const copy=document.getElementById("copy-html");
+
+  const png=document.getElementById("export-png");
+
+
+
+  const sync=()=>{
+
+    const blue=frame.dataset.mode==="blue-plates";
+
+    toggle.textContent=blue?"Режим: голубые плашки":"Режим: белые плашки";
+
+    toggle.setAttribute("aria-pressed",String(blue));
+
+  };
+
+  toggle.addEventListener("click",()=>{
+
+    frame.dataset.mode=frame.dataset.mode==="blue-plates"?"white-plates":"blue-plates";
+
+    sync();
+
+  });
+
+  copy.addEventListener("click",()=>{
+
+    navigator.clipboard.writeText(frame.outerHTML).then(()=>{
+
+      copy.textContent="Скопировано!";
+
+      setTimeout(()=>copy.textContent="Скопировать HTML",2000);
+
+    });
+
+  });
+
+  png.addEventListener("click",()=>{
+
+    png.textContent="Рендерим...";
+
+    const bg=getComputedStyle(frame).backgroundColor||"#F2F7FA";
+
+    const save=url=>{
+
+      const a=document.createElement("a");
+
+      a.download="illustration.png";
+
+      a.href=url;
+
+      a.click();
+
+    };
+
+    const fallback=()=>html2canvas(frame,{
+
+      scale:2,useCORS:true,allowTaint:false,foreignObjectRendering:true,
+
+      backgroundColor:bg,
+
+      onclone:doc=>{
+
+        doc.querySelectorAll("*").forEach(n=>{
+
+          n.style.transition="none";
+
+          n.style.animation="none";
+
+        });
+
+        doc.querySelectorAll(".surface,.node,.result").forEach(n=>n.style.boxShadow="var(--card-shadow)");
+
+      }
+
+    }).then(c=>c.toDataURL("image/png"));
+
+    const render=window.htmlToImage&&typeof htmlToImage.toPng==="function"
+
+      ?htmlToImage.toPng(frame,{pixelRatio:2,cacheBust:true,backgroundColor:bg}).catch(fallback)
+
+      :fallback();
+
+    document.fonts.ready.then(()=>setTimeout(()=>{
+
+      render.then(save).then(()=>png.textContent="Сохранить PNG ×2").catch(()=>{
+
+        png.textContent="Ошибка экспорта";
+
+        setTimeout(()=>png.textContent="Сохранить PNG ×2",2500);
+
+      });
+
+    },300));
+
+  });
+
+  sync();
+
+});
+
+</script>
+
+</body>
+
+</html>

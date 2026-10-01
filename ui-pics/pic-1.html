@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Схематичная иллюстрация</title>
+<style>
+@font-face {
+  font-family:"Museo Cyrl Sans";
+  font-style:normal;
+  font-weight:500;
+  font-display:swap;
+  src:url("assets/fonts/museosanscyrl-500.woff2") format("woff2"),
+      url("../fonts/museosanscyrl-500.woff2") format("woff2"),
+      url("https://calltouch-public.website.yandexcloud.net/fonts/museosanscyrl-500.woff2") format("woff2");
+}
+:root {
+  --page-bg:#fff;
+  --bg:#F2F7FA;
+  --frame-bg:var(--bg);
+  --plate-bg:#fff;
+  --ink:#1F282C;
+  --accent:#22B8DE;
+  --accent-soft:#DDF5FA;
+  --accent-deep:#087EAD;
+  --mint:#20A88A;
+  --line:#E0EAF0;
+  --skeleton:#E4EDF2;
+  --card-shadow:0 18px 18px rgba(73,153,190,.22);
+  --connector-width:12px;
+  --arrowhead-size:24px;
+  --ft:"Museo Cyrl Sans",system-ui,sans-serif;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  background:var(--page-bg);
+  font-family:var(--ft);
+  font-weight:500;
+}
+.workspace {
+  width:min(100%,960px);
+  margin:0 auto;
+  padding-top:24px;
+}
+.scene-frame {
+  position:relative;
+  width:100%;
+  height:380px;
+  overflow:hidden;
+  background:var(--frame-bg);
+  padding:20px;
+}
+.scene-frame[data-mode="blue-plates"] {
+  --frame-bg:#fff;
+  --plate-bg:#F2F7FA;
+}
+.connector-layer {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:1;
+  pointer-events:none;
+}
+.connector-layer > .connector-path {
+  fill:none;
+  stroke-width:var(--connector-width);
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.arrowhead { stroke:none; }
+.connector-blue { color:var(--accent); }
+.connector-mint { color:var(--mint); }
+.node,
+.hub,
+.result {
+  position:absolute;
+  z-index:2;
+  background:var(--plate-bg);
+  border:1px solid var(--line);
+  box-shadow:var(--card-shadow);
+}
+.node {
+  width:132px;
+  height:66px;
+  border-radius:18px;
+  padding:8px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.node-a { left:36px; top:36px; }
+.node-b { left:36px; top:117px; }
+.node-c { left:36px; top:198px; }
+.node-d { left:36px; top:279px; }
+.node-skeletons {
+  display:flex;
+  flex:1;
+  min-width:0;
+  flex-direction:column;
+  gap:7px;
+}
+.node-skeleton {
+  display:block;
+  height:8px;
+  border-radius:8px;
+  background:var(--skeleton);
+}
+.node-skeleton.short { width:62%; }
+.node-skeleton.medium { width:88%; }
+.hub {
+  left:380px;
+  top:110px;
+  width:200px;
+  height:160px;
+  border-radius:24px;
+  padding:24px;
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+.result {
+  left:680px;
+  top:120px;
+  width:170px;
+  height:140px;
+  border-radius:24px;
+  padding:24px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:16px;
+}
+.icon-tile {
+  width:48px;
+  height:48px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:var(--accent-soft);
+  color:var(--accent-deep);
+}
+.hub .icon-tile {
+  width:72px;
+  height:72px;
+  border-radius:18px;
+  background:var(--accent);
+  color:#fff;
+}
+.result .icon-tile {
+  background:#DDF4EE;
+  color:var(--mint);
+}
+svg.lucide {
+  width:32px;
+  height:32px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2.5;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.hub svg.lucide { width:44px; height:44px; }
+.result svg.lucide { width:38px; height:38px; }
+.skeletons {
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  width:100%;
+}
+.skeleton {
+  display:block;
+  height:10px;
+  border-radius:9px;
+  background:var(--skeleton);
+}
+.skeleton.short { width:58%; }
+.skeleton.medium { width:76%; }
+.skeleton.long { width:92%; }
+.hub .skeletons { gap:12px; }
+.hub .skeleton { height:12px; }
+.result .skeleton { height:11px; }
+.result .skeleton:first-child { background:#BDEBE0; }
+@media (max-width:700px) {
+  .scene-frame {
+    height:560px;
+    padding:20px;
+    --arrowhead-size:16px;
+  }
+  .node {
+    width:140px;
+  }
+  .node-a { left:24px; top:36px; }
+  .node-b { left:24px; top:150px; }
+  .node-c { left:calc(100% - 164px); top:36px; }
+  .node-d { left:calc(100% - 164px); top:150px; }
+  .hub {
+    left:50%;
+    top:282px;
+    width:220px;
+    height:150px;
+    transform:translateX(-50%);
+  }
+  .result {
+    left:50%;
+    top:462px;
+    width:170px;
+    height:110px;
+    transform:translateX(-50%);
+    flex-direction:row;
+    align-items:center;
+  }
+  .desktop-connectors { display:none; }
+  .mobile-connectors { display:block; }
+}
+.mobile-connectors { display:none; }
+.export-row {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:20px;
+}
+.export-btn {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:36px;
+  padding:8px 15px;
+  border-radius:10px;
+  font-family:var(--ft);
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+}
+.export-btn:focus-visible {
+  outline:3px solid #96DCEB;
+  outline-offset:2px;
+}
+.export-copy {
+  color:var(--ink);
+  background:#F2F7FA;
+  border:1px solid var(--line);
+}
+.export-png {
+  color:#fff;
+  background:var(--accent);
+  border:1px solid var(--accent);
+}
+.theme-toggle {
+  color:var(--ink);
+  background:#fff;
+  border:1px solid #DDE8EE;
+}
+</style>
+</head>
+<body>
+<main class="workspace">
+  <div id="illus" class="scene-frame" data-mode="white-plates" aria-label="Единое окно для сообщений из разных каналов">
+    <svg class="connector-layer desktop-connectors" viewBox="0 0 960 380" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="connector-blue-1" x1="176" y1="69" x2="368" y2="135" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#91DFEC"></stop><stop offset="70%" stop-color="#22B8DE"></stop><stop offset="100%" stop-color="#22B8DE"></stop></linearGradient>
+        <linearGradient id="connector-blue-2" x1="176" y1="150" x2="368" y2="155" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#91DFEC"></stop><stop offset="70%" stop-color="#22B8DE"></stop><stop offset="100%" stop-color="#22B8DE"></stop></linearGradient>
+        <linearGradient id="connector-blue-3" x1="176" y1="231" x2="368" y2="195" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#91DFEC"></stop><stop offset="70%" stop-color="#22B8DE"></stop><stop offset="100%" stop-color="#22B8DE"></stop></linearGradient>
+        <linearGradient id="connector-blue-4" x1="176" y1="312" x2="368" y2="215" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#91DFEC"></stop><stop offset="70%" stop-color="#22B8DE"></stop><stop offset="100%" stop-color="#22B8DE"></stop></linearGradient>
+        <linearGradient id="connector-mint-1" x1="588" y1="190" x2="668" y2="190" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#A5E4D7"></stop><stop offset="70%" stop-color="#20A88A"></stop><stop offset="100%" stop-color="#20A88A"></stop></linearGradient>
+      </defs>
+      <path class="connector-path connector-blue" data-start="176 69" data-c1="238 69" data-c2="286 116" data-tip="368 135" stroke="url(#connector-blue-1)" d="M176 69 C238 69 286 116 344.6 129.6"></path>
+      <path class="connector-path connector-blue" data-start="176 150" data-c1="238 150" data-c2="286 146" data-tip="368 155" stroke="url(#connector-blue-2)" d="M176 150 C238 150 286 146 344.1 152.4"></path>
+      <path class="connector-path connector-blue" data-start="176 231" data-c1="238 231" data-c2="286 204" data-tip="368 195" stroke="url(#connector-blue-3)" d="M176 231 C238 231 286 204 344.1 197.6"></path>
+      <path class="connector-path connector-blue" data-start="176 312" data-c1="238 312" data-c2="286 238" data-tip="368 215" stroke="url(#connector-blue-4)" d="M176 312 C238 312 286 238 344.9 221.5"></path>
+      <path class="connector-path connector-mint" data-start="588 190" data-c1="608 190" data-c2="632 190" data-tip="668 190" stroke="url(#connector-mint-1)" d="M588 190 C608 190 632 190 644 190"></path>
+      <path class="arrowhead arrowhead-blue" data-c2="286 116" data-tip="368 135" fill="#22B8DE" d="M0 0L-24 -12L-24 12Z"></path>
+      <path class="arrowhead arrowhead-blue" data-c2="286 146" data-tip="368 155" fill="#22B8DE" d="M0 0L-24 -12L-24 12Z"></path>
+      <path class="arrowhead arrowhead-blue" data-c2="286 204" data-tip="368 195" fill="#22B8DE" d="M0 0L-24 -12L-24 12Z"></path>
+      <path class="arrowhead arrowhead-blue" data-c2="286 238" data-tip="368 215" fill="#22B8DE" d="M0 0L-24 -12L-24 12Z"></path>
+      <path class="arrowhead arrowhead-mint" data-c2="632 190" data-tip="668 190" fill="#20A88A" d="M0 0L-24 -12L-24 12Z"></path>
+    </svg>
+
+    <svg class="connector-layer mobile-connectors" viewBox="0 0 390 560" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="connector-mobile-blue-1" x1="94" y1="110" x2="175" y2="270" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#91DFEC"></stop><stop offset="70%" stop-color="#22B8DE"></stop><stop offset="100%" stop-color="#22B8DE"></stop></linearGradient>
+        <linearGradient id="connector-mobile-blue-2" x1="94" y1="224" x2="175" y2="270" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#91DFEC"></stop><stop offset="70%" stop-color="#22B8DE"></stop><stop offset="100%" stop-color="#22B8DE"></stop></linearGradient>
+        <linearGradient id="connector-mobile-blue-3" x1="296" y1="110" x2="215" y2="270" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#91DFEC"></stop><stop offset="70%" stop-color="#22B8DE"></stop><stop offset="100%" stop-color="#22B8DE"></stop></linearGradient>
+        <linearGradient id="connector-mobile-blue-4" x1="296" y1="224" x2="215" y2="270" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#91DFEC"></stop><stop offset="70%" stop-color="#22B8DE"></stop><stop offset="100%" stop-color="#22B8DE"></stop></linearGradient>
+        <linearGradient id="connector-mobile-mint-1" x1="195" y1="440" x2="195" y2="450" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#A5E4D7"></stop><stop offset="70%" stop-color="#20A88A"></stop><stop offset="100%" stop-color="#20A88A"></stop></linearGradient>
+      </defs>
+      <path class="connector-path connector-blue" data-start="94 110" data-c1="94 172" data-c2="150 220" data-tip="175 270" stroke="url(#connector-mobile-blue-1)" d="M94 110 C94 172 150 220 171.4 256.9"></path>
+      <path class="connector-path connector-blue" data-start="94 224" data-c1="94 238" data-c2="145 255" data-tip="175 270" stroke="url(#connector-mobile-blue-2)" d="M94 224 C94 238 145 255 153.5 259.3"></path>
+      <path class="connector-path connector-blue" data-start="296 110" data-c1="296 172" data-c2="240 220" data-tip="215 270" stroke="url(#connector-mobile-blue-3)" d="M296 110 C296 172 240 220 218.6 256.9"></path>
+      <path class="connector-path connector-blue" data-start="296 224" data-c1="296 238" data-c2="245 255" data-tip="215 270" stroke="url(#connector-mobile-blue-4)" d="M296 224 C296 238 245 255 236.5 259.3"></path>
+      <path class="connector-path connector-mint" data-start="195 440" data-c1="195 440" data-c2="195 446" data-tip="195 450" stroke="url(#connector-mobile-mint-1)" d="M195 440 C195 440 195 446 195 434"></path>
+      <path class="arrowhead arrowhead-blue" data-c2="150 220" data-tip="175 270" fill="#22B8DE" d="M0 0L-24 -12L-24 12Z"></path>
+      <path class="arrowhead arrowhead-blue" data-c2="145 255" data-tip="175 270" fill="#22B8DE" d="M0 0L-24 -12L-24 12Z"></path>
+      <path class="arrowhead arrowhead-blue" data-c2="240 220" data-tip="215 270" fill="#22B8DE" d="M0 0L-24 -12L-24 12Z"></path>
+      <path class="arrowhead arrowhead-blue" data-c2="245 255" data-tip="215 270" fill="#22B8DE" d="M0 0L-24 -12L-24 12Z"></path>
+      <path class="arrowhead arrowhead-mint" data-c2="195 446" data-tip="195 450" fill="#20A88A" d="M0 0L-24 -12L-24 12Z"></path>
+    </svg>
+
+    <div class="node node-a">
+      <div class="icon-tile">
+        <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path><path d="M8 9h8M8 13h5"></path></svg>
+      </div>
+      <div class="node-skeletons" aria-hidden="true"><span class="node-skeleton medium"></span><span class="node-skeleton short"></span></div>
+    </div>
+    <div class="node node-b">
+      <div class="icon-tile">
+        <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.62 2.63a2 2 0 0 1-.45 2.11L8 9.73a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.85.29 1.73.5 2.63.62A2 2 0 0 1 22 16.92z"></path></svg>
+      </div>
+      <div class="node-skeletons" aria-hidden="true"><span class="node-skeleton medium"></span><span class="node-skeleton short"></span></div>
+    </div>
+    <div class="node node-c">
+      <div class="icon-tile">
+        <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20"></path></svg>
+      </div>
+      <div class="node-skeletons" aria-hidden="true"><span class="node-skeleton medium"></span><span class="node-skeleton short"></span></div>
+    </div>
+    <div class="node node-d">
+      <div class="icon-tile">
+        <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5-5 18-4-8-9-5Z"></path><path d="m3 11 9 5"></path></svg>
+      </div>
+      <div class="node-skeletons" aria-hidden="true"><span class="node-skeleton medium"></span><span class="node-skeleton short"></span></div>
+    </div>
+
+    <div class="hub">
+      <div class="icon-tile">
+        <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m4 7 8 6 8-6M8 17h8"></path></svg>
+      </div>
+      <div class="skeletons">
+        <span class="skeleton long"></span>
+        <span class="skeleton medium"></span>
+        <span class="skeleton short"></span>
+      </div>
+    </div>
+
+    <div class="result">
+      <div class="icon-tile">
+        <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+      </div>
+      <div class="skeletons">
+        <span class="skeleton long"></span>
+        <span class="skeleton medium"></span>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <div class="export-row">
+    <button type="button" class="export-btn theme-toggle" id="theme-toggle" aria-pressed="false">Режим: белые плашки</button>
+    <button type="button" class="export-btn export-copy" id="copy-html">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      Скопировать HTML
+    </button>
+    <button type="button" class="export-btn export-png" id="save-png">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Сохранить PNG ×2
+    </button>
+  </div>
+</main>
+
+<script>
+(() => {
+  const frame = document.getElementById('illus');
+  const toggle = document.getElementById('theme-toggle');
+  const copy = document.getElementById('copy-html');
+  const save = document.getElementById('save-png');
+
+  const arrowSize = parseFloat(getComputedStyle(frame).getPropertyValue('--arrowhead-size')) || 24;
+  const point = value => value.trim().split(/\s+/).map(Number);
+  document.querySelectorAll('.connector-path').forEach(path => {
+    const [sx, sy] = point(path.dataset.start);
+    const [c1x, c1y] = point(path.dataset.c1);
+    const [c2x, c2y] = point(path.dataset.c2);
+    const [tx, ty] = point(path.dataset.tip);
+    const dx = tx - c2x;
+    const dy = ty - c2y;
+    const length = Math.hypot(dx, dy) || 1;
+    const baseX = tx - dx / length * arrowSize;
+    const baseY = ty - dy / length * arrowSize;
+    path.setAttribute('d', `M${sx} ${sy} C${c1x} ${c1y} ${c2x} ${c2y} ${baseX} ${baseY}`);
+  });
+  document.querySelectorAll('.arrowhead').forEach(arrow => {
+    const [c2x, c2y] = point(arrow.dataset.c2);
+    const [tx, ty] = point(arrow.dataset.tip);
+    const angle = Math.atan2(ty - c2y, tx - c2x) * 180 / Math.PI;
+    arrow.setAttribute('transform', `translate(${tx} ${ty}) rotate(${angle}) scale(${arrowSize / 24})`);
+  });
+
+  const sync = () => {
+    const inverse = frame.dataset.mode === 'blue-plates';
+    toggle.textContent = inverse ? 'Режим: голубые плашки' : 'Режим: белые плашки';
+    toggle.setAttribute('aria-pressed', String(inverse));
+  };
+
+  toggle.addEventListener('click', () => {
+    frame.dataset.mode = frame.dataset.mode === 'blue-plates' ? 'white-plates' : 'blue-plates';
+    sync();
+  });
+
+  copy.addEventListener('click', () => {
+    navigator.clipboard.writeText(frame.outerHTML).then(() => {
+      copy.textContent = 'Скопировано!';
+      setTimeout(() => copy.textContent = 'Скопировать HTML', 2000);
+    });
+  });
+
+  save.addEventListener('click', () => {
+    const oldText = save.textContent;
+    save.textContent = 'Рендерим...';
+    const bg = getComputedStyle(frame).backgroundColor || '#F2F7FA';
+
+    const download = url => {
+      const link = document.createElement('a');
+      link.download = 'illustration.png';
+      link.href = url;
+      link.click();
+    };
+
+    const fallback = () => html2canvas(frame, {
+      scale:2,
+      useCORS:true,
+      allowTaint:false,
+      foreignObjectRendering:true,
+      backgroundColor:bg,
+      onclone:doc => {
+        doc.querySelectorAll('*').forEach(node => {
+          node.style.transition = 'none';
+          node.style.animation = 'none';
+        });
+        doc.querySelectorAll('.node, .hub, .result').forEach(node => {
+          node.style.boxShadow = '0 18px 18px rgba(73,153,190,.22)';
+        });
+      }
+    }).then(canvas => canvas.toDataURL('image/png'));
+
+    const render = () => window.htmlToImage && typeof htmlToImage.toPng === 'function'
+      ? htmlToImage.toPng(frame, {pixelRatio:2, cacheBust:true, backgroundColor:bg}).catch(fallback)
+      : fallback();
+
+    document.fonts.ready.then(() => {
+      setTimeout(() => {
+        render().then(download).then(() => {
+          save.textContent = oldText;
+        }).catch(() => {
+          save.textContent = 'Ошибка экспорта';
+          setTimeout(() => save.textContent = oldText, 2500);
+        });
+      }, 300);
+    });
+  });
+
+  sync();
+})();
+</script>
+</body>
+</html>

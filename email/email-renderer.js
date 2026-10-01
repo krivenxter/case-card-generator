@@ -119,7 +119,7 @@ function bodyText(value, color = C.ink, size = 16, path = "", preview = false, l
     // Висячий отступ: переносы строк пункта выравниваются по тексту, а не под маркер.
     if (!list) return `<div style="padding:0 0 ${lineIndex === lines.length - 1 ? 0 : 16}px;">${text}</div>`;
     listIndex += 1;
-    const marker = listStyle === "number" ? `<span style="display:inline-block;width:28px;height:28px;margin-right:16px;border-radius:50%;background:${C.cyan};color:#ffffff;font-size:16px;line-height:28px;text-align:center;text-indent:0;">${listIndex}</span>` : `<span style="color:${C.cyan};">•</span>&nbsp;`;
+    const marker = listStyle === "number" ? `<span style="display:inline-block;width:28px;height:28px;margin-right:16px;border-radius:50%;background:${C.cyan};color:#ffffff;font-size:16px;line-height:28px;text-align:center;text-indent:0;">${listIndex}</span>` : `<span style="display:inline-block;width:12px;margin-right:4px;color:${C.cyan};font-size:20px;line-height:18px;text-align:center;">•</span>`;
     return `<div style="display:flex;align-items:flex-start;justify-content:${textAlign === "center" ? "center" : "flex-start"};padding:0 0 ${lineIndex === lines.length - 1 ? 0 : 12}px;"><span style="flex:0 0 auto;">${marker}</span><span>${text}</span></div>`;
   }).join("");
   return `<div${editAttrs(preview, path)} style="font-family:${fontBody};font-size:${size}px;line-height:1.5;color:${color};text-align:${textAlign};word-break:break-word;overflow-wrap:break-word;">${html}</div>`;
