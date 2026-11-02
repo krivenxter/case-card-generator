@@ -74,6 +74,7 @@ let selectedBlockId = "";
 let assetTargetId = "";
 let assetTargetPath = "content.image";
 let iconTargetIndex = -1;
+let activeEmailAssetCategory = "products";
 let customPreviewSource = "";
 let saveTimer = 0;
 let historyTimer = 0;
@@ -1230,8 +1231,16 @@ function renderAssetGrid() {
     elements.assetGrid.innerHTML = assets.map((asset) => `<button class="email-asset-card email-icon-card" type="button" data-icon-id="${asset.id}"><img src="${escapeAttr(asset.previewSource)}" alt=""><span>${escapeAttr(asset.label)}</span></button>`).join("");
     return;
   }
-  const assets = assetTargetPath === "content.background" ? window.CALLTOUCH_ASSETS.backgrounds : window.CALLTOUCH_ASSETS.visuals;
-  elements.assetGrid.innerHTML = assets.map((asset) => `<button class="email-asset-card" type="button" data-asset-id="${asset.id}"><img src="${escapeAttr(asset.previewSource)}" alt=""><span>${escapeAttr(asset.label)}</span></button>`).join("");
+  const isBackgrounds = assetTargetPath === "content.background";
+  const assets = isBackgrounds
+    ? window.CALLTOUCH_ASSETS.backgrounds
+    : [...window.CALLTOUCH_ASSETS.visuals, ...window.CALLTOUCH_ASSETS.generalVisuals];
+  const visibleAssets = isBackgrounds
+    ? assets
+    : assets.filter((asset) => (activeEmailAssetCategory === "general" ? asset.id.startsWith("general-") : !asset.id.startsWith("general-")));
+  if (!isBackgrounds) visibleAssets.sort((a, b) => a.label.localeCompare(b.label, "ru", { sensitivity: "base" }));
+  const tabs = isBackgrounds ? "" : `<div class="email-asset-tabs" role="tablist" aria-label="Категория изображений"><button class="${activeEmailAssetCategory === "products" ? "is-active" : ""}" type="button" role="tab" aria-selected="${activeEmailAssetCategory === "products"}" data-email-asset-category="products">Продукты</button><button class="${activeEmailAssetCategory === "general" ? "is-active" : ""}" type="button" role="tab" aria-selected="${activeEmailAssetCategory === "general"}" data-email-asset-category="general">Общие</button></div>`;
+  elements.assetGrid.innerHTML = `${tabs}<div class="email-asset-grid__items">${visibleAssets.map((asset) => `<button class="email-asset-card" type="button" data-asset-id="${asset.id}"><img src="${escapeAttr(asset.previewSource)}" alt=""><span>${escapeAttr(asset.label)}</span></button>`).join("")}</div>`;
 }
 
 function openAssetDialog(blockId, path = "content.image") {
@@ -2022,6 +2031,12 @@ elements.footnoteList.addEventListener("click", (event) => {
 });
 
 elements.assetGrid.addEventListener("click", (event) => {
+  const categoryButton = event.target.closest("[data-email-asset-category]");
+  if (categoryButton) {
+    activeEmailAssetCategory = categoryButton.dataset.emailAssetCategory;
+    renderAssetGrid();
+    return;
+  }
   const iconButton = event.target.closest("[data-icon-id]");
   if (iconButton) {
     const block = email.blocks.find((item) => item.id === assetTargetId);
@@ -2032,7 +2047,9 @@ elements.assetGrid.addEventListener("click", (event) => {
     return;
   }
   const button = event.target.closest("[data-asset-id]");
-  const assets = assetTargetPath === "content.background" ? window.CALLTOUCH_ASSETS.backgrounds : window.CALLTOUCH_ASSETS.visuals;
+  const assets = assetTargetPath === "content.background"
+    ? window.CALLTOUCH_ASSETS.backgrounds
+    : [...window.CALLTOUCH_ASSETS.visuals, ...window.CALLTOUCH_ASSETS.generalVisuals];
   const asset = assets.find((item) => item.id === button?.dataset.assetId);
   if (asset) applyAsset(asset);
 });

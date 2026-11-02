@@ -37,13 +37,25 @@ const BANNER_VISUAL_BASE_SCALES = Object.freeze({
   adVisual: 1.3
 });
 
-const BANNER_VISUALS = Object.freeze((window.CALLTOUCH_ASSETS?.visuals || []).map((asset) => ({
+const BANNER_VISUALS = Object.freeze([
+  ...(window.CALLTOUCH_ASSETS?.visuals || []).map((asset) => ({
   id: asset.id,
   label: asset.label,
   shortLabel: asset.label.toUpperCase(),
   src: asset.previewSource,
-  keywords: asset.keywords
-})));
+  keywords: asset.keywords,
+  category: "products"
+  })),
+  ...(window.CALLTOUCH_ASSETS?.generalVisuals || []).map((asset) => ({
+    id: asset.id,
+    label: asset.label,
+    shortLabel: asset.label.toUpperCase(),
+    src: asset.previewSource,
+    keywords: asset.keywords,
+    category: "general"
+  }))
+]);
+let activeBannerVisualCategory = "products";
 
 const BANNER_LOGOS = Object.freeze({
   light: "logos/calltouch-light.svg",
@@ -1722,7 +1734,30 @@ function renderManualVisualPicker() {
   const picker = bannerElements.manualVisualPicker;
   if (!picker) return;
 
-  picker.replaceChildren(...BANNER_VISUALS.map((visual) => {
+  const tabs = document.createElement("div");
+  tabs.className = "visual-picker__tabs";
+  tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", "Категория изображений");
+  [["products", "Продукты"], ["general", "Общие"]].forEach(([category, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "visual-picker__tab";
+    button.dataset.visualCategory = category;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(activeBannerVisualCategory === category));
+    button.classList.toggle("is-active", activeBannerVisualCategory === category);
+    button.textContent = label;
+    tabs.append(button);
+  });
+
+  const grid = document.createElement("div");
+  grid.className = "visual-picker__grid";
+  grid.setAttribute("role", "radiogroup");
+  grid.setAttribute("aria-label", "Выбор изображения");
+  const categoryVisuals = BANNER_VISUALS
+    .filter((visual) => visual.category === activeBannerVisualCategory)
+    .sort((a, b) => a.label.localeCompare(b.label, "ru", { sensitivity: "base" }));
+  grid.append(...categoryVisuals.map((visual) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "visual-picker__item";
@@ -1750,6 +1785,7 @@ function renderManualVisualPicker() {
     button.append(image, label);
     return button;
   }));
+  picker.replaceChildren(tabs, grid);
 }
 
 let bannerVisualQualityRequest = 0;
@@ -4430,6 +4466,12 @@ document.addEventListener("keydown", (event) => {
   }
 });
 bannerElements.manualVisualPicker.addEventListener("click", (event) => {
+  const category = event.target instanceof Element ? event.target.closest("[data-visual-category]") : null;
+  if (category) {
+    activeBannerVisualCategory = category.dataset.visualCategory;
+    renderManualVisualPicker();
+    return;
+  }
   const option = event.target instanceof Element ? event.target.closest("[data-visual-id]") : null;
   if (!option) return;
 

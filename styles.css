@@ -2493,6 +2493,35 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
 
 .visual-picker {
   display: grid;
+  gap: 8px;
+}
+
+.visual-picker__tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.visual-picker__tab {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 6px;
+  background: var(--ui-field);
+  color: var(--ui-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.visual-picker__tab.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--ui-field));
+  color: var(--ui-text);
+}
+
+.visual-picker__grid {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   max-height: 330px;
   gap: 8px;

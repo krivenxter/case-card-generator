@@ -213,7 +213,10 @@
 .email-library-item svg { width: 20px; color: var(--email-navy); }
 .email-library-item strong { display: block; margin-bottom: 4px; font-size: 13px; }
 .email-library-item span { color: var(--email-muted); font-size: 11px; line-height: 1.35; }
-.email-asset-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.email-asset-tabs { display: flex; margin-bottom: 10px; gap: 6px; }
+.email-asset-tabs button { min-height: 32px; padding: 0 12px; border: 1px solid var(--email-border); border-radius: 8px; background: #fff; color: var(--email-muted); cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; }
+.email-asset-tabs button.is-active { border-color: var(--email-cyan); background: var(--email-pale); color: var(--email-ink); }
+.email-asset-grid__items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .email-asset-card { padding: var(--email-space-xs); border: 1px solid var(--email-border); border-radius: 12px; background: #fff; cursor: pointer; }
 .email-asset-card:hover { border-color: rgba(8,78,125,.4); background: var(--email-pale); }
 .email-asset-card img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 8px; background: #eef7fa; }
@@ -257,7 +260,7 @@
   .email-global-fields { grid-template-columns: 1fr; }
   .email-preview-stage { padding: var(--email-space-sm); }
   .email-block-library form > div { grid-template-columns: 1fr; }
-  .email-asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .email-asset-grid__items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .email-custom-asset { grid-template-columns: 1fr; }
   .email-custom-asset h3, .email-custom-asset p { grid-column: auto; }
 }

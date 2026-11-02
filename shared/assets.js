@@ -50,6 +50,34 @@
     exportUrl: `${PUBLIC_BASE_URL}visuals/${encodeURIComponent(file.normalize("NFC"))}`
   }));
 
+  const generalVisualFiles = [
+    "01 Сканирование куба.png", "02 Галочка успеха.png", "03 Деловой портфель.png", "04 Кисть цвета.png", "05 Календарь.png",
+    "06 Входящий звонок.png", "07 Исходящий звонок.png", "08 Телефонная трубка.png", "09 Автомобиль.png", "09 Автомобиль-B.png",
+    "10 Столбчатая диаграмма.png", "11 Планшет проверки.png", "12 Часы.png", "13 Облачная связь.png", "14 Копирование.png",
+    "15 Процессор.png", "16 Корона.png", "17 Предупреждение.png", "18 Блок-схема.png", "19 Знак скидки.png",
+    "20 Документ.png", "21 Редактирование.png", "22 Добавление.png", "23 Кошелёк.png", "24 Просмотр.png",
+    "25 Флажок.png", "26 Папка.png", "27 Галерея.png", "28 Навигация.png", "29 График.png",
+    "29 График 2.png", "30 Сердце.png", "31 Иерархия.png", "32 Дом.png", "33 Ключ.png",
+    "34 Одобрение.png", "35 Связь.png", "36 Местоположение.png", "37 Замок.png", "38 Сообщение.png",
+    "39 Смартфон.png", "40 Деньги.png", "41 Устройства.png", "42 Монитор.png", "43 Уведомление.png",
+    "44 Команда.png", "45 Профиль.png", "46 Обновление.png", "47 Поиск.png", "48 Отправка.png",
+    "49 Настройки.png", "50 Регулировка.png", "51 Поделиться.png", "52 Безопасность.png", "53 Магазин.png",
+    "54 Покупки.png", "55 Конверт.png", "56 Избранное.png", "57 Ценник.png", "58 Обучение.png",
+    "59 Билет скидки.png", "60 Переключатель.png", "61 Пользователь.png", "62 Подтверждение.png", "63 Видео.png"
+  ];
+  const generalVisuals = generalVisualFiles.map((rawFile, index) => {
+    const file = rawFile.normalize("NFC");
+    const label = file.replace(/^\d+\s*/, "").replace(/\.png$/i, "");
+    return {
+      id: `general-${String(index + 1).padStart(2, "0")}`,
+      label,
+      file,
+      keywords: label.toLowerCase().split(/[\s-]+/),
+      previewSource: `essentials/${encodeURIComponent(file)}`,
+      exportUrl: `${PUBLIC_BASE_URL}essentials/${encodeURIComponent(file)}`
+    };
+  });
+
   const backgrounds = [1, 2, 3, 4, 5, 6].map((number) => ({
     id: `email-background-${number}`,
     label: `Фон ${number}`,
@@ -62,6 +90,7 @@
   global.CALLTOUCH_ASSETS = Object.freeze({
     publicBaseUrl: PUBLIC_BASE_URL,
     visuals: Object.freeze(visuals),
+    generalVisuals: Object.freeze(generalVisuals),
     backgrounds: Object.freeze(backgrounds),
     logos: Object.freeze({
       dark: { previewSource: "logos/calltouch-dark.svg", exportUrl: `${PUBLIC_BASE_URL}logos/calltouch-dark.svg` },
