@@ -56,6 +56,7 @@ const BANNER_VISUALS = Object.freeze([
   }))
 ]);
 let activeBannerVisualCategory = "products";
+const bannerVisualPickerScrollTops = { products: 0, general: 0 };
 
 const BANNER_LOGOS = Object.freeze({
   light: "logos/calltouch-light.svg",
@@ -1733,6 +1734,8 @@ function renderManualVisualPicker() {
   const selectedId = appState.banners.visual.selectedId;
   const picker = bannerElements.manualVisualPicker;
   if (!picker) return;
+  const previousGrid = picker.querySelector(".visual-picker__grid");
+  if (previousGrid?.dataset.category) bannerVisualPickerScrollTops[previousGrid.dataset.category] = previousGrid.scrollTop;
 
   const tabs = document.createElement("div");
   tabs.className = "visual-picker__tabs";
@@ -1752,6 +1755,7 @@ function renderManualVisualPicker() {
 
   const grid = document.createElement("div");
   grid.className = "visual-picker__grid";
+  grid.dataset.category = activeBannerVisualCategory;
   grid.setAttribute("role", "radiogroup");
   grid.setAttribute("aria-label", "Выбор изображения");
   const categoryVisuals = BANNER_VISUALS
@@ -1786,6 +1790,7 @@ function renderManualVisualPicker() {
     return button;
   }));
   picker.replaceChildren(tabs, grid);
+  grid.scrollTop = bannerVisualPickerScrollTops[activeBannerVisualCategory] || 0;
 }
 
 let bannerVisualQualityRequest = 0;
