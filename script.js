@@ -459,6 +459,11 @@ function saveProjectState() {
   }
 }
 
+window.addEventListener("pagehide", saveProjectState);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveProjectState();
+});
+
 function restoreProjectState() {
   try {
     const saved = JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || "null");

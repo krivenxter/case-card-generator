@@ -132,16 +132,25 @@ function persistSoon() {
   window.clearTimeout(saveTimer);
   window.clearTimeout(historyTimer);
   historyTimer = window.setTimeout(() => pushHistory(), 350);
-  saveTimer = window.setTimeout(() => {
-    try {
-      localStorage.setItem(EMAIL_STORAGE_KEY, JSON.stringify(email));
-      elements.saveStatus.textContent = "Сохранено локально";
-    } catch (error) {
-      elements.saveStatus.textContent = "Не удалось сохранить";
-      console.warn(error);
-    }
-  }, 260);
+  saveTimer = window.setTimeout(saveEmail, 260);
 }
+
+function saveEmail() {
+  window.clearTimeout(saveTimer);
+  if (!email) return;
+  try {
+    localStorage.setItem(EMAIL_STORAGE_KEY, JSON.stringify(email));
+    elements.saveStatus.textContent = "Сохранено локально";
+  } catch (error) {
+    elements.saveStatus.textContent = "Не удалось сохранить";
+    console.warn(error);
+  }
+}
+
+window.addEventListener("pagehide", saveEmail);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveEmail();
+});
 
 function pushHistory() {
   if (!email) return;
@@ -167,6 +176,8 @@ function restoreHistorySnapshot(snapshot) {
 }
 
 function undo() {
+  window.clearTimeout(historyTimer);
+  pushHistory();
   if (history.undo.length < 2) return;
   const current = history.undo.pop();
   history.redo.push(current);
@@ -2116,7 +2127,14 @@ elements.importDraftInput.addEventListener("change", () => importDraft(elements.
 $("#newEmailButton").addEventListener("click", () => {
   if (!window.confirm("Начать новое письмо? Текущая работа будет удалена.")) return;
   localStorage.removeItem(EMAIL_STORAGE_KEY);
+  window.clearTimeout(saveTimer);
+  window.clearTimeout(historyTimer);
+  window.clearTimeout(previewTimer);
+  window.clearTimeout(delaPreviewTimer);
   email = null;
+  history.undo = [];
+  history.redo = [];
+  syncHistoryButtons();
   elements.pastePanel.hidden = true;
   $(".email-start__choices").hidden = false;
   showScreen("start");
@@ -2165,7 +2183,7 @@ elements.previewStage.addEventListener("pointerdown", (event) => {
 window.addEventListener("pointermove", (event) => moveCanvasPan(event.clientX, event.clientY));
 window.addEventListener("pointerup", stopCanvasPan);
 window.addEventListener("keydown", (event) => {
-  if ((event.ctrlKey || event.metaKey) && !event.altKey && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !document.activeElement?.isContentEditable && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) {
     if (event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
     if (event.key.toLowerCase() === "y") { event.preventDefault(); redo(); return; }
   }
@@ -2174,11 +2192,14 @@ window.addEventListener("keydown", (event) => {
   elements.previewStage.classList.add("is-pan-ready");
   event.preventDefault();
 });
-window.addEventListener("keyup", (event) => {
-  if (event.code !== "Space") return;
+function releaseCanvasPan() {
   canvasState.spacePressed = false;
   elements.previewStage.classList.remove("is-pan-ready");
   stopCanvasPan();
+}
+window.addEventListener("blur", releaseCanvasPan);
+window.addEventListener("keyup", (event) => {
+  if (event.code === "Space") releaseCanvasPan();
 });
 
 renderLibrary();
