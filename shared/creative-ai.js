@@ -102,6 +102,27 @@ function removeWhiteBackdrop(pixels, width, height) {
   }
 }
 
+function illustrationBounds({ data, width, height }) {
+  let left = width;
+  let right = -1;
+  let top = height;
+  let bottom = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (data[(y * width + x) * 4 + 3] < 24) continue;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+    }
+  }
+  if (right < left || bottom < top) return { left: 0, top: 0, width, height };
+  const margin = Math.ceil(Math.max(right - left, bottom - top) * .06);
+  left = Math.max(0, left - margin);
+  top = Math.max(0, top - margin);
+  return { left, top, width: Math.min(width, right + margin + 1) - left, height: Math.min(height, bottom + margin + 1) - top };
+}
+
 export async function prepareIllustration(blob, target) {
   const bitmap = await createImageBitmap(blob);
   try {
@@ -113,7 +134,10 @@ export async function prepareIllustration(blob, target) {
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const image = context.getImageData(0, 0, canvas.width, canvas.height);
     removeWhiteBackdrop(image.data, canvas.width, canvas.height);
-    context.putImageData(image, 0, 0);
+    const bounds = target === "email" ? illustrationBounds(image) : { left: 0, top: 0, width: canvas.width, height: canvas.height };
+    canvas.width = bounds.width;
+    canvas.height = bounds.height;
+    context.putImageData(image, -bounds.left, -bounds.top);
     const format = target === "email" ? "image/png" : "image/webp";
     const result = await new Promise((resolve) => canvas.toBlob(resolve, format, 0.92));
     if (!result) throw new Error("Не удалось подготовить иллюстрацию.");
@@ -175,7 +199,8 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
     status.classList.toggle("is-error", error);
   };
   const finish = async (image, emailIllustration) => {
-    await apply({ draft, image, emailIllustration, idea: isImage ? text.value.trim() : draft?.visualIdea });
+    if ((image || emailIllustration) && (draft?.coverBanner || draft?.email?.coverBanner)) report("Рендерим обложку в генераторе баннеров…");
+    await apply({ draft, image, emailIllustration, idea: isImage ? text.value.trim() : draft?.visualIdea, signal: controller.signal });
     dialog.close();
   };
   const setBusy = (busy) => {

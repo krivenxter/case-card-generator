@@ -229,7 +229,7 @@ function renderPanel(block, preview, darkText) {
   const onBackground = darkText && background === "transparent";
   const color = onBackground ? "#FFFFFF" : C.ink;
   const eyebrow = (value, path) => hasText(value)
-    ? `<div${editAttrs(preview, path)} style="margin-bottom:8px;font-family:${fontBody};font-size:13px;line-height:1.3;font-weight:700;color:${onBackground ? "#FFFFFF" : textPurple};">${escapeHtml(value)}</div>` : "";
+    ? `<div${editAttrs(preview, path)} style="margin-bottom:8px;font-family:${fontBody};font-size:13px;line-height:1.3;font-weight:700;color:${onBackground ? "#FFFFFF" : "#7135A3"};">${escapeHtml(value)}</div>` : "";
   const heading = (value, path, size) => hasText(value)
     ? displayText(value, color, size, "left", path, preview, size === 22 ? DELA_FONT_SIZES.large : DELA_FONT_SIZES.small) : "";
   const description = (value, path, spaced) => hasText(value)
@@ -274,6 +274,7 @@ function renderImageText(block, preview, feature = false) {
   const hasLink = hasText(content.linkText);
   const isImageText = block.type === "imageText";
   const hasPlate = !isImageText || content.plate !== "0";
+  const plate = hasPlate ? ({ ice: "#E7F8FF", lilac: "#F3ECFF" }[content.tone] || "#ffffff") : "transparent";
   const bodyColor = isImageText ? C.ink : C.muted;
   const linkColor = isImageText ? C.ink : C.navy;
   if (!hasImage && !hasHeading && !hasBody && !hasLink) return "";
@@ -281,7 +282,7 @@ function renderImageText(block, preview, feature = false) {
   const textAlign = block.variant === "image-top" ? topAlign : "left";
   const textContent = `${hasHeading ? displayText(content.heading, C.ink, 24, textAlign, "content.heading", preview, DELA_FONT_SIZES.small) : ""}${hasBody ? `<div style="padding-top:${hasHeading ? "10px" : "0"};text-align:${textAlign};">${bodyText(content.body, bodyColor, 16, "content.body", preview, "bullet", textAlign)}</div>` : ""}${hasLink ? `<div style="text-align:${textAlign};"><a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="display:inline-block;margin-top:${hasHeading || hasBody ? "14px" : "0"};font-family:${fontBody};font-weight:700;color:${linkColor};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a></div>` : ""}`;
   if (!hasImage) {
-    return wrapBlock(block, `<div style="padding:${feature ? "22px" : "14px 18px"};background:${hasPlate ? "#ffffff" : "transparent"};border-radius:${feature ? "22px" : "28px"};">${textContent}</div>`, "transparent", "0 0 12px");
+    return wrapBlock(block, `<div style="padding:${feature ? "22px" : "14px 18px"};background:${plate};border-radius:${feature ? "22px" : "28px"};">${textContent}</div>`, "transparent", "0 0 12px");
   }
   if (!textContent) {
     return wrapBlock(block, img(content.image, content.heading, preview, 604, 18), "transparent", "0 0 12px");
@@ -290,12 +291,12 @@ function renderImageText(block, preview, feature = false) {
     const imageWidth = ["30", "40", "60", "80"].includes(String(content.imageWidth)) ? Number(content.imageWidth) : 100;
     const topImage = td(img(content.image, content.heading, preview, 604, 0, imageWidth / 100, topAlign), `padding:0;vertical-align:top;text-align:${topAlign};`);
     const bottomText = td(textContent, `padding:${feature ? 22 : 24}px;vertical-align:top;`, 'class="stack-column"');
-    return wrapBlock(block, table(`<tr>${topImage}</tr><tr>${bottomText}</tr>`, `background:${hasPlate ? "#ffffff" : "transparent"};border-radius:${feature ? 22 : 28}px;overflow:${hasPlate ? "hidden" : "visible"};`, 'class="image-text-table image-text-table--top"'), "transparent", "0 0 12px");
+    return wrapBlock(block, table(`<tr>${topImage}</tr><tr>${bottomText}</tr>`, `background:${plate};border-radius:${feature ? 22 : 28}px;overflow:${hasPlate ? "hidden" : "visible"};`, 'class="image-text-table image-text-table--top"'), "transparent", "0 0 12px");
   }
   const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 140, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : "10px 16px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
   const textCell = td(textContent, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : "14px 18px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
   const direction = block.variant === "image-right" ? "rtl" : "ltr";
-  return wrapBlock(block, table(`<tr>${imageCell}${textCell}</tr>`, `direction:${direction};table-layout:fixed;background:${hasPlate ? "#ffffff" : "transparent"};border-radius:${feature ? 22 : 28}px;overflow:${hasPlate ? "hidden" : "visible"};`, 'class="image-text-table"'), "transparent", `0 0 ${feature ? 12 : 12}px`);
+  return wrapBlock(block, table(`<tr>${imageCell}${textCell}</tr>`, `direction:${direction};table-layout:fixed;background:${plate};border-radius:${feature ? 22 : 28}px;overflow:${hasPlate ? "hidden" : "visible"};`, 'class="image-text-table"'), "transparent", `0 0 ${feature ? 12 : 12}px`);
 }
 
 function renderBrandScene(block, preview) {

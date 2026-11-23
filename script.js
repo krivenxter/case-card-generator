@@ -1330,11 +1330,12 @@ async function openBannerAi(mode) {
     openCreativeAi({
       target: "banner",
       mode,
-      async apply({ draft: result, image, emailIllustration }) {
+      async apply({ draft: result, image, emailIllustration, signal }) {
         const draft = result?.banner || result;
         if (result?.email) {
           const { buildAiEmail, renderEmailBannerCover } = await import("./email/email-ai.js");
           const emailCover = await renderEmailBannerCover(result.email, emailIllustration);
+          signal.throwIfAborted();
           const emailDraft = buildAiEmail({ ...result.email, visualIdea: result.visualIdea }, emailIllustration, emailCover);
           sessionStorage.setItem(EMAIL_HANDOFF_KEY, JSON.stringify(emailDraft));
           document.getElementById("bannerAiEmailLink").hidden = false;

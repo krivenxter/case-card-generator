@@ -3,6 +3,8 @@ globalThis.window = globalThis;
 await import('../shared/assets.js');
 import { BLOCK_DEFINITIONS, createBlock, createDefaultEmail } from '../email/email-model.js';
 import { renderEmailDocument } from '../email/email-renderer.js';
+import { buildAiEmailVariants } from '../email/email-ai.js';
+import { normalizeDraft } from '../cloud/creative-ai/generate.mjs';
 
 function checkTables(html) {
   const stack = [];
@@ -59,4 +61,22 @@ email.blocks.at(-1).settings.hidden = true;
 assert.ok(!renderEmailDocument(email).includes('.benefits-grid'));
 email.footnotes = [];
 checkTables(renderEmailDocument(email));
+const resourceUrl = 'https://example.com/video?utm_source=mail&campaign=1';
+const draft = normalizeDraft({
+  subject: 'Материалы вебинара',
+  cover: 'banner',
+  coverBanner: { title: 'Вебинар', theme: 'dark', backdrop: 'violet' },
+  blocks: [
+    { type: 'feature', heading: 'Итоги', items: [{ heading: 'Самостоятельная практика', body: 'Повторите шаги' }] },
+    { type: 'resources', heading: 'Запись', items: [{ heading: 'Вебинар', cta: 'Смотреть', url: resourceUrl }] }
+  ]
+}, 'email', resourceUrl);
+const [primary, alternative] = buildAiEmailVariants(draft, 'data:image/png;base64,illustration', 'data:image/jpeg;base64,cover');
+assert.equal(primary.blocks[0].content.image.previewSource, 'data:image/jpeg;base64,cover');
+assert.ok(primary.blocks[1].content.body.includes('Самостоятельная практика'));
+assert.equal(primary.blocks[2].content.items[0].ctaUrl, resourceUrl);
+assert.ok(alternative.blocks.some((block) => block.content.image?.previewSource === 'data:image/png;base64,illustration'));
+const collectionHtml = renderEmailDocument(primary, { preview: true, mobile: true });
+assert.ok(collectionHtml.includes('utm_source=mail&amp;campaign=1'));
+checkTables(collectionHtml);
 console.log(`Passed ${cases} block/theme/preview cases and export regressions.`);

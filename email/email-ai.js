@@ -60,35 +60,39 @@ export function buildAiEmail(draft, illustration, coverImage = "") {
   email.blocks = draft.blocks.map(({ type, heading, accent, body, eyebrow, offer, cta, url, items = [], tone }) => {
     const destination = cta ? url || "{{cta_url}}" : "";
     const headingMarkup = brandedHeading(heading, accent);
+    const list = items.map((item) => `- ${[item.eyebrow, item.heading, item.body,
+      item.cta && (item.url ? `[${item.cta}](${item.url})` : item.cta)].filter(Boolean).join(" — ")}`).join("\n");
+    const details = joinParagraphs(body, list);
     if (type === "title" && heading) {
       return createBlock("title", {
         variant: "accent",
-        content: { heading: headingMarkup, subtitle: body, accent: "", plate: tone === "white" ? "1" : "" }
+        content: { heading: headingMarkup, subtitle: details, accent: "", plate: tone === "white" ? "1" : "" }
       });
     }
     if (type === "promo") {
+      const bigNumber = offer?.length <= 18 && /^[+−-]?\d/.test(offer) ? forceDelaMarkup(offer) : "";
       return createBlock("promo", {
-        content: { heading: headingMarkup, eyebrow, offer: forceDelaMarkup(offer), body, bodySize: "16", ctaText: cta, ctaUrl: destination, image: null }
+        content: { heading: headingMarkup, eyebrow, bigNumber, offer: bigNumber ? "" : forceDelaMarkup(offer), body: details, bodySize: "16", ctaText: cta, ctaUrl: destination, image: null }
       });
     }
     if (type === "cta") {
       return createBlock("ctaCard", {
         variant: editorial ? "light" : "dark-gradient",
-        content: { heading: headingMarkup, subtitle: body, ctaText: cta, ctaUrl: destination }
+        content: { heading: heading === cta ? "" : headingMarkup, subtitle: details, ctaText: cta, ctaUrl: destination }
       });
     }
     if (type === "button") return createBlock("button", { variant: "secondary", content: { text: cta, url: destination, align: "left" } });
     if (type === "feature") {
       return createBlock("imageText", {
         variant: featured++ % 2 ? "image-right" : "image-left",
-        content: { heading: headingMarkup, body, linkText: cta, linkUrl: destination, image: null, plate: tone === "plain" && !editorial ? "0" : "1" }
+        content: { heading: headingMarkup, body: details, linkText: cta, linkUrl: destination, image: null, tone, plate: tone === "plain" && !editorial ? "0" : "1" }
       });
     }
     if (type === "panel" || (collections.includes(type) && items.length)) {
       return createBlock(type === "panel" ? "panel" : "collection", {
         variant: type === "panel" ? "default" : type,
         content: {
-          heading: headingMarkup, eyebrow, body, ctaText: cta, ctaUrl: destination, tone: tone || "white",
+          heading: headingMarkup, eyebrow, body: type === "panel" ? details : body, ctaText: cta, ctaUrl: destination, tone: tone || "white",
           ...(type !== "panel" && { items: items.map((item) => ({
             heading: brandedHeading(item.heading, ""), eyebrow: item.eyebrow || "", body: item.body,
             ctaText: item.cta || "", ctaUrl: item.cta ? item.url || "{{cta_url}}" : ""
@@ -97,11 +101,12 @@ export function buildAiEmail(draft, illustration, coverImage = "") {
       });
     }
     if (type === "benefits" && !body && items.length >= 2 && items.length <= 6
-      && items.every((item) => item.heading.length <= 80 && item.body.length <= 110)) {
+      && items.every((item) => item.heading.length <= 80 && item.body.length <= 110 && !item.cta && !item.eyebrow)) {
       return createBlock("iconGrid", {
         content: {
           heading: headingMarkup,
           columns: items.length % 2 ? "1" : "2",
+          ctaText: cta, ctaUrl: destination,
           items: items.map((item) => ({
             ...item,
             heading: forceDelaMarkup(item.heading),
@@ -110,10 +115,8 @@ export function buildAiEmail(draft, illustration, coverImage = "") {
         }
       });
     }
-    const list = items.map((item) => `- ${[item.eyebrow, item.heading, item.body,
-      item.cta && (item.url ? `[${item.cta}](${item.url})` : item.cta)].filter(Boolean).join(" — ")}`).join("\n");
     return createBlock("text", {
-      content: { body: joinParagraphs(heading && `**${heading}**`, body, list), plate: tone === "white" ? "1" : "" }
+      content: { body: joinParagraphs(heading && `**${heading}**`, details, cta && (url ? `[${cta}](${url})` : cta)), plate: tone === "white" ? "1" : "" }
     });
   });
 
