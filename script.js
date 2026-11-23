@@ -504,17 +504,20 @@ const appState = {
   banners: createBannerDefaults()
 };
 
+const isEmailCoverRenderer = window.parent !== window && new URLSearchParams(location.search).get("email-cover") === "1";
 const PROJECT_STORAGE_KEY = "calltouch-generators-state-v2";
 const BANNER_DRAFT_STORAGE_KEY = "calltouch-banner-drafts-v1";
 const BANNER_TEMPLATE_TYPE = "calltouch-banner-template";
 let saveProjectTimer = 0;
 
 function scheduleProjectSave() {
+  if (isEmailCoverRenderer) return;
   window.clearTimeout(saveProjectTimer);
   saveProjectTimer = window.setTimeout(saveProjectState, 250);
 }
 
 function saveProjectState() {
+  if (isEmailCoverRenderer) return;
   try {
     const caseForm = {};
     elements.editorForm?.querySelectorAll("input, textarea, select").forEach((control) => {
@@ -1281,6 +1284,46 @@ function applyImportedBannerState(banners, message) {
   showToast(message);
 }
 
+function createAiBannerState(draft) {
+  const state = createBannerDefaults();
+  const { content } = state;
+  content.title = draft.accent ? draft.title.replace(draft.accent, () => `{{cyan|${draft.accent}}}`) : draft.title;
+  content.subtitle = draft.subtitle;
+  content.subtitleEnabled = Boolean(draft.subtitle);
+  [content.label1, content.label2].forEach((label, index) => {
+    label.text = draft.labels[index] || "";
+    label.enabled = Boolean(label.text);
+  });
+  content.button.text = draft.cta;
+  content.button.enabled = Boolean(draft.cta);
+  Object.assign(content.offer, draft.offer, { enabled: Boolean(draft.offer?.value || draft.offer?.caption) });
+  content.additionalText.text = draft.additionalText;
+  content.additionalText.enabled = Boolean(draft.additionalText);
+  state.branding.theme = draft.theme;
+  state.branding.logoEnabled = draft.logo !== false;
+  state.visual.backdrop = draft.backdrop || "library";
+  state.visual.backgroundIndex = draft.backgroundIndex || "1";
+  state.visual.overlayEnabled = state.visual.backdrop === "library";
+  state.visual.framing = draft.framing || "auto";
+  state.layout.composition = draft.composition;
+  state.layout.placements = Boolean(draft.placements);
+  state.layout.campaignVariant = draft.profile || "auto";
+  state.layout.density = draft.density || "auto";
+  state.layout.copyBackdrop = Boolean(draft.copyBackdrop);
+  state.compliance.limitTextCoverage = Boolean(draft.limitTextCoverage);
+  if (draft.composition !== "campaign") {
+    Object.assign(state.formats.adCenter, { visualX: 418, visualY: -135, overrides: { visualScale: 72 } });
+  }
+  return state;
+}
+
+function setAiBannerIllustration(state, image) {
+  Object.assign(state.visual, {
+    enabled: true, mode: "custom", customVisual: image, customVisualName: "Nano Banana 2.1"
+  });
+  bannerAssetCache.clear();
+}
+
 async function openBannerAi(mode) {
   try {
     const { openCreativeAi, EMAIL_HANDOFF_KEY } = await import("./shared/creative-ai.js");
@@ -1290,48 +1333,14 @@ async function openBannerAi(mode) {
       async apply({ draft: result, image, emailIllustration }) {
         const draft = result?.banner || result;
         if (result?.email) {
-          const { buildAiEmail } = await import("./email/email-ai.js");
-          const emailDraft = buildAiEmail({ ...result.email, visualIdea: result.visualIdea }, emailIllustration);
+          const { buildAiEmail, renderEmailBannerCover } = await import("./email/email-ai.js");
+          const emailCover = await renderEmailBannerCover(result.email, emailIllustration);
+          const emailDraft = buildAiEmail({ ...result.email, visualIdea: result.visualIdea }, emailIllustration, emailCover);
           sessionStorage.setItem(EMAIL_HANDOFF_KEY, JSON.stringify(emailDraft));
           document.getElementById("bannerAiEmailLink").hidden = false;
         }
-        const state = draft ? createBannerDefaults() : cloneBannerState();
-        if (draft) {
-          const { content } = state;
-          content.title = draft.accent ? draft.title.replace(draft.accent, () => `{{cyan|${draft.accent}}}`) : draft.title;
-          content.subtitle = draft.subtitle;
-          content.subtitleEnabled = Boolean(draft.subtitle);
-          [content.label1, content.label2].forEach((label, index) => {
-            label.text = draft.labels[index] || "";
-            label.enabled = Boolean(label.text);
-          });
-          content.button.text = draft.cta;
-          content.button.enabled = Boolean(draft.cta);
-          Object.assign(content.offer, draft.offer, { enabled: Boolean(draft.offer?.value || draft.offer?.caption) });
-          content.additionalText.text = draft.additionalText;
-          content.additionalText.enabled = Boolean(draft.additionalText);
-          state.branding.theme = draft.theme;
-          state.branding.logoEnabled = draft.logo !== false;
-          state.visual.backdrop = draft.backdrop || "library";
-          state.visual.backgroundIndex = draft.backgroundIndex || "1";
-          state.visual.overlayEnabled = state.visual.backdrop === "library";
-          state.visual.framing = draft.framing || "auto";
-          state.layout.composition = draft.composition;
-          state.layout.placements = Boolean(draft.placements);
-          state.layout.campaignVariant = draft.profile || "auto";
-          state.layout.density = draft.density || "auto";
-          state.layout.copyBackdrop = Boolean(draft.copyBackdrop);
-          state.compliance.limitTextCoverage = Boolean(draft.limitTextCoverage);
-          if (draft.composition !== "campaign") {
-            Object.assign(state.formats.adCenter, { visualX: 418, visualY: -135, overrides: { visualScale: 72 } });
-          }
-        }
-        if (image) {
-          Object.assign(state.visual, {
-            enabled: true, mode: "custom", customVisual: image, customVisualName: "Nano Banana 2.1"
-          });
-          bannerAssetCache.clear();
-        }
+        const state = draft ? createAiBannerState(draft) : cloneBannerState();
+        if (image) setAiBannerIllustration(state, image);
         applyImportedBannerState(state, draft ? "Комплект баннеров собран." : "Иллюстрация установлена.");
         if (draft) {
           if (bannerElements.templateNameInput) bannerElements.templateNameInput.value = draft.title.slice(0, 80);
@@ -5071,7 +5080,7 @@ if (window.lucide) {
 }
 const startupParams = new URLSearchParams(location.search);
 const startupFormat = startupParams.get("format");
-const restoredProject = restoreProjectState();
+const restoredProject = !isEmailCoverRenderer && restoreProjectState();
 setupCustomSelects();
 setupDemoAccessGate();
 if (startupParams.get("theme") === "light") {
@@ -5094,6 +5103,33 @@ setActiveTool(
     : getToolFromHash() || (restoredProject ? appState.ui.activeTool : "banners")
 );
 document.fonts.ready.then(scheduleBannerFit);
+
+if (isEmailCoverRenderer) {
+  window.renderEmailBannerJpg = async (draft, image) => {
+    const state = createAiBannerState(draft);
+    setAiBannerIllustration(state, image);
+    applyImportedBannerState(state, "Обложка письма");
+    return blobToBannerDataUrl(await createCreativeJpg("landscape", .625));
+  };
+}
+
+document.getElementById("bannerToEmailButton").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const { EMAIL_IMAGE_HANDOFF_KEY } = await import("./shared/creative-ai.js");
+    const format = appState.ui.activeBannerFormat;
+    const width = BANNER_FORMATS[format].width;
+    const image = await blobToBannerDataUrl(await createCreativeJpg(format, Math.min(1, 1200 / width)));
+    const alt = parseBannerRichMarkup(appState.banners.content.title).map(({ text }) => text).join("");
+    sessionStorage.setItem(EMAIL_IMAGE_HANDOFF_KEY, JSON.stringify({ image, alt, width: Math.min(1200, width) }));
+    window.top.location.href = "email-editor.html?from-banner=1";
+  } catch (error) {
+    showToast(error.message || "Не удалось подготовить изображение для письма.", true);
+  } finally {
+    button.disabled = false;
+  }
+});
 
 document.addEventListener("input", scheduleProjectSave, { passive: true });
 document.addEventListener("change", scheduleProjectSave, { passive: true });

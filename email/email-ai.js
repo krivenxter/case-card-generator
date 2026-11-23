@@ -11,6 +11,27 @@ function brandedHeading(heading, accent) {
   return forceDelaMarkup(text);
 }
 
+export async function renderEmailBannerCover(draft, illustration) {
+  if (draft.cover !== "banner" || !draft.coverBanner || !illustration) return "";
+  const frame = document.createElement("iframe");
+  frame.title = "Рендер обложки письма";
+  frame.setAttribute("aria-hidden", "true");
+  frame.inert = true;
+  frame.style.cssText = "position:fixed;left:-2000px;top:0;width:1480px;height:900px;border:0;pointer-events:none;";
+  try {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Баннерный редактор не успел загрузиться.")), 20000);
+      frame.addEventListener("load", () => { clearTimeout(timeout); resolve(); }, { once: true });
+      frame.src = new URL("../index.html?tool=banners&embedded=1&email-cover=1", import.meta.url);
+      document.body.append(frame);
+    });
+    if (typeof frame.contentWindow?.renderEmailBannerJpg !== "function") throw new Error("Баннерный редактор недоступен.");
+    return await frame.contentWindow.renderEmailBannerJpg(draft.coverBanner, illustration);
+  } finally {
+    frame.remove();
+  }
+}
+
 export function createIllustrationAsset(source, label) {
   return {
     id: createId("asset"),
@@ -21,7 +42,13 @@ export function createIllustrationAsset(source, label) {
   };
 }
 
-export function buildAiEmail(draft, illustration) {
+export function createBannerEmailBlock(source, alt, width = 1200) {
+  return createBlock("image", {
+    content: { image: { ...createIllustrationAsset(source, alt), width }, alt }
+  });
+}
+
+export function buildAiEmail(draft, illustration, coverImage = "") {
   const email = createDefaultEmail();
   email.meta.title = draft.subject || draft.blocks[0].heading || "Письмо Calltouch";
   email.meta.preheader = draft.preheader;
@@ -90,7 +117,10 @@ export function buildAiEmail(draft, illustration) {
     });
   });
 
-  if (illustration) {
+  if (coverImage) {
+    const alt = draft.coverAlt || draft.coverBanner?.title || draft.subject;
+    email.blocks.unshift(createBannerEmailBlock(coverImage, alt));
+  } else if (illustration && draft.cover !== "none") {
     const asset = createIllustrationAsset(illustration, draft.coverAlt || draft.visualIdea);
     const placement = draft.cover === "inline" ? "imageText" : "promo";
     const pictureBlock = draft.cover === "banner" ? null
@@ -108,8 +138,8 @@ export function buildAiEmail(draft, illustration) {
   return email;
 }
 
-export function buildAiEmailVariants(draft, illustration) {
-  const recommended = buildAiEmail(draft, illustration);
+export function buildAiEmailVariants(draft, illustration, coverImage) {
+  const recommended = buildAiEmail(draft, illustration, coverImage);
   const alternateCover = draft.cover === "banner" ? "inline" : "banner";
   const alternate = illustration ? buildAiEmail({ ...draft, cover: alternateCover }, illustration) : cloneEmail(recommended);
   for (const block of alternate.blocks) {

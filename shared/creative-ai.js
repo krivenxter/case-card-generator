@@ -2,6 +2,7 @@ const API = location.origin === "https://calltouch-dsgn.website.yandexcloud.net"
   ? "https://case-carder.vercel.app/api/creative-ai"
   : "/api/creative-ai";
 export const EMAIL_HANDOFF_KEY = "calltouch-ai-email-handoff-v1";
+export const EMAIL_IMAGE_HANDOFF_KEY = "calltouch-banner-email-image-v1";
 let accessToken = "";
 
 async function requestAi(input, signal) {
@@ -219,7 +220,7 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
         report("ИИ собирает структуру и текст…");
         draft = await requestAi({ action: "draft", target: withEmail?.checked ? "campaign" : target, text: input }, signal);
       }
-      if (isImage || withImage?.checked) {
+      if (isImage || (withImage?.checked && draft?.cover !== "none")) {
         if (!resultImage) {
           if (!jobId) {
             const ratio = aspect?.value || (draft?.cover === "banner" ? "4:3" : "1:1");

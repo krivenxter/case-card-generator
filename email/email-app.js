@@ -1,7 +1,7 @@
 import { BLOCK_DEFINITIONS, DELA_FONT_SIZES, EMAIL_STORAGE_KEY, EMAIL_TOKENS, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
 import { buildAutoVariants, readImportedFile } from "./email-parser.js";
-import { EMAIL_HANDOFF_KEY, openCreativeAi } from "../shared/creative-ai.js";
-import { buildAiEmailVariants, createIllustrationAsset } from "./email-ai.js";
+import { EMAIL_HANDOFF_KEY, EMAIL_IMAGE_HANDOFF_KEY, openCreativeAi } from "../shared/creative-ai.js";
+import { buildAiEmailVariants, createBannerEmailBlock, createIllustrationAsset, renderEmailBannerCover } from "./email-ai.js";
 import { renderEmailDocument, renderBlock } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
 import { BRAND_SCENE_MIN_HEIGHT, BRAND_SCENE_WIDTH, brandSceneSignature, isBrandScenePublished, renderBrandSceneMarkup } from "./email-brand-scene.js";
@@ -1737,8 +1737,9 @@ function openEmailAiDraft(initialText = "") {
     target: "email",
     mode: "draft",
     initialText,
-    apply({ draft, image }) {
-      showEmailVariants(buildAiEmailVariants(draft, image));
+    async apply({ draft, image }) {
+      const coverImage = await renderEmailBannerCover(draft, image);
+      showEmailVariants(buildAiEmailVariants(draft, image, coverImage));
       showToast("Варианты письма готовы.");
     }
   });
@@ -2309,6 +2310,19 @@ if (sourceUrl.searchParams.has("from-ai")) {
     }
   } catch {}
   sourceUrl.searchParams.delete("from-ai");
+  window.history.replaceState(null, "", sourceUrl);
+}
+if (sourceUrl.searchParams.has("from-banner")) {
+  try {
+    const asset = JSON.parse(sessionStorage.getItem(EMAIL_IMAGE_HANDOFF_KEY) || "null");
+    if (typeof asset?.image === "string" && asset.image.startsWith("data:image/jpeg;base64,")) {
+      campaignEmail = restored ? cloneEmail(restored) : createDefaultEmail();
+      if (!restored) campaignEmail.blocks = [];
+      campaignEmail.blocks.unshift(createBannerEmailBlock(asset.image, asset.alt, asset.width));
+      sessionStorage.removeItem(EMAIL_IMAGE_HANDOFF_KEY);
+    }
+  } catch {}
+  sourceUrl.searchParams.delete("from-banner");
   window.history.replaceState(null, "", sourceUrl);
 }
 if (campaignEmail) {

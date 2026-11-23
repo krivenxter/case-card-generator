@@ -209,7 +209,8 @@ function renderImageBlock(block, preview) {
   const content = block.content;
   if (!content.image?.previewSource && !content.image?.exportUrl) return "";
   const cover = block.variant === "cover";
-  const image = img(content.image, content.alt || content.image?.label, preview, cover ? 360 : 604, cover ? 0 : 18);
+  const width = Math.min(cover ? 360 : 604, Number(content.image.width) > 0 ? Number(content.image.width) : 604);
+  const image = img(content.image, content.alt || content.image?.label, preview, width, cover ? 0 : 18);
   const linked = content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" style="display:block;text-decoration:none;">${image}</a>` : image;
   const artwork = cover
     ? table(`<tr>${td(linked, "padding:12px 20px;text-align:center;")}</tr>`,
