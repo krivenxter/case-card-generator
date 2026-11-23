@@ -2846,6 +2846,8 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   const campaign = layout.composition === "campaign" || formatConfig.placement
     || formatState.overrides.campaignVariant || canvas.dataset.previewProfile;
   const profile = canvas.dataset.previewProfile
+    || formatState.overrides.campaignVariant
+    || (formatConfig.centered && "center")
     || (layout.campaignVariant === "auto" ? getRecommendedBannerProfile(state.content) : layout.campaignVariant);
   canvas.dataset.theme = state.branding.theme;
   canvas.dataset.accentStyle = state.branding.accentStyle;
@@ -2856,7 +2858,7 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   canvas.dataset.framing = campaign ? state.visual.framing : "";
   canvas.classList.toggle("has-copy-backdrop", Boolean(campaign && layout.copyBackdrop));
   canvas.dataset.backdrop = backgroundUrl ? "library" : state.visual.backdrop;
-  canvas.dataset.textAlign = formatConfig.centered || (campaign && profile === "center") ? "center" : layout.textAlign;
+  canvas.dataset.textAlign = (campaign ? profile === "center" : formatConfig.centered) ? "center" : layout.textAlign;
   canvas.classList.toggle("is-textless", Boolean(formatConfig.textless));
   canvas.classList.toggle("is-active", format === appState.ui.activeBannerFormat);
   canvas.classList.toggle("has-keyvisual", state.visual.enabled);
@@ -2879,7 +2881,7 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   canvas.style.setProperty("--creative-padding-y", `${layout.padding * paddingScale.y}px`);
   canvas.style.setProperty("--creative-gap", `${layout.gap}px`);
   canvas.style.setProperty("--runtime-gap", `${layout.gap}px`);
-  const contentWidthScale = BANNER_FORMAT_CONTENT_WIDTH_SCALES[format] ?? 1;
+  const contentWidthScale = campaign ? 1 : (BANNER_FORMAT_CONTENT_WIDTH_SCALES[format] ?? 1);
   canvas.style.setProperty("--content-width", `${Math.min(100, layout.contentWidth * contentWidthScale)}%`);
   canvas.style.setProperty("--vertical-align", formatConfig.centered ? "center" : layout.verticalAlign);
   canvas.style.setProperty("--button-radius", buttonRadius);

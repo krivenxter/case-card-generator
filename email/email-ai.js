@@ -1,8 +1,15 @@
-import { createBlock, createDefaultEmail, createId } from "./email-model.js";
+import { cloneEmail, createBlock, createDefaultEmail, createId } from "./email-model.js";
 import { pickIconId } from "./email-parser.js";
 import { forceDelaMarkup } from "./email-rich-text.js";
 
 const joinParagraphs = (...parts) => parts.filter(Boolean).join("\n\n");
+const collections = ["agenda", "resources", "comparison", "steps"];
+
+function brandedHeading(heading, accent) {
+  const text = accent && heading.includes(accent)
+    ? heading.replace(accent, () => `{{cyan|${accent}}}`) : heading;
+  return forceDelaMarkup(text);
+}
 
 export function createIllustrationAsset(source, label) {
   return {
@@ -22,30 +29,51 @@ export function buildAiEmail(draft, illustration) {
   email.footnotes = draft.footnotes.map((text) => ({ id: createId("note"), text: text.replace(/^\*+\s*/, "") }));
 
   const editorial = draft.theme === "editorial";
-  email.blocks = draft.blocks.map(({ type, heading, body, eyebrow, offer, cta, url, items }) => {
+  let featured = 0;
+  email.blocks = draft.blocks.map(({ type, heading, accent, body, eyebrow, offer, cta, url, items = [], tone }) => {
     const destination = cta ? url || "{{cta_url}}" : "";
+    const headingMarkup = brandedHeading(heading, accent);
     if (type === "title" && heading) {
       return createBlock("title", {
-        variant: editorial ? "plain" : "accent",
-        content: { heading: forceDelaMarkup(heading), subtitle: body, accent: "" }
+        variant: "accent",
+        content: { heading: headingMarkup, subtitle: body, accent: "", plate: tone === "white" ? "1" : "" }
       });
     }
     if (type === "promo") {
       return createBlock("promo", {
-        content: { heading: forceDelaMarkup(heading), eyebrow, offer: forceDelaMarkup(offer), body, ctaText: cta, ctaUrl: destination, image: null }
+        content: { heading: headingMarkup, eyebrow, offer: forceDelaMarkup(offer), body, bodySize: "16", ctaText: cta, ctaUrl: destination, image: null }
       });
     }
     if (type === "cta") {
       return createBlock("ctaCard", {
         variant: editorial ? "light" : "dark-gradient",
-        content: { heading: forceDelaMarkup(heading), subtitle: body, ctaText: cta, ctaUrl: destination }
+        content: { heading: headingMarkup, subtitle: body, ctaText: cta, ctaUrl: destination }
+      });
+    }
+    if (type === "button") return createBlock("button", { variant: "secondary", content: { text: cta, url: destination, align: "left" } });
+    if (type === "feature") {
+      return createBlock("imageText", {
+        variant: featured++ % 2 ? "image-right" : "image-left",
+        content: { heading: headingMarkup, body, linkText: cta, linkUrl: destination, image: null, plate: tone === "plain" && !editorial ? "0" : "1" }
+      });
+    }
+    if (type === "panel" || (collections.includes(type) && items.length)) {
+      return createBlock(type === "panel" ? "panel" : "collection", {
+        variant: type === "panel" ? "default" : type,
+        content: {
+          heading: headingMarkup, eyebrow, body, ctaText: cta, ctaUrl: destination, tone: tone || "white",
+          ...(type !== "panel" && { items: items.map((item) => ({
+            heading: brandedHeading(item.heading, ""), eyebrow: item.eyebrow || "", body: item.body,
+            ctaText: item.cta || "", ctaUrl: item.cta ? item.url || "{{cta_url}}" : ""
+          })) })
+        }
       });
     }
     if (type === "benefits" && !body && items.length >= 2 && items.length <= 6
       && items.every((item) => item.heading.length <= 80 && item.body.length <= 110)) {
       return createBlock("iconGrid", {
         content: {
-          heading: forceDelaMarkup(heading),
+          heading: headingMarkup,
           columns: items.length % 2 ? "1" : "2",
           items: items.map((item) => ({
             ...item,
@@ -55,21 +83,40 @@ export function buildAiEmail(draft, illustration) {
         }
       });
     }
-    const list = items.map((item) => `- ${[item.heading, item.body].filter(Boolean).join(" — ")}`).join("\n");
+    const list = items.map((item) => `- ${[item.eyebrow, item.heading, item.body,
+      item.cta && (item.url ? `[${item.cta}](${item.url})` : item.cta)].filter(Boolean).join(" — ")}`).join("\n");
     return createBlock("text", {
-      content: { body: joinParagraphs(heading && `**${heading}**`, body, list) }
+      content: { body: joinParagraphs(heading && `**${heading}**`, body, list), plate: tone === "white" ? "1" : "" }
     });
   });
 
   if (illustration) {
-    const asset = createIllustrationAsset(illustration, draft.visualIdea);
-    const promo = email.blocks.find((block, index) => index < 2 && block.type === "promo");
-    if (promo) {
-      promo.content.image = asset;
+    const asset = createIllustrationAsset(illustration, draft.coverAlt || draft.visualIdea);
+    const placement = draft.cover === "inline" ? "imageText" : "promo";
+    const pictureBlock = draft.cover === "banner" ? null
+      : email.blocks.find((block, index) => index < (draft.cover ? 5 : 2) && block.type === placement);
+    if (pictureBlock) {
+      pictureBlock.content.image = asset;
     } else {
-      const imageBlock = createBlock("image", { content: { image: asset, alt: asset.label } });
-      email.blocks.splice(1, 0, imageBlock);
+      const imageBlock = createBlock("image", {
+        variant: draft.cover === "banner" ? "cover" : "default",
+        content: { image: asset, alt: asset.label }
+      });
+      email.blocks.splice(draft.cover === "banner" ? 0 : 1, 0, imageBlock);
     }
   }
   return email;
+}
+
+export function buildAiEmailVariants(draft, illustration) {
+  const recommended = buildAiEmail(draft, illustration);
+  const alternateCover = draft.cover === "banner" ? "inline" : "banner";
+  const alternate = illustration ? buildAiEmail({ ...draft, cover: alternateCover }, illustration) : cloneEmail(recommended);
+  for (const block of alternate.blocks) {
+    if (block.type === "collection" && block.variant === "comparison") block.content.stacked = true;
+    if (block.type === "iconGrid") block.content.columns = "1";
+    if (block.type === "imageText") block.variant = "image-top";
+    if (block.type === "panel" && block.content.tone !== "plain") block.content.tone = "white";
+  }
+  return [recommended, alternate];
 }

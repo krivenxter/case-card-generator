@@ -3927,6 +3927,13 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
   align-self: center;
 }
 
+.creative-canvas[data-template="campaign"][data-format="adCenter"]:not([data-profile="center"]) .creative-copy {
+  align-items: flex-start;
+  justify-self: start;
+  text-align: left;
+  margin-inline: 0;
+}
+
 .creative-canvas[data-template="campaign"][data-format="adCenter"] .creative-visual {
   width: 100%;
 }
@@ -4123,7 +4130,12 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
 }
 
 .creative-canvas[data-template="campaign"][data-profile="editorial"][data-density="compact"] .creative-title {
-  font-size: calc(var(--runtime-title-size) * 1.025);
+  font-size: calc(var(--runtime-title-size) * 1.08);
+}
+
+.creative-canvas[data-template="campaign"][data-profile="editorial"]:is([data-format="portrait"], [data-format="story"]) .creative-visual {
+  width: min(100%, 850px);
+  justify-self: center;
 }
 
 .creative-canvas[data-template="campaign"][data-profile="editorial"].has-keyvisual:is([data-format="ad"], [data-format="adCenter"], [data-format="landscape"]) .creative-body {
@@ -4140,6 +4152,10 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
 
 .creative-canvas[data-template="campaign"][data-profile="offer"]:not([data-placement="strip"]) .creative-offer {
   margin-top: max(2px, calc(var(--runtime-gap) * .18));
+}
+
+.creative-canvas[data-template="campaign"][data-profile="offer"]:is([data-format="portrait"], [data-format="story"]) .creative-offer {
+  order: -1;
 }
 
 .creative-canvas[data-template="campaign"][data-profile="offer"][data-density="airy"]:not([data-placement="strip"]):not([data-placement="narrow"]) .creative-offer {
@@ -4167,10 +4183,16 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
   justify-self: center;
 }
 
-.creative-canvas[data-template="campaign"][data-profile="center"].has-keyvisual[data-density="airy"]:is([data-format="ad"], [data-format="adCenter"], [data-format="landscape"]) .creative-body {
+.creative-canvas[data-template="campaign"][data-profile="center"].has-keyvisual:is([data-format="ad"], [data-format="adCenter"], [data-format="landscape"]) .creative-body {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(76px, 1fr);
   grid-template-areas: "copy" "visual";
+  gap: max(8px, calc(var(--runtime-gap) * .48));
+}
+
+.creative-canvas[data-template="campaign"][data-profile="center"].has-keyvisual:is([data-format="ad"], [data-format="adCenter"], [data-format="landscape"]) .creative-copy {
+  width: min(var(--content-width), 820px);
+  align-self: start;
 }
 
 .creative-canvas[data-template="campaign"][data-placement="strip"][data-profile="reverse"].has-keyvisual .creative-body {

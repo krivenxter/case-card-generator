@@ -17,9 +17,12 @@ const DRAFT_PROMPTS = {
 Формат {"title":"","subtitle":"","labels":["",""],"cta":"","additionalText":"","offer":{"value":"","caption":"","style":"cyan|purple|cyanPlate|purplePlate"},"theme":"light|dark","composition":"classic|alternate|campaign","profile":"split|reverse|editorial|offer|center","density":"auto|airy|compact","framing":"auto|contain|bleed","copyBackdrop":false,"backdrop":"library|violet|blue","backgroundIndex":"1","placements":false,"logo":true,"limitTextCoverage":false,"accent":"","visualIdea":""}.
 Выбери profile под главную мысль. offer для ведущего числового оффера, editorial для сильного заголовка или объёмного текста со сносками, split или reverse для диалога текста и предмета, center для короткой симметричной композиции. Учитывай в том же решении объём текста и место под визуал. Для длинных сносок и сложного заголовка выбери compact, для короткой рекламы airy, в остальных случаях auto. contain сохраняет силуэт целиком, bleed разрешает обрезать его краями кадра. copyBackdrop включай, если тексту нужна контрастная подложка из-за сложного фона.
 Для рекламной кампании выбери campaign. Если в ТЗ есть явно выделяемая скидка, бонус или цена, перенеси точное значение в offer.value, а его пояснение в offer.caption. Не повторяй их в subtitle. Не выделяй скидку или число, которого нет в ТЗ. В additionalText помести сноски, условия акции и ERID целиком, сохрани переносы между сносками. Accent — точная короткая подстрока заголовка. В placements поставь true, если в ТЗ есть 240 × 400, 960 × 150, 2184 × 270 или просьба включить допформаты. Logo false только по требованию ТЗ. LimitTextCoverage true только при явном ограничении площади текста до 20%. Для светлого фона используй library и backgroundIndex 1–6. Для тёмного фона с фиолетовым или синим пятном снизу используй violet или blue, для остальных фирменных фонов library и backgroundIndex 1–6.`,
-  email: `Собери письмо из упорядоченных модулей. В начале заголовок или промо, где есть явный оффер; далее 1–2 разных типа осмысленных блоков. Набор преимуществ верстай сеткой только при 2–6 коротких тезисах, длинные списки оставляй текстом. Сохрани все смысловые секции, сноски, абзацы и ссылки. Не дублируй тезисы ради оформления. Для ссылок внутри текста используй [текст](https://...). CTA без URL оставь с пустым url. Болванки полей не выводи как текст.
-Формат {"subject":"","preheader":"","theme":"classic|editorial","visualIdea":"","blocks":[{"type":"title|promo|text|benefits|cta","heading":"","body":"","eyebrow":"","offer":"","cta":"","url":"","items":[{"heading":"","body":""}]}],"footnotes":[""]}.
-body в type title — подзаголовок, в type cta — пояснение. Поля можно опускать, когда они не нужны. Сноски передавай в исходном порядке, сохрани маркеры.`
+  email: `Собери письмо как арт-директор email Calltouch. Выбери композицию по цели: анонс с обложкой, приглашение с программой или редакционный дайджест. В начале задай тему и главный акцент. Длинное письмо разбей на группы с разным ритмом. Используй обычный текст между акцентными блоками, место под иллюстрацию и разные по функции секции. Не повторяй один тип карточек для каждого абзаца.
+Формат {"subject":"","preheader":"","theme":"classic|editorial","cover":"banner|inline|promo","coverAlt":"","visualIdea":"","blocks":[{"type":"title|promo|text|benefits|panel|agenda|resources|comparison|steps|feature|cta|button","heading":"","accent":"","body":"","eyebrow":"","offer":"","cta":"","url":"","tone":"plain|white|ice|lilac","items":[{"heading":"","body":"","eyebrow":"","cta":"","url":""}]}],"footnotes":[""]}.
+Баннерная обложка (cover banner) открывает событийное и имиджевое письмо, inline ставит изображение в первый feature или после заголовка, promo встраивает его в первое промо. coverAlt — короткое описание для читателя. Одно изображение на письмо. theme editorial выбирай для короткого динамичного письма, classic для длинного и редакционного.
+title — главный заголовок и короткий подзаголовок. accent — точный короткий фрагмент заголовка, если уместен брендовый акцент. promo — коммерческий оффер, помещай числовой акцент в offer. panel — важное объявление, цитата или самостоятельная карточка с заголовком, маркером eyebrow и пояснением. Цветные панели ice и lilac уместны для одиночного акцента, white для спокойного чтения, plain для заметки без подложки.
+agenda — программа: eyebrow каждого пункта для времени или формата, если они заданы. steps — последовательность действий. resources — запись, фото, документы и другие ссылки, каждая с собственным CTA и URL, если они есть. comparison — два или больше равноправных объектов, каждый с отдельным заголовком и описанием. benefits — сетка только для 2–6 коротких тезисов. feature — редакционная карточка с длинным содержательным текстом, можно использовать несколько с чередующимся ритмом. cta — финальное действие с заголовком и пояснением. button — простая кнопка в теле письма.
+Сохрани готовые тексты, имеющиеся числа, даты, сноски и все ссылки ТЗ. Передавай URL без изменения, включая параметры. Используй [текст](https://...) для inline-ссылок. CTA без ссылки оставь с пустым url. Оставляй поля пустыми, если они не нужны. Не вставляй служебные метки, пустые секции и выдуманные факты. Сноски передавай в исходном порядке, сохрани маркеры.`
 };
 const CAMPAIGN_PROMPT = `Из одного ТЗ собери согласованный комплект. Верни единый объект {"banner":{...},"email":{...},"visualIdea":""}, где banner и email следуют форматам ниже. Одна общая метафора visualIdea для обоих материалов.
 
@@ -103,19 +106,22 @@ export function normalizeDraft(value, target, brief) {
   }
 
   const links = briefLinks(brief);
-  const types = new Set(["title", "promo", "text", "benefits", "cta"]);
+  const types = new Set(["title", "promo", "text", "benefits", "panel", "agenda", "resources", "comparison", "steps", "feature", "cta", "button"]);
   const clean = (input, max) => withBriefLinks(field(input, max), links);
   const blocks = (Array.isArray(value.blocks) ? value.blocks : []).filter((block) => types.has(block?.type)).map((block) => ({
     type: block.type,
     heading: clean(block.heading, 500),
+    accent: field(block.accent, 80),
     body: clean(block.body, 16000),
     eyebrow: clean(block.eyebrow, 150),
     offer: clean(block.offer, 2000),
+    tone: ["plain", "white", "ice", "lilac"].includes(block.tone) ? block.tone : "",
     cta: clean(block.cta, 150),
     url: links.has(block.url) ? block.url : "",
     items: (Array.isArray(block.items) ? block.items : []).map((item) => ({
-      heading: clean(item?.heading, 350), body: clean(item?.body, 5000)
-    })).filter(({ heading, body }) => heading || body)
+      heading: clean(item?.heading, 350), body: clean(item?.body, 5000),
+      eyebrow: clean(item?.eyebrow, 100), cta: clean(item?.cta, 90), url: links.has(item?.url) ? item.url : ""
+    })).filter(({ heading, body, eyebrow, cta }) => heading || body || eyebrow || cta)
   })).filter(({ heading, body, eyebrow, offer, cta, items }) => heading || body || eyebrow || offer || cta || items.length);
   if (!blocks.length || blocks.length > 40) throw new RequestError(502, "PlusVibe не смог собрать структуру письма.");
   const footnotes = (Array.isArray(value.footnotes) ? value.footnotes : []).map((note) => clean(note, 3000)).filter(Boolean);
@@ -123,6 +129,8 @@ export function normalizeDraft(value, target, brief) {
     subject: clean(value.subject, 180),
     preheader: clean(value.preheader, 500),
     theme: value.theme === "editorial" ? "editorial" : "classic",
+    cover: ["banner", "inline", "promo"].includes(value.cover) ? value.cover : "",
+    coverAlt: field(value.coverAlt, 250),
     blocks, footnotes, visualIdea
   };
 }

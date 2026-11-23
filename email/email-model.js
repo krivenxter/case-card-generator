@@ -22,6 +22,8 @@ export const BLOCK_DEFINITIONS = Object.freeze([
   { type: "brandTitle", label: "Заголовок Dela", icon: "heading-1", description: "Фирменный заголовок на контрастном фоне" },
   { type: "brandScene", label: "Фирменная композиция", icon: "layers-3", description: "Dela, градиент и иллюстрация единым изображением" },
   { type: "featureCard", label: "Карточка", icon: "gallery-horizontal", description: "Изображение, заголовок и описание" },
+  { type: "panel", label: "Акцентная плашка", icon: "panel-top", description: "Важное сообщение, цитата или пояснение с кнопкой" },
+  { type: "collection", label: "Подборка", icon: "rows-3", description: "Программа, материалы, сравнение или шаги" },
   { type: "iconGrid", label: "Преимущества", icon: "layout-grid", description: "Четыре тезиса в сетке 2 × 2" },
   { type: "ctaCard", label: "Финальный CTA", icon: "megaphone", description: "Крупный финальный призыв" },
   { type: "button", label: "Кнопка", icon: "mouse-pointer-click", description: "Отдельная CTA-кнопка" },
@@ -54,6 +56,14 @@ export function createBlock(type, overrides = {}) {
     brandTitle: { variant: "light-cyan", content: { heading: "ЗАГОЛОВОК DELA", backgroundColor: EMAIL_TOKENS.colors.lightCyan, textTone: "auto", renderedUrl: "", renderedSignature: "", renderedAt: "" } },
     brandScene: { variant: "navy-purple", content: { heading: "ЗАГОЛОВОК ФИРМЕННОГО БЛОКА", body: "— Первый важный тезис\n— Второй важный тезис\n— Третий важный тезис", alt: "Фирменный информационный блок Calltouch", linkUrl: "https://calltouch.ru/", image: asset, background: null, renderedUrl: "", renderedSignature: "", renderedAt: "" } },
     featureCard: { variant: "image-left", content: { heading: "Преимущество", body: "Объясните пользу одним коротким абзацем.", image: asset } },
+    panel: { content: { eyebrow: "", heading: "Важное сообщение", body: "", tone: "ice", ctaText: "", ctaUrl: "" } },
+    collection: {
+      variant: "agenda",
+      content: { eyebrow: "", heading: "Программа", body: "", tone: "white", ctaText: "", ctaUrl: "", stacked: false, items: [
+        { eyebrow: "", heading: "Первый пункт", body: "", ctaText: "", ctaUrl: "" },
+        { eyebrow: "", heading: "Второй пункт", body: "", ctaText: "", ctaUrl: "" }
+      ] }
+    },
     iconGrid: { variant: "light", content: { heading: "", columns: "2", iconPosition: "top", align: "left", ctaText: "", ctaUrl: "", ctaVariant: "primary", items: [
       { heading: "Быстрый старт", body: "Без сложной настройки", iconId: "send" },
       { heading: "Понятный результат", body: "Все важное перед глазами", iconId: "verify" },

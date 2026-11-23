@@ -222,7 +222,7 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
       if (isImage || withImage?.checked) {
         if (!resultImage) {
           if (!jobId) {
-            const ratio = aspect?.value || "1:1";
+            const ratio = aspect?.value || (draft?.cover === "banner" ? "4:3" : "1:1");
             if (!compiledPrompt) {
               report("Готовим промпт для Nano Banana 2.1…");
               const idea = isImage ? input : draft.visualIdea || draft.title || draft.banner?.title || draft.subject || draft.blocks?.[0]?.heading;

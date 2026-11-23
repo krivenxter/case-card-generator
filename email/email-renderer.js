@@ -208,9 +208,61 @@ function renderPromo(block, preview) {
 function renderImageBlock(block, preview) {
   const content = block.content;
   if (!content.image?.previewSource && !content.image?.exportUrl) return "";
-  const image = img(content.image, content.alt || content.image?.label, preview, 604, 18);
+  const cover = block.variant === "cover";
+  const image = img(content.image, content.alt || content.image?.label, preview, cover ? 360 : 604, cover ? 0 : 18);
   const linked = content.linkUrl ? `<a href="${safeUrl(content.linkUrl)}" target="_blank" style="display:block;text-decoration:none;">${image}</a>` : image;
-  return wrapBlock(block, linked, "transparent", "0 0 24px");
+  const artwork = cover
+    ? table(`<tr>${td(linked, "padding:12px 20px;text-align:center;")}</tr>`,
+      `background:${C.navy};background:linear-gradient(145deg,${C.navy},#5630AE);border-radius:24px;`, `bgcolor="${C.navy}"`)
+    : linked;
+  return wrapBlock(block, artwork, "transparent", "0 0 24px");
+}
+
+function renderPanel(block, preview, darkText) {
+  const content = block.content;
+  const collection = block.type === "collection";
+  const items = collection ? (content.items || []).map((item, index) => ({ item, index }))
+    .filter(({ item }) => [item.eyebrow, item.heading, item.body, item.ctaText].some(hasText)) : [];
+  if (![content.eyebrow, content.heading, content.body, content.ctaText].some(hasText) && !items.length) return "";
+  const background = { ice: "#E7F8FF", lilac: "#F3ECFF", white: "#FFFFFF", plain: "transparent" }[content.tone] || "#FFFFFF";
+  const onBackground = darkText && background === "transparent";
+  const color = onBackground ? "#FFFFFF" : C.ink;
+  const eyebrow = (value, path) => hasText(value)
+    ? `<div${editAttrs(preview, path)} style="margin-bottom:8px;font-family:${fontBody};font-size:13px;line-height:1.3;font-weight:700;color:${onBackground ? "#FFFFFF" : textPurple};">${escapeHtml(value)}</div>` : "";
+  const heading = (value, path, size) => hasText(value)
+    ? displayText(value, color, size, "left", path, preview, size === 22 ? DELA_FONT_SIZES.large : DELA_FONT_SIZES.small) : "";
+  const description = (value, path, spaced) => hasText(value)
+    ? `<div style="padding-top:${spaced ? 8 : 0}px;">${bodyText(value, color, 16, path, preview)}</div>` : "";
+  const action = (label, url, path, spaced) => hasText(label)
+    ? `<div style="padding-top:${spaced ? 12 : 0}px;"><a${editAttrs(preview, path)} href="${safeUrl(url)}" target="_blank" style="font-family:${fontBody};font-size:15px;font-weight:700;color:${onBackground ? "#FFFFFF" : C.navy};text-decoration:underline;">${rubleSafe(label)}</a></div>` : "";
+  const intro = eyebrow(content.eyebrow, "content.eyebrow") + heading(content.heading, "content.heading", 22)
+    + description(content.body, "content.body", hasText(content.heading));
+  const entries = items.map(({ item, index }) => {
+    const path = `content.items.${index}`;
+    const prefix = item.eyebrow || (block.variant === "steps" ? String(index + 1).padStart(2, "0") : "");
+    const marker = eyebrow(prefix, item.eyebrow ? path + ".eyebrow" : "");
+    const text = heading(item.heading, path + ".heading", 16) + description(item.body, path + ".body", hasText(item.heading));
+    const link = action(item.ctaText, item.ctaUrl, path + ".ctaText", Boolean(text));
+    if (marker && (block.variant === "agenda" || block.variant === "steps")) {
+      const markerCell = td(marker, "width:23%;padding:0 10px 0 0;vertical-align:top;", 'class="stack-column"');
+      return table(`<tr>${markerCell}${td(text + link, "vertical-align:top;", 'class="stack-column"')}</tr>`, "table-layout:fixed;");
+    }
+    if (link && block.variant === "resources") {
+      const details = td(marker + text, "padding:0 14px 0 0;vertical-align:middle;", 'class="stack-column"');
+      return table(`<tr>${details}${td(action(item.ctaText, item.ctaUrl, path + ".ctaText", false), "width:30%;vertical-align:middle;", 'class="stack-column"')}</tr>`, "table-layout:fixed;");
+    }
+    return marker + text + link;
+  });
+  const compare = block.variant === "comparison" && !content.stacked;
+  const rows = compare ? Array.from({ length: Math.ceil(entries.length / 2) }, (_, index) => {
+    const pair = entries.slice(index * 2, index * 2 + 2);
+    return `<tr>${pair.map((entry) => td(entry, `width:${pair.length === 2 ? 50 : 100}%;padding:14px 12px;vertical-align:top;border-top:1px solid #D7DDEA;`, 'class="stack-column"')).join("")}</tr>`;
+  }) : entries.map((entry) => `<tr>${td(entry, "padding:13px 0;border-top:1px solid #D7DDEA;")}</tr>`);
+  const detail = rows.length ? `<div style="padding-top:${intro ? 16 : 0}px;">${table(rows.join(""), "table-layout:fixed;")}</div>` : "";
+  const cta = hasText(content.ctaText) ? `<div style="padding-top:${intro || detail ? 16 : 0}px;">${button(content.ctaText, content.ctaUrl, "secondary", "content.ctaText", preview)}</div>` : "";
+  const panel = background === "transparent" ? intro + detail + cta
+    : table(`<tr>${td(intro + detail + cta, "padding:20px;")}</tr>`, `background:${background};border-radius:20px;`, `bgcolor="${background}"`);
+  return wrapBlock(block, panel, "transparent", "0 0 20px");
 }
 
 function renderImageText(block, preview, feature = false) {
@@ -330,6 +382,7 @@ export function renderBlock(block, preview, darkText = false) {
   if (block.settings?.hidden) return "";
   if (block.type === "title") return renderTitle(block, preview, darkText);
   if (block.type === "text") return renderText(block, preview, darkText);
+  if (block.type === "panel" || block.type === "collection") return renderPanel(block, preview, darkText);
   if (block.type === "promo") return renderPromo(block, preview);
   if (block.type === "image") return renderImageBlock(block, preview);
   if (block.type === "imageText") return renderImageText(block, preview);

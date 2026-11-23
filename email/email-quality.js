@@ -13,15 +13,15 @@ function isFullyBrandedHeading(value = "") {
 }
 
 export function unbrandedHeadingLabels(email) {
-  const headingTypes = new Set(["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"]);
+  const headingTypes = new Set(["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard", "panel", "collection"]);
   const labels = [];
   email.blocks.forEach((block, index) => {
     if (block.settings?.hidden) return;
     const heading = String(block.content?.heading || "");
     if (headingTypes.has(block.type) && heading.trim() && !isFullyBrandedHeading(heading)) labels.push(`Блок ${index + 1}`);
-    if (block.type === "iconGrid") (block.content?.items || []).forEach((item, itemIndex) => {
+    if (["iconGrid", "collection"].includes(block.type)) (block.content?.items || []).forEach((item, itemIndex) => {
       const itemHeading = String(item.heading || "");
-      if (itemHeading.trim() && !isFullyBrandedHeading(itemHeading)) labels.push(`Блок ${index + 1}, преимущество ${itemIndex + 1}`);
+      if (itemHeading.trim() && !isFullyBrandedHeading(itemHeading)) labels.push(`Блок ${index + 1}, пункт ${itemIndex + 1}`);
     });
   });
   return labels;
@@ -34,7 +34,7 @@ function delaAssetKeys(email) {
     if (["title", "promo"].includes(block.type) && hasDelaMarkup(block.content?.bigNumber)) grouped.add(forceDelaMarkup(block.content.bigNumber));
     if (block.type === "promo" && hasDelaMarkup(block.content?.offer)) grouped.add(forceDelaMarkup(block.content.offer));
     const heading = String(block.content?.heading || "");
-    if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard"].includes(block.type) && hasDelaMarkup(heading)) grouped.add(forceDelaMarkup(heading));
+    if (["title", "promo", "imageText", "featureCard", "iconGrid", "ctaCard", "panel", "collection"].includes(block.type) && hasDelaMarkup(heading)) grouped.add(forceDelaMarkup(heading));
     (block.content?.items || []).forEach((item) => {
       const itemHeading = String(item.heading || "");
       if (hasDelaMarkup(itemHeading)) grouped.add(forceDelaMarkup(itemHeading));
@@ -72,6 +72,13 @@ export function normalizeEmailDesign(email) {
     if (["ctaCard", "button"].includes(block.type) && !block.variant) block.variant = "primary";
     if (block.type === "ctaCard") block.content.align = block.content.align === "left" ? "left" : "center";
     if (block.type === "text") block.content.align = block.content.align === "center" ? "center" : "left";
+    if (["panel", "collection"].includes(block.type)) {
+      block.content.tone = ["plain", "ice", "lilac"].includes(block.content.tone) ? block.content.tone : "white";
+      if (block.type === "collection") {
+        block.variant = ["agenda", "resources", "comparison", "steps"].includes(block.variant) ? block.variant : "agenda";
+        block.content.items = Array.isArray(block.content.items) ? block.content.items.filter((item) => item && typeof item === "object") : [];
+      }
+    }
     if (block.type === "iconGrid") {
       block.content.iconPosition = block.content.iconPosition === "left" ? "left" : "top";
       block.content.align = block.content.align === "center" ? "center" : "left";
@@ -98,11 +105,15 @@ export function validateEmail(email) {
     if (String(content.body || "").length > 900) warnings.push(`${label}: текстовый блок слишком длинный.`);
     const url = content.ctaUrl || content.url || content.linkUrl;
     const ctaText = content.ctaText || content.text;
-    if (["promo", "ctaCard", "button", "iconGrid"].includes(block.type) && String(ctaText || "").trim()) {
+    if (["promo", "ctaCard", "button", "iconGrid", "panel", "collection"].includes(block.type) && String(ctaText || "").trim()) {
       ctaBlocks.push(block);
       if (!String(url || "").trim()) errors.push(`${label}: у CTA нет ссылки.`);
     }
     if (url && !/^(https:\/\/[^\s]+|\{\{[a-z0-9_]+\}\})$/i.test(String(url).trim())) warnings.push(`${label}: ссылка содержит небезопасный протокол или неверный адрес.`);
+    if (block.type === "collection") (content.items || []).forEach((item, index) => {
+      if (item.ctaText && !item.ctaUrl) errors.push(`${label}, пункт ${index + 1}: у ссылки нет адреса.`);
+      if (item.ctaUrl && !/^(https:\/\/[^\s]+|\{\{[a-z0-9_]+\}\})$/i.test(String(item.ctaUrl).trim())) warnings.push(`${label}, пункт ${index + 1}: проверьте адрес ссылки.`);
+    });
     const image = content.image;
     if (image && block.type !== "brandScene" && (!image.exportUrl || /^(blob:|data:|file:|http:)/i.test(image.exportUrl))) errors.push(`${label}: у изображения нет публичного HTTPS URL.`);
     if (image && !String(image.label || content.heading || "").trim()) warnings.push(`${label}: проверьте alt изображения.`);
