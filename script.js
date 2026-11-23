@@ -1240,7 +1240,7 @@ async function openBannerAi(mode) {
           content.additionalText.enabled = Boolean(draft.additionalText);
           state.branding.theme = draft.theme;
           state.layout.composition = draft.composition;
-          Object.assign(state.formats.adCenter, { visualX: 390, visualY: -135, overrides: { visualScale: 76 } });
+          Object.assign(state.formats.adCenter, { visualX: 418, visualY: -135, overrides: { visualScale: 72 } });
         }
         if (image) {
           Object.assign(state.visual, {
