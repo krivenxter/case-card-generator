@@ -160,6 +160,8 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
   const submitLabel = submit.textContent;
   const controller = new AbortController();
   let draft;
+  let compiledPrompt;
+  let requestId;
   let jobId;
   let resultImage;
   let emailImage;
@@ -179,10 +181,10 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
     running = busy;
     submit.disabled = busy;
     token.disabled = busy;
-    text.readOnly = busy || Boolean(draft || jobId);
+    text.readOnly = busy || Boolean(draft || compiledPrompt);
     if (withImage) withImage.disabled = busy || Boolean(draft);
     if (withEmail) withEmail.disabled = busy || Boolean(draft);
-    if (aspect) aspect.disabled = busy || Boolean(jobId);
+    if (aspect) aspect.disabled = busy || Boolean(compiledPrompt);
     skip.hidden = busy || !draft;
     submit.textContent = busy ? "Генерация…" : jobId ? "Проверить задачу" : draft ? "Повторить генерацию картинки" : submitLabel;
     form.setAttribute("aria-busy", String(busy));
@@ -220,10 +222,16 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
       if (isImage || withImage?.checked) {
         if (!resultImage) {
           if (!jobId) {
-            report("Готовим промпт для Nano Banana 2.1…");
-            const idea = isImage ? input : draft.visualIdea || draft.title || draft.banner?.title || draft.subject || draft.blocks?.[0]?.heading;
-            if (!idea) throw new Error("Для иллюстрации нужна короткая идея.");
-            ({ jobId } = await requestAi({ action: "illustration", text: idea.slice(0, 900), aspect: aspect?.value || "1:1" }, signal));
+            const ratio = aspect?.value || "1:1";
+            if (!compiledPrompt) {
+              report("Готовим промпт для Nano Banana 2.1…");
+              const idea = isImage ? input : draft.visualIdea || draft.title || draft.banner?.title || draft.subject || draft.blocks?.[0]?.heading;
+              if (!idea) throw new Error("Для иллюстрации нужна короткая идея.");
+              ({ prompt: compiledPrompt } = await requestAi({ action: "compile", text: idea.slice(0, 900), aspect: ratio }, signal));
+            }
+            report("Отправляем иллюстрацию в Nano Banana 2.1…");
+            requestId ||= crypto.randomUUID();
+            ({ jobId } = await requestAi({ action: "illustration", prompt: compiledPrompt, aspect: ratio, requestId }, signal));
             if (!jobId) throw new Error("Генератор не вернул номер задачи.");
           }
           report("Nano Banana 2.1 рисует иллюстрацию…");
@@ -241,7 +249,10 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
         token.required = true;
         token.value = "";
       }
-      if (jobId && (error.status === 404 || error.status === 422)) jobId = undefined;
+      if (jobId && (error.status === 404 || error.status === 422)) {
+        jobId = undefined;
+        requestId = undefined;
+      }
       report(error.message || "Не удалось завершить генерацию.", true);
     } finally {
       if (!signal.aborted) {

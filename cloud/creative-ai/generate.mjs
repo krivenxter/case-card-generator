@@ -118,31 +118,77 @@ function authorizationMatches(header, token) {
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
-async function providerCall(fetcher, key, path, body) {
+async function providerCall(fetcher, key, path, body, signal, idempotencyKey) {
   const timeout = path.startsWith("/api/media/") ? 15000 : 110000;
-  const response = await fetcher(PROVIDER_ORIGIN + path, {
-    method: body ? "POST" : "GET",
-    headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-    body: body && JSON.stringify(body),
-    redirect: "error",
-    signal: AbortSignal.timeout(timeout)
-  });
-  const result = await response.json().catch(() => ({}));
+  let response;
+  try {
+    response = await fetcher(PROVIDER_ORIGIN + path, {
+      method: body ? "POST" : "GET",
+      headers: {
+        Authorization: "Bearer " + key, "Content-Type": "application/json",
+        ...(idempotencyKey && { "Idempotency-Key": idempotencyKey })
+      },
+      body: body && JSON.stringify(body),
+      redirect: "error",
+      signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)])
+    });
+  } catch (error) {
+    if (signal.aborted || error.name === "TimeoutError") throw error;
+    throw new RequestError(502, "Соединение с PlusVibe прервалось. Повторите запрос позже.");
+  }
+  const streamed = body?.stream && response.ok && response.headers.get("content-type")?.includes("text/event-stream");
+  const result = streamed ? await readCompletionStream(response.body) : await response.json().catch(() => ({}));
   if (response.ok && !result.error && result.ok !== false) return result;
   if (response.status === 402) throw new RequestError(402, "На балансе PlusVibe недостаточно средств.");
   if (response.status === 429) throw new RequestError(429, "PlusVibe временно ограничил число запросов.");
   if (response.status === 404) throw new RequestError(404, "Задача PlusVibe не найдена или срок хранения истёк.");
+  if (path === "/api/media/generate") {
+    const code = result.error?.code ?? result.errorCode ?? result.code;
+    const detail = typeof code === "string" && /^[a-z_0-9-]{1,70}$/i.test(code) ? ", " + code : "";
+    throw new RequestError(502, `PlusVibe отклонил запуск иллюстрации (HTTP ${response.status}${detail}).`);
+  }
   throw new RequestError(502, "PlusVibe не выполнил запрос. Проверьте настройки или повторите позже.");
 }
 
-async function textCompletion(fetcher, env, instructions, input, maxTokens, json = false) {
+async function readCompletionStream(body) {
+  let buffer = "";
+  let content = "";
+  let finishReason = "";
+  try {
+    for await (const chunk of body.pipeThrough(new TextDecoderStream())) {
+      buffer += chunk;
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (data === "[DONE]") return { choices: [{ message: { content }, finish_reason: finishReason }] };
+        const event = JSON.parse(data);
+        if (event.error) return event;
+        const choice = event.choices?.[0];
+        content += choice?.delta?.content || "";
+        finishReason = choice?.finish_reason || finishReason;
+      }
+    }
+  } catch (error) {
+    if (error.name === "TimeoutError") throw error;
+    throw new RequestError(502, "Поток ответа PlusVibe прервался.");
+  }
+  if (!finishReason) throw new RequestError(502, "Поток ответа PlusVibe завершился без результата.");
+  return { choices: [{ message: { content }, finish_reason: finishReason }] };
+}
+
+async function textCompletion(fetcher, env, instructions, input, maxTokens, signal, json = false) {
   const model = env.PLUSVIBE_TEXT_MODEL || "gpt-5.6-luna";
   const response = await providerCall(fetcher, env.PLUSVIBE_API_KEY, "/v1/chat/completions", {
     model,
     messages: [{ role: "system", content: instructions }, { role: "user", content: input }],
     max_tokens: maxTokens,
-    ...(model === "gpt-5.6-luna" && { reasoning_effort: "minimal", ...(json && { response_format: { type: "json_object" } }) })
-  });
+    ...(model === "gpt-5.6-luna" && {
+      reasoning_effort: "minimal",
+      ...(json ? { response_format: { type: "json_object" } } : { stream: true })
+    })
+  }, signal);
   const choice = response.choices?.[0];
   const text = choice?.message?.content;
   if (choice?.finish_reason === "length" || typeof text !== "string" || !text.trim()) {
@@ -151,32 +197,38 @@ async function textCompletion(fetcher, env, instructions, input, maxTokens, json
   return text.trim();
 }
 
-async function startIllustration(fetcher, env, idea, aspect) {
-  const compiled = await textCompletion(fetcher, env, ILLUSTRATION_PROMPT,
-    `Requested aspect ratio: ${aspect}\nVisual brief: ${idea}`, 2400);
+function validateCompiledPrompt(compiled) {
+  if (typeof compiled !== "string" || !compiled.startsWith("SCENE:") || compiled.length > 12000) {
+    throw new RequestError(422, "Промпт иллюстрации не соответствует метапромпту.");
+  }
   let fieldIndex = 0;
   for (const line of compiled.split("\n")) {
     if (line.startsWith(PROMPT_FIELDS[fieldIndex] + ":")) fieldIndex++;
   }
-  if (!compiled.startsWith("SCENE:") || fieldIndex !== PROMPT_FIELDS.length || compiled.length > 12000) {
-    throw new RequestError(502, "PlusVibe не собрал промпт иллюстрации по метапромпту.");
+  if (fieldIndex !== PROMPT_FIELDS.length) {
+    throw new RequestError(422, "Промпт иллюстрации не соответствует метапромпту.");
   }
+  return compiled;
+}
+
+async function startIllustration(fetcher, env, compiled, aspect, signal, requestId) {
+  signal.throwIfAborted();
   const task = await providerCall(fetcher, env.PLUSVIBE_API_KEY, "/api/media/generate", {
     model: "nano-banana-2.1",
     prompt: compiled,
     opts: { aspect_ratio: aspect, resolution: "1K", output_format: "png" }
-  });
+  }, signal, requestId);
   if (typeof task.jobId !== "string" || !/^[\w-]{1,128}$/.test(task.jobId)) {
     throw new RequestError(502, "PlusVibe не вернул номер задачи изображения.");
   }
   return task.jobId;
 }
 
-async function illustrationStatus(fetcher, key, jobId) {
+async function illustrationStatus(fetcher, key, jobId, signal) {
   if (typeof jobId !== "string" || !/^[\w-]{1,128}$/.test(jobId)) {
     throw new RequestError(400, "Некорректный номер задачи изображения.");
   }
-  const job = await providerCall(fetcher, key, "/api/media/jobs/" + jobId);
+  const job = await providerCall(fetcher, key, "/api/media/jobs/" + jobId, undefined, signal);
   if (job.status === "processing" || job.status === "submitting") return null;
   if (job.status === "fail") throw new RequestError(422, "PlusVibe не смог сгенерировать картинку.");
   if (job.status !== "success" || typeof job.resultUrls?.[0] !== "string") {
@@ -187,7 +239,7 @@ async function illustrationStatus(fetcher, key, jobId) {
       || !url.pathname.startsWith("/api/media/file/")) {
     throw new RequestError(502, "PlusVibe вернул неизвестный адрес картинки.");
   }
-  const response = await fetcher(url, { redirect: "error", signal: AbortSignal.timeout(20000) });
+  const response = await fetcher(url, { redirect: "error", signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]) });
   const mime = response.headers.get("content-type")?.split(";")[0];
   if (!response.ok || !/^image\/(png|jpeg|webp)$/.test(mime)) throw new RequestError(502, "Не удалось скачать картинку PlusVibe.");
   const chunks = [];
@@ -241,6 +293,9 @@ export function createCreativeHandler({ env = process.env, localOrigin, fetcher 
         }
       }
     }
+    const client = new AbortController();
+    res.once("close", () => { if (!res.writableFinished) client.abort(); });
+    const { signal } = client;
     try {
       if (req.method !== "POST") throw new RequestError(405, "Используйте POST.");
       if (!req.headers["content-type"]?.toLowerCase().startsWith("application/json")) throw new RequestError(415, "Ожидается JSON.");
@@ -253,25 +308,35 @@ export function createCreativeHandler({ env = process.env, localOrigin, fetcher 
       }
       const input = await requestJson(req);
       if (input.action === "status") {
-        const image = await illustrationStatus(fetcher, env.PLUSVIBE_API_KEY, input.jobId);
+        const image = await illustrationStatus(fetcher, env.PLUSVIBE_API_KEY, input.jobId, signal);
         if (image) return send(res, 200, image.bytes, image.mime);
         return send(res, 202, { status: "processing" });
       }
-      if (input.action === "illustration") {
+      const aspect = ["1:1", "4:3", "3:4", "16:9", "9:16"].includes(input.aspect) ? input.aspect : "1:1";
+      if (input.action === "compile") {
         const idea = field(input.text, 900);
         if (!idea) throw new RequestError(400, "Опишите иллюстрацию.");
-        const aspect = ["1:1", "4:3", "3:4", "16:9", "9:16"].includes(input.aspect) ? input.aspect : "1:1";
-        return send(res, 202, { jobId: await startIllustration(fetcher, env, idea, aspect) });
+        const compiled = await textCompletion(fetcher, env, ILLUSTRATION_PROMPT,
+          `Requested aspect ratio: ${aspect}\nVisual brief: ${idea}`, 2400, signal);
+        return send(res, 200, { prompt: validateCompiledPrompt(compiled) });
+      }
+      if (input.action === "illustration") {
+        if (typeof input.requestId !== "string" || !/^[\da-f-]{36}$/i.test(input.requestId)) {
+          throw new RequestError(400, "Некорректный номер запроса иллюстрации.");
+        }
+        const compiled = validateCompiledPrompt(input.prompt);
+        return send(res, 202, { jobId: await startIllustration(fetcher, env, compiled, aspect, signal, input.requestId) });
       }
       if (input.action === "draft" && (input.target === "campaign" || Object.hasOwn(DRAFT_PROMPTS, input.target))) {
         const brief = field(input.text, 24000);
         if (!brief) throw new RequestError(400, "Добавьте текст ТЗ.");
         const instructions = input.target === "campaign" ? CAMPAIGN_PROMPT : DRAFT_PROMPTS[input.target];
-        const text = await textCompletion(fetcher, env, COPY_RULES + "\n\n" + instructions, brief, input.target === "banner" ? 2600 : 12000, true);
+        const text = await textCompletion(fetcher, env, COPY_RULES + "\n\n" + instructions, brief, input.target === "banner" ? 2600 : 12000, signal, true);
         return send(res, 200, normalizeDraft(modelObject(text), input.target, brief));
       }
       throw new RequestError(400, "Выберите тип генерации.");
     } catch (error) {
+      if (signal.aborted) return;
       if (error.name === "TimeoutError") {
         send(res, 504, { error: "PlusVibe не успел ответить. Повторите запрос позже." });
         return;
