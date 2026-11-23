@@ -5114,6 +5114,28 @@ if (isEmailCoverRenderer) {
     state.visual.scale = 116;
     setAiBannerIllustration(state, image);
     applyImportedBannerState(state, "Обложка письма");
+    setBannerFormat("ad");
+    await document.fonts.ready;
+    const cover = bannerCanvases.get("ad");
+    const title = cover.querySelector(".creative-title");
+    const measure = document.createElement("canvas").getContext("2d");
+    const words = title.textContent.toLocaleUpperCase("ru").split(/\s+/u).filter(Boolean);
+    const longestWordRatio = () => {
+      fitCreativeCanvas(cover);
+      const { fontWeight, fontSize, fontFamily } = getComputedStyle(title);
+      measure.font = `${fontWeight} ${fontSize} ${fontFamily}`;
+      return Math.max(0, ...words.map((word) => measure.measureText(word).width)) / Math.max(1, title.offsetWidth);
+    };
+    for (const profile of ["editorial", "center"]) {
+      if (longestWordRatio() <= 1) break;
+      appState.banners.layout.campaignVariant = profile;
+      renderBanners();
+    }
+    const wordRatio = longestWordRatio();
+    if (wordRatio > 1) {
+      appState.banners.layout.fontScale = Math.max(84, Math.floor(130 / wordRatio));
+      renderBanners();
+    }
     return blobToBannerDataUrl(await createCreativeJpg("ad", 1));
   };
   window.parent.postMessage("calltouch-email-banner-ready", location.origin);

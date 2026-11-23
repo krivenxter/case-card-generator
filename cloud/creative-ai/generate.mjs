@@ -226,9 +226,8 @@ async function textCompletion(fetcher, env, instructions, input, maxTokens, sign
 }
 
 function validateCompiledPrompt(compiled) {
-  if (typeof compiled !== "string" || !compiled.startsWith("SCENE:") || compiled.length > 12000) {
-    throw new RequestError(422, "Промпт иллюстрации не соответствует метапромпту.");
-  }
+  if (typeof compiled !== "string" || !compiled.startsWith("SCENE:")) throw new RequestError(422, "В промпте иллюстрации нет начального раздела SCENE.");
+  if (compiled.length > 12000) throw new RequestError(422, "Промпт иллюстрации превышает 12 000 знаков.");
   let fieldIndex = 0;
   for (const line of compiled.split("\n")) {
     if (line.startsWith(PROMPT_FIELDS[fieldIndex] + ":")) fieldIndex++;
@@ -245,11 +244,11 @@ function normalizeCompiledPrompt(text) {
   const lines = [];
   for (const line of text.split(/\r?\n/)) {
     if (/^\s*```/.test(line)) continue;
-    const heading = line.match(/^\s*(?:[-*]\s+)?(?:\*\*|__)?([A-Za-z ]+?)\s*(?:\*\*|__)?\s*:\s*(?:\*\*|__)?\s*(.*)$/);
+    const heading = line.match(/^\s*(?:(?:[-*]|#{1,6})\s+)?(?:\*\*|__)?([A-Za-z ]+?)\s*(?:\*\*|__)?\s*(?::\s*(?:\*\*|__)?\s*(.*))?$/);
     const name = heading?.[1].trim().toUpperCase();
     if (name && fields.has(name)) {
       started ||= name === "SCENE";
-      if (started) lines.push(name + ": " + heading[2]);
+      if (started) lines.push(name + ":" + (heading[2] ? " " + heading[2] : ""));
     } else if (started) lines.push(line);
   }
   return lines.join("\n").trim();
@@ -362,7 +361,7 @@ export function createCreativeHandler({ env = process.env, localOrigin, fetcher 
         const idea = field(input.text, 900);
         if (!idea) throw new RequestError(400, "Опишите иллюстрацию.");
         const compiled = await textCompletion(fetcher, env, ILLUSTRATION_PROMPT,
-          `Requested aspect ratio: ${aspect}\nVisual brief: ${idea}`, 3600, signal);
+          `Requested aspect ratio: ${aspect}\nVisual brief: ${idea}\nReturn the 17 named fields in order, starting with SCENE:. Use concise descriptions, one field per line, within 6500 characters total.`, 3600, signal);
         return send(res, 200, { prompt: validateCompiledPrompt(normalizeCompiledPrompt(compiled)) });
       }
       if (input.action === "illustration") {
