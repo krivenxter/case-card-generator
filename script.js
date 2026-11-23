@@ -24,8 +24,43 @@ const BANNER_FORMATS = Object.freeze({
   landscape: { label: "Широкий", width: 1920, height: 1080 },
   ad: { label: "Реклама", width: 1200, height: 628 },
   adCenter: { label: "Реклама по центру", width: 1200, height: 628, centered: true },
-  adVisual: { label: "Реклама без текста", width: 1200, height: 628, textless: true }
+  adVisual: { label: "Реклама без текста", width: 1200, height: 628, textless: true },
+  narrowAd: { label: "Узкий вертикальный", width: 240, height: 400, placement: "narrow" },
+  shortStrip: { label: "Узкая полоса", width: 960, height: 150, placement: "strip" },
+  wideStrip: { label: "Широкая полоса", width: 2184, height: 270, placement: "strip" }
 });
+
+const BANNER_CAMPAIGN_PROFILES = Object.freeze({
+  split: "Текст слева",
+  reverse: "Визуал слева",
+  editorial: "Крупный заголовок",
+  offer: "Акцент на оффер",
+  center: "По центру"
+});
+
+function isBannerFormatEnabled(format) {
+  return Object.hasOwn(BANNER_FORMATS, format)
+    && (!BANNER_FORMATS[format].placement || appState.banners.layout.placements);
+}
+
+function getEnabledBannerFormats() {
+  return Object.keys(BANNER_FORMATS).filter(isBannerFormatEnabled);
+}
+
+function getBannerDensity(content, mode = "auto") {
+  if (mode === "compact" || mode === "airy") return mode;
+  const titleLength = parseBannerRichMarkup(content.title).map(({ text }) => text).join("").length;
+  const bodyLength = content.subtitleEnabled ? String(content.subtitle || "").length : 0;
+  const conditionsLength = content.additionalText.enabled ? content.additionalText.text.length : 0;
+  const offerLength = content.offer.enabled ? String(content.offer.caption || "").length : 0;
+  return titleLength > 72 || bodyLength > 120 || conditionsLength > 170 || offerLength > 65 ? "compact" : "airy";
+}
+
+function getRecommendedBannerProfile(content) {
+  if (content.offer.enabled && content.offer.value && getBannerDensity(content) === "airy") return "offer";
+  if (getBannerDensity(content) === "compact") return "editorial";
+  return "split";
+}
 
 const BANNER_VISUAL_BASE_SCALES = Object.freeze({
   square: 1.6,
@@ -34,7 +69,10 @@ const BANNER_VISUAL_BASE_SCALES = Object.freeze({
   landscape: 1.4,
   ad: 1.3,
   adCenter: 1.18,
-  adVisual: 1.3
+  adVisual: 1.3,
+  narrowAd: 1.25,
+  shortStrip: 1.35,
+  wideStrip: 1.35
 });
 
 const BANNER_VISUALS = Object.freeze([
@@ -71,7 +109,10 @@ const BANNER_TYPE_SCALE = Object.freeze({
   landscape: { title: 68, titleMin: 48, subtitle: 42, subtitleMin: 28, chip: 32, chipMin: 22, button: 34, buttonMin: 24, additional: 18, additionalMin: 12 },
   ad: { title: 42, titleMin: 32, subtitle: 28, subtitleMin: 20, chip: 27, chipMin: 19, button: 27, buttonMin: 19, additional: 14, additionalMin: 10 },
   adCenter: { title: 44, titleMin: 32, subtitle: 29, subtitleMin: 20, chip: 27, chipMin: 19, button: 27, buttonMin: 19, additional: 14, additionalMin: 10 },
-  adVisual: { title: 60, titleMin: 40, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19, additional: 18, additionalMin: 12 }
+  adVisual: { title: 60, titleMin: 40, subtitle: 33, subtitleMin: 22, chip: 27, chipMin: 19, button: 27, buttonMin: 19, additional: 18, additionalMin: 12 },
+  narrowAd: { title: 19, titleMin: 13, subtitle: 12, subtitleMin: 9, chip: 10, chipMin: 8, button: 10, buttonMin: 8, additional: 8, additionalMin: 7 },
+  shortStrip: { title: 19, titleMin: 13, subtitle: 14, subtitleMin: 10, chip: 11, chipMin: 8, button: 11, buttonMin: 8, additional: 9, additionalMin: 7 },
+  wideStrip: { title: 36, titleMin: 25, subtitle: 23, subtitleMin: 16, chip: 17, chipMin: 12, button: 18, buttonMin: 13, additional: 15, additionalMin: 11 }
 });
 
 // The layout slider remains a shared base value, while larger canvases receive
@@ -83,7 +124,10 @@ const BANNER_FORMAT_PADDING_SCALE = Object.freeze({
   landscape: { x: 1.36, y: 1.3 },
   ad: { x: 0.86, y: 0.62 },
   adCenter: { x: 0.72, y: 0.62 },
-  adVisual: { x: 0.86, y: 0.62 }
+  adVisual: { x: 0.86, y: 0.62 },
+  narrowAd: { x: 0.22, y: 0.25 },
+  shortStrip: { x: 0.42, y: 0.16 },
+  wideStrip: { x: 1.25, y: 0.36 }
 });
 
 // Яндекс может обрезать этот рекламный формат ближе к квадрату.
@@ -182,6 +226,9 @@ function normalizeBannerRichMarkup(value) {
 
 const BANNER_LAYOUT_KEYS = Object.freeze([
   "composition",
+  "campaignVariant",
+  "density",
+  "copyBackdrop",
   "textAlign",
   "verticalAlign",
   "contentWidth",
@@ -210,6 +257,7 @@ function createBannerDefaults() {
       label1: { enabled: true, text: "Вебинар", style: "graphiteFill" },
       label2: { enabled: false, text: "15 августа", style: "graphiteOutline" },
       button: { enabled: true, text: "Зарегистрироваться", style: "filled", color: "cyan", radius: "small" },
+      offer: { enabled: false, value: "", caption: "", style: "cyan" },
       additionalText: { enabled: false, text: "", bottomOffset: 24 }
     },
     branding: {
@@ -220,6 +268,7 @@ function createBannerDefaults() {
     },
     visual: {
       backgroundIndex: "1",
+      backdrop: "library",
       customBackground: "",
       customBackgroundName: "",
       overlayEnabled: true,
@@ -228,10 +277,15 @@ function createBannerDefaults() {
       selectedId: "analytics",
       customVisual: "",
       customVisualName: "",
+      framing: "auto",
       scale: 100
     },
     layout: {
       composition: "classic",
+      placements: false,
+      campaignVariant: "auto",
+      density: "auto",
+      copyBackdrop: false,
       textAlign: "left",
       verticalAlign: "center",
       contentWidth: 92,
@@ -287,7 +341,10 @@ const BANNER_VISUAL_POSITION_LIMITS = Object.freeze({
   landscape: { x: 720, y: 520 },
   ad: { x: 520, y: 360 },
   adCenter: { x: 520, y: 360 },
-  adVisual: { x: 520, y: 360 }
+  adVisual: { x: 520, y: 360 },
+  narrowAd: { x: 110, y: 190 },
+  shortStrip: { x: 140, y: 68 },
+  wideStrip: { x: 280, y: 130 }
 });
 
 function getBannerVisualPositionLimits(format) {
@@ -361,6 +418,7 @@ function normalizeBannerState(source) {
       label1: { ...defaults.content.label1, ...(incomingContent.label1 || {}) },
       label2: { ...defaults.content.label2, ...(incomingContent.label2 || {}) },
       button: { ...defaults.content.button, ...(incomingContent.button || {}) },
+      offer: { ...defaults.content.offer, ...(incomingContent.offer || {}) },
       additionalText: { ...defaults.content.additionalText, ...incomingAdditionalText }
     },
     branding: { ...defaults.branding, ...incomingBranding },
@@ -379,6 +437,9 @@ function normalizeBannerState(source) {
     const overrides = {};
     if (locked && Number.isFinite(incomingFontScale)) overrides.fontScale = incomingFontScale;
     if (Number.isFinite(incomingVisualScale)) overrides.visualScale = incomingVisualScale;
+    if (Object.hasOwn(BANNER_CAMPAIGN_PROFILES, incomingFormat.overrides?.campaignVariant)) {
+      overrides.campaignVariant = incomingFormat.overrides.campaignVariant;
+    }
     state.formats[format] = {
       ...defaults.formats[format],
       ...incomingFormat,
@@ -390,6 +451,16 @@ function normalizeBannerState(source) {
   state.content.label1.style = normalizeBannerChipStyle(state.content.label1.style);
   state.content.label2.style = normalizeBannerChipStyle(state.content.label2.style);
   state.content.button.color = state.content.button.color === "purple" ? "purple" : "cyan";
+  state.content.offer.enabled = Boolean(state.content.offer.enabled);
+  state.content.offer.style = ["cyan", "purple", "cyanPlate", "purplePlate"].includes(state.content.offer.style)
+    ? state.content.offer.style : "cyan";
+  state.visual.backdrop = ["violet", "blue"].includes(state.visual.backdrop) ? state.visual.backdrop : "library";
+  state.visual.framing = ["contain", "bleed"].includes(state.visual.framing) ? state.visual.framing : "auto";
+  state.layout.placements = state.layout.placements === true;
+  state.layout.campaignVariant = Object.hasOwn(BANNER_CAMPAIGN_PROFILES, state.layout.campaignVariant)
+    ? state.layout.campaignVariant : "auto";
+  state.layout.density = ["compact", "airy"].includes(state.layout.density) ? state.layout.density : "auto";
+  state.layout.copyBackdrop = state.layout.copyBackdrop === true;
   state.content.subtitleBackground.enabled = Boolean(state.content.subtitleBackground.enabled);
   state.content.subtitleBackground.color = state.content.subtitleBackground.color === "lightBlue" ? "lightBlue" : "white";
   const savedPadding = Number(state.content.subtitleBackground.padding);
@@ -1236,11 +1307,24 @@ async function openBannerAi(mode) {
           });
           content.button.text = draft.cta;
           content.button.enabled = Boolean(draft.cta);
+          Object.assign(content.offer, draft.offer, { enabled: Boolean(draft.offer?.value || draft.offer?.caption) });
           content.additionalText.text = draft.additionalText;
           content.additionalText.enabled = Boolean(draft.additionalText);
           state.branding.theme = draft.theme;
+          state.branding.logoEnabled = draft.logo !== false;
+          state.visual.backdrop = draft.backdrop || "library";
+          state.visual.backgroundIndex = draft.backgroundIndex || "1";
+          state.visual.overlayEnabled = state.visual.backdrop === "library";
+          state.visual.framing = draft.framing || "auto";
           state.layout.composition = draft.composition;
-          Object.assign(state.formats.adCenter, { visualX: 418, visualY: -135, overrides: { visualScale: 72 } });
+          state.layout.placements = Boolean(draft.placements);
+          state.layout.campaignVariant = draft.profile || "auto";
+          state.layout.density = draft.density || "auto";
+          state.layout.copyBackdrop = Boolean(draft.copyBackdrop);
+          state.compliance.limitTextCoverage = Boolean(draft.limitTextCoverage);
+          if (draft.composition !== "campaign") {
+            Object.assign(state.formats.adCenter, { visualX: 418, visualY: -135, overrides: { visualScale: 72 } });
+          }
         }
         if (image) {
           Object.assign(state.visual, {
@@ -1248,8 +1332,11 @@ async function openBannerAi(mode) {
           });
           bannerAssetCache.clear();
         }
-        applyImportedBannerState(state, draft ? "Собраны баннеры в семи форматах." : "Иллюстрация установлена.");
-        if (draft && bannerElements.templateNameInput) bannerElements.templateNameInput.value = draft.title.slice(0, 80);
+        applyImportedBannerState(state, draft ? "Комплект баннеров собран." : "Иллюстрация установлена.");
+        if (draft) {
+          if (bannerElements.templateNameInput) bannerElements.templateNameInput.value = draft.title.slice(0, 80);
+          requestAnimationFrame(openBannerVariantPicker);
+        }
       }
     });
   } catch {
@@ -1969,7 +2056,7 @@ function closeCustomSelects(except = null) {
 
 function getCustomSelectOptionsSignature(select) {
   return [...select.options]
-    .map((option) => `${option.value}\u0000${option.textContent}`)
+    .map((option) => `${option.value}\u0000${option.textContent}\u0000${option.hidden}`)
     .join("\u0001");
 }
 
@@ -1980,7 +2067,7 @@ function syncCustomSelectOptions(select, wrapper) {
   const signature = getCustomSelectOptionsSignature(select);
   if (wrapper.dataset.customSelectOptionsSignature === signature) return;
 
-  menu.replaceChildren(...[...select.options].map((option) => {
+  menu.replaceChildren(...[...select.options].filter((option) => !option.hidden).map((option) => {
     const optionButton = document.createElement("button");
     optionButton.type = "button";
     optionButton.className = "custom-select__option";
@@ -2068,9 +2155,17 @@ function syncCustomSelects() {
 
 function createCreativeCanvas(format) {
   const config = BANNER_FORMATS[format];
+  const strip = config.placement === "strip";
+  const offer = `
+    <div class="creative-offer creative-animated-element" hidden>
+      <strong class="creative-offer__value" data-banner-editable="content.offer.value" data-maxlength="24"></strong>
+      <span class="creative-offer__caption" data-banner-editable="content.offer.caption" data-maxlength="100" data-multiline="true"></span>
+    </div>`;
+  const terms = '<span class="creative-additional-text creative-animated-element" data-banner-editable="content.additionalText.text" data-maxlength="420" data-multiline="true"></span>';
   const preview = document.createElement("section");
   preview.className = "creative-preview-card";
   preview.dataset.format = format;
+  preview.hidden = Boolean(config.placement);
   preview.tabIndex = 0;
   preview.setAttribute("role", "button");
   preview.setAttribute("aria-label", `Выбрать формат: ${config.label}`);
@@ -2092,6 +2187,7 @@ function createCreativeCanvas(format) {
   const canvas = document.createElement("article");
   canvas.className = "creative-canvas";
   canvas.dataset.format = format;
+  canvas.dataset.placement = config.placement || "";
   canvas.style.setProperty("--creative-width", `${config.width}px`);
   canvas.style.setProperty("--creative-height", `${config.height}px`);
   canvas.setAttribute("aria-label", `Баннер: ${config.label}, ${config.width} на ${config.height}`);
@@ -2113,6 +2209,7 @@ function createCreativeCanvas(format) {
           </div>
           <h2 class="creative-title creative-animated-element" data-banner-editable="content.title" data-banner-rich-text="true" data-maxlength="160" data-multiline="true"></h2>
           <p class="creative-subtitle creative-animated-element" data-banner-editable="content.subtitle" data-banner-rich-text="true" data-maxlength="280" data-multiline="true"></p>
+          ${strip ? "" : offer}
           <span class="creative-button creative-animated-element" data-banner-editable="content.button.text" data-maxlength="48"></span>
         </section>
         <div class="creative-visual">
@@ -2128,8 +2225,9 @@ function createCreativeCanvas(format) {
             </div>
           </div>
         </div>
+        ${strip ? `<div class="creative-commercial">${offer}${terms}</div>` : ""}
       </div>
-      <span class="creative-additional-text creative-animated-element" data-banner-editable="content.additionalText.text" data-maxlength="180"></span>
+      ${strip ? "" : terms}
     </div>
   `;
 
@@ -2421,6 +2519,7 @@ function resolveBannerVisual() {
 function getBannerBackgroundUrl() {
   const state = appState.banners;
   if (state.visual.customBackground) return state.visual.customBackground;
+  if (state.visual.backdrop !== "library") return "";
   const lightTheme = state.branding.theme === "light";
   const folder = lightTheme ? "backgrounds-light" : "backgrounds";
   const extension = lightTheme ? "png" : "webp";
@@ -2744,10 +2843,20 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   const buttonRadius = state.content.button.radius === "pill" ? "999px" : "16px";
   const chipRadius = buttonRadius;
 
+  const campaign = layout.composition === "campaign" || formatConfig.placement
+    || formatState.overrides.campaignVariant || canvas.dataset.previewProfile;
+  const profile = canvas.dataset.previewProfile
+    || (layout.campaignVariant === "auto" ? getRecommendedBannerProfile(state.content) : layout.campaignVariant);
   canvas.dataset.theme = state.branding.theme;
   canvas.dataset.accentStyle = state.branding.accentStyle;
   canvas.dataset.composition = formatConfig.centered ? "centered" : layout.composition;
-  canvas.dataset.textAlign = formatConfig.centered ? "center" : layout.textAlign;
+  canvas.dataset.template = campaign ? "campaign" : "standard";
+  canvas.dataset.profile = campaign ? profile : "";
+  canvas.dataset.density = campaign ? getBannerDensity(state.content, layout.density) : "";
+  canvas.dataset.framing = campaign ? state.visual.framing : "";
+  canvas.classList.toggle("has-copy-backdrop", Boolean(campaign && layout.copyBackdrop));
+  canvas.dataset.backdrop = backgroundUrl ? "library" : state.visual.backdrop;
+  canvas.dataset.textAlign = formatConfig.centered || (campaign && profile === "center") ? "center" : layout.textAlign;
   canvas.classList.toggle("is-textless", Boolean(formatConfig.textless));
   canvas.classList.toggle("is-active", format === appState.ui.activeBannerFormat);
   canvas.classList.toggle("has-keyvisual", state.visual.enabled);
@@ -2759,7 +2868,8 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   );
   canvas.classList.toggle("has-subtitle-background", hasSubtitleBackground);
   canvas.dataset.subtitleBackgroundColor = state.content.subtitleBackground.color;
-  canvas.style.setProperty("--creative-background", `url("${backgroundUrl}")`);
+  if (backgroundUrl) canvas.style.setProperty("--creative-background", `url("${backgroundUrl}")`);
+  else canvas.style.removeProperty("--creative-background");
   canvas.style.setProperty(
     "--overlay-opacity",
     state.visual.overlayEnabled ? "0.3" : "0"
@@ -2780,7 +2890,10 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   canvas.style.setProperty("--additional-text-bottom", `${state.content.additionalText.bottomOffset}px`);
   canvas.style.setProperty("--visual-x", `${formatState.visualX}px`);
   canvas.style.setProperty("--visual-y", `${formatState.visualY}px`);
-  const defaultVisualScale = BANNER_VISUAL_BASE_SCALES[format] ?? 1.5;
+  const baseScale = BANNER_VISUAL_BASE_SCALES[format] ?? 1.5;
+  const defaultVisualScale = !campaign ? baseScale
+    : state.visual.framing === "contain" ? 1
+      : state.visual.framing === "bleed" ? baseScale * 1.15 : Math.min(1.32, baseScale);
   canvas.style.setProperty(
     "--visual-scale",
     String(defaultVisualScale * (getBannerVisualScaleForFormat(format) / 100))
@@ -2789,6 +2902,7 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   const title = canvas.querySelector(".creative-title");
   const subtitle = canvas.querySelector(".creative-subtitle");
   const button = canvas.querySelector(".creative-button");
+  const offer = canvas.querySelector(".creative-offer");
   const additionalText = canvas.querySelector(".creative-additional-text");
   const chips = canvas.querySelectorAll(".creative-chip");
   const logo = canvas.querySelector(".creative-logo");
@@ -2808,9 +2922,23 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   button.dataset.buttonColor = state.content.button.color === "purple" ? "purple" : "cyan";
   setEditableBannerText(button, state.content.button.text);
 
+  const offerValue = String(state.content.offer.value ?? "");
+  const offerCaption = String(state.content.offer.caption ?? "");
+  offer.hidden = !state.content.offer.enabled || (!offerValue.trim() && !offerCaption.trim());
+  offer.dataset.offerStyle = state.content.offer.style;
+  offer.classList.toggle("has-long-value", offerValue.length > 12);
+  const offerValueNode = offer.querySelector(".creative-offer__value");
+  const offerCaptionNode = offer.querySelector(".creative-offer__caption");
+  offerValueNode.hidden = !offerValue.trim();
+  offerCaptionNode.hidden = !offerCaption.trim();
+  setEditableBannerText(offerValueNode, offerValue);
+  setEditableBannerText(offerCaptionNode, offerCaption);
+
   const additionalTextValue = String(state.content.additionalText.text || "");
   additionalText.hidden = !state.content.additionalText.enabled || !additionalTextValue.trim();
   setEditableBannerText(additionalText, additionalTextValue);
+  canvas.classList.toggle("has-terms", !additionalText.hidden);
+  canvas.classList.toggle("has-offer", !offer.hidden);
 
   chips[0].hidden = !state.content.label1.enabled;
   chips[0].dataset.chipStyle = normalizeBannerChipStyle(state.content.label1.style);
@@ -2837,8 +2965,12 @@ function isCreativeOverflowing(canvas) {
   const topbar = canvas.querySelector(".creative-topbar");
   const copy = canvas.querySelector(".creative-copy");
   const additionalText = canvas.querySelector(".creative-additional-text");
+  const commercial = canvas.querySelector(".creative-commercial");
   const canvasBounds = canvas.getBoundingClientRect();
-  const visibleElements = [topbar, ...copy.children, additionalText].filter((element) => element && !element.hidden);
+  const visibleElements = [topbar, ...copy.children, additionalText, commercial?.querySelector(".creative-offer")]
+    .filter((element) => element && !element.hidden);
+  const bodyBounds = canvas.dataset.template === "campaign"
+    ? canvas.querySelector(".creative-body").getBoundingClientRect() : null;
 
   return visibleElements.some((element) => {
     const bounds = element.getBoundingClientRect();
@@ -2847,7 +2979,8 @@ function isCreativeOverflowing(canvas) {
     return bounds.left < canvasBounds.left - 3
       || bounds.right > canvasBounds.right + 3
       || bounds.top < canvasBounds.top - 3
-      || bounds.bottom > canvasBounds.bottom + 3;
+      || bounds.bottom > canvasBounds.bottom + 3
+      || (bodyBounds && copy.contains(element) && bounds.bottom > bodyBounds.bottom + 2);
   });
 }
 
@@ -2864,11 +2997,13 @@ function getCreativeTextCoverage(canvas) {
   const lineTextElements = [
     ".creative-title",
     ".creative-subtitle:not([hidden])",
+    ".creative-offer:not([hidden]) .creative-offer__caption:not([hidden])",
     ".creative-additional-text:not([hidden])"
   ];
   const blockTextElements = [
     ".creative-logo:not([hidden])",
     ".creative-chip:not([hidden])",
+    ".creative-offer:not([hidden]) .creative-offer__value:not([hidden])",
     ".creative-button:not([hidden])"
   ];
   let textArea = 0;
@@ -2896,13 +3031,17 @@ function fitCreativeCanvas(canvas) {
   const format = canvas.dataset.format;
   const scale = BANNER_TYPE_SCALE[format];
   const layout = getBannerLayoutForFormat(format);
+  const isCompact = canvas.dataset.density === "compact";
   const fontScale = layout.fontScale / 100;
-  let titleSize = Math.round(scale.title * fontScale);
+  let titleSize = Math.max(
+    Math.round(scale.titleMin * fontScale),
+    Math.round(scale.title * fontScale * (isCompact ? .91 : 1))
+  );
   let subtitleSize = Math.round(scale.subtitle * fontScale);
   let chipSize = Math.round(scale.chip * fontScale);
   let buttonSize = Math.round(scale.button * fontScale);
   let additionalSize = Math.round(scale.additional * fontScale);
-  let runtimeGap = layout.gap;
+  let runtimeGap = isCompact ? Math.max(14, Math.round(layout.gap * .68)) : layout.gap;
   const minimumGap = Math.max(12, Math.round(runtimeGap * 0.5));
   const titleMinimum = Math.round(scale.titleMin * fontScale);
   const subtitleMinimum = Math.round(scale.subtitleMin * fontScale);
@@ -3071,6 +3210,17 @@ function syncChipStyleSelects() {
 }
 
 function syncBannerControls() {
+  const availableFormats = getEnabledBannerFormats();
+  bannerPreviewItems.forEach((item, format) => { item.preview.hidden = !availableFormats.includes(format); });
+  if (bannerElements.mobileFormatSelect) {
+    [...bannerElements.mobileFormatSelect.options].forEach((option) => {
+      option.hidden = !availableFormats.includes(option.value);
+    });
+  }
+  document.getElementById("bannerFormatCount").textContent = `${availableFormats.length} форматов`;
+  if (!isBannerFormatEnabled(appState.ui.activeBannerFormat)) setBannerFormat("square");
+  bannerFormatProfile.value = getActiveBannerFormatState().overrides.campaignVariant || "";
+
   bannerElements.form.querySelectorAll("[data-banner-path]").forEach((control) => {
     const value = getValueByPath(appState.banners, control.dataset.bannerPath);
     if (control instanceof HTMLInputElement && control.type === "checkbox") {
@@ -3085,7 +3235,7 @@ function syncBannerControls() {
   syncCustomSelects();
 
   bannerElements.form.querySelectorAll('input[name="bannerBackground"]').forEach((radio) => {
-    radio.checked = radio.value === appState.banners.visual.backgroundIndex;
+    radio.checked = appState.banners.visual.backdrop === "library" && radio.value === appState.banners.visual.backgroundIndex;
   });
 
   const state = appState.banners;
@@ -3100,6 +3250,7 @@ function syncBannerControls() {
   bannerElements.label1Settings.hidden = !state.content.label1.enabled;
   bannerElements.label2Settings.hidden = !state.content.label2.enabled;
   bannerElements.buttonSettings.hidden = !state.content.button.enabled;
+  document.getElementById("bannerOfferSettings").hidden = !state.content.offer.enabled;
   bannerElements.additionalTextSettings.hidden = !state.content.additionalText.enabled;
   bannerElements.logoSettings.hidden = !state.branding.logoEnabled;
   bannerElements.visualSettings.hidden = !state.visual.enabled;
@@ -3134,7 +3285,7 @@ function syncBannerControls() {
 
 function renderBanners() {
   const resolvedVisual = resolveBannerVisual();
-  bannerCanvases.forEach((canvas) => renderBannerCanvas(canvas, resolvedVisual));
+  getEnabledBannerFormats().forEach((format) => renderBannerCanvas(bannerCanvases.get(format), resolvedVisual));
   bannerElements.autoVisualNote.textContent = `Автовыбор: ${resolvedVisual.label}`;
   applyBannerAnimationFrame(bannerAnimationRuntime.progress);
   scheduleBannerFit();
@@ -3144,6 +3295,7 @@ function updateBannerPreviewScale() {
   if (appState.ui.activeTool !== "banners") return;
 
   bannerPreviewItems.forEach((item, format) => {
+    if (item.preview.hidden) return;
     const config = BANNER_FORMATS[format];
     const scale = Math.min(
       item.frame.clientWidth / config.width,
@@ -3160,10 +3312,106 @@ function updateBannerPreviewScale() {
   syncCanvasCenterButton(bannerElements.centerCanvasButton, appState.ui.bannerCanvas);
 }
 
+const bannerVariantDialog = document.getElementById("bannerVariantDialog");
+const bannerVariantFormat = document.getElementById("bannerVariantFormat");
+const bannerVariantGrid = document.getElementById("bannerVariantGrid");
+const bannerFormatProfile = document.getElementById("bannerFormatProfile");
+
+function renderBannerVariantPreviews() {
+  const format = bannerVariantFormat.value;
+  const source = bannerCanvases.get(format);
+  if (!source) return;
+  const { content, layout } = appState.banners;
+  const recommended = layout.campaignVariant === "auto"
+    ? getRecommendedBannerProfile(content) : layout.campaignVariant;
+  const variants = [recommended, ...Object.keys(BANNER_CAMPAIGN_PROFILES).filter((profile) => profile !== recommended)];
+  const visual = resolveBannerVisual();
+  const config = BANNER_FORMATS[format];
+  bannerVariantGrid.replaceChildren(...variants.map((profile) => {
+    const option = document.createElement("button");
+    option.className = "campaign-variant-card";
+    option.dataset.profile = profile;
+    option.type = "button";
+    const preview = document.createElement("span");
+    preview.className = "campaign-variant-thumb";
+    preview.style.aspectRatio = `${config.width} / ${config.height}`;
+    const canvas = source.cloneNode(true);
+    canvas.dataset.previewProfile = profile;
+    canvas.inert = true;
+    renderBannerCanvas(canvas, visual);
+    setBannerAnimatedElementsToFinal(canvas);
+    preview.append(canvas);
+    const label = document.createElement("strong");
+    label.textContent = profile === "offer" && !appState.banners.content.offer.enabled
+      ? "Крупный кей-вижуал" : BANNER_CAMPAIGN_PROFILES[profile];
+    option.append(preview, label);
+    if (profile === recommended) {
+      const hint = document.createElement("small");
+      hint.textContent = layout.campaignVariant === "auto" ? "Подходит к объёму текста" : "Выбрана для комплекта";
+      option.append(hint);
+    }
+    option.addEventListener("click", () => {
+      if (document.getElementById("bannerVariantSingle").checked) {
+        getBannerFormatState(format).overrides.campaignVariant = profile;
+        setBannerFormat(format);
+      } else {
+        appState.banners.layout.composition = "campaign";
+        appState.banners.layout.campaignVariant = profile;
+        Object.values(appState.banners.formats).forEach(({ overrides }) => { delete overrides.campaignVariant; });
+      }
+      syncBannerControls();
+      renderBanners();
+      commitBannerHistorySnapshot();
+      scheduleProjectSave();
+      bannerVariantDialog.close();
+    });
+    return option;
+  }));
+  requestAnimationFrame(fitBannerVariantPreviews);
+  document.fonts.ready.then(fitBannerVariantPreviews);
+}
+
+function fitBannerVariantPreviews() {
+  if (!bannerVariantDialog.open) return;
+  const config = BANNER_FORMATS[bannerVariantFormat.value];
+  bannerVariantGrid.querySelectorAll(".campaign-variant-thumb").forEach((preview) => {
+    const canvas = preview.firstElementChild;
+    canvas.style.transform = `scale(${preview.clientWidth / config.width})`;
+    fitCreativeCanvas(canvas);
+  });
+}
+
+function openBannerVariantPicker() {
+  if (bannerVariantDialog.open) return;
+  const active = appState.ui.activeBannerFormat;
+  const formats = [...new Set(["square", "portrait", "ad", active])].filter(isBannerFormatEnabled);
+  bannerVariantFormat.replaceChildren(...formats.map((format) => new Option(BANNER_FORMATS[format].label, format)));
+  bannerVariantFormat.value = formats.includes(active) ? active : "square";
+  document.getElementById("bannerVariantSingle").checked = false;
+  syncCustomSelect(bannerVariantFormat);
+  bannerVariantDialog.showModal();
+  renderBannerVariantPreviews();
+}
+
+document.getElementById("bannerVariantsButton").addEventListener("click", openBannerVariantPicker);
+bannerVariantFormat.addEventListener("change", renderBannerVariantPreviews);
+bannerVariantDialog.addEventListener("close", () => bannerVariantGrid.replaceChildren());
+window.addEventListener("resize", fitBannerVariantPreviews, { passive: true });
+bannerFormatProfile.addEventListener("change", () => {
+  const overrides = getActiveBannerFormatState().overrides;
+  if (Object.hasOwn(BANNER_CAMPAIGN_PROFILES, bannerFormatProfile.value)) overrides.campaignVariant = bannerFormatProfile.value;
+  else delete overrides.campaignVariant;
+  renderBanners();
+  commitBannerHistorySnapshot();
+  scheduleProjectSave();
+});
+
 function setBannerFormat(format) {
-  if (!BANNER_FORMATS[format]) return;
+  if (!isBannerFormatEnabled(format)) return;
   appState.ui.activeBannerFormat = format;
   const config = BANNER_FORMATS[format];
+  bannerFormatProfile.value = getBannerFormatState(format).overrides.campaignVariant || "";
+  syncCustomSelect(bannerFormatProfile);
   bannerElements.sizeLabel.textContent = `Выбран: ${config.label.toLowerCase()} ${config.width} × ${config.height} px`;
   if (bannerElements.mobileFormatSelect) {
     bannerElements.mobileFormatSelect.value = format;
@@ -3240,6 +3488,7 @@ function handleBannerControl(event) {
     appState.banners.branding.theme = control.checked ? "light" : "dark";
   } else if (control.name === "bannerBackground" && control.checked) {
     appState.banners.visual.backgroundIndex = control.value;
+    appState.banners.visual.backdrop = "library";
     appState.banners.visual.customBackground = "";
     appState.banners.visual.customBackgroundName = "";
   } else if (control.dataset.bannerPath) {
@@ -3248,6 +3497,10 @@ function handleBannerControl(event) {
       control.dataset.bannerPath,
       readBannerControlValue(control, control.dataset.bannerPath)
     );
+    if (control.dataset.bannerPath === "visual.backdrop") {
+      appState.banners.visual.customBackground = "";
+      appState.banners.visual.customBackgroundName = "";
+    }
 
     if (control.dataset.bannerPath === "animation.entranceOffsetMin"
       && appState.banners.animation.entranceOffsetMin > appState.banners.animation.entranceOffsetMax) {
@@ -3268,6 +3521,7 @@ function handleBannerControl(event) {
 
   syncBannerControls();
   renderBanners();
+  if (control.dataset.bannerPath === "layout.placements") requestAnimationFrame(updateBannerPreviewScale);
   if (control instanceof HTMLInputElement && control.type === "range") {
     if (event.type === "change") commitBannerHistorySnapshot();
   } else if (event.type === "change") {
@@ -3459,9 +3713,12 @@ function waitForBannerImage(image) {
 
 async function prepareCreativeAssets(canvas, resolvedVisual) {
   const backgroundBefore = canvas.style.getPropertyValue("--creative-background");
-  const backgroundData = await getBannerAssetDataUrl(getBannerBackgroundUrl());
-  if (!backgroundData) throw new Error("Не удалось безопасно встроить фон в экспорт.");
-  canvas.style.setProperty("--creative-background", `url("${backgroundData}")`);
+  const backgroundUrl = getBannerBackgroundUrl();
+  if (backgroundUrl) {
+    const backgroundData = await getBannerAssetDataUrl(backgroundUrl);
+    if (!backgroundData) throw new Error("Не удалось безопасно встроить фон в экспорт.");
+    canvas.style.setProperty("--creative-background", `url("${backgroundData}")`);
+  }
 
   const changedImages = [];
   const restore = () => {
@@ -4234,7 +4491,7 @@ function setBannerExporting(isExporting, allFormats = false, kind = "jpg", progr
   bannerElements.workspace.classList.toggle("is-exporting", isExporting);
   bannerElements.exportAllButton.textContent = isExporting && kind === "jpg" && allFormats
     ? "Собираем архив…"
-    : "Скачать семь размеров в ZIP";
+    : "Скачать все размеры в ZIP";
   bannerElements.topExportButton.textContent = isExporting && kind === "jpg" && !allFormats
     ? "Подготавливаем JPG…"
     : "Экспорт JPG 2x";
@@ -4277,8 +4534,9 @@ async function exportAllCreatives() {
   try {
     if (!window.JSZip) throw new Error("Библиотека ZIP не загрузилась.");
     const zip = new window.JSZip();
+    const formats = getEnabledBannerFormats();
 
-    for (const format of Object.keys(BANNER_FORMATS)) {
+    for (const format of formats) {
       const blob = await createCreativeJpg(format);
       zip.file(getCreativeFilename(format), blob);
     }
@@ -4286,7 +4544,7 @@ async function exportAllCreatives() {
     const archive = await zip.generateAsync({ type: "blob", compression: "STORE" });
     const archiveFilename = `${getCreativeTitlePrefix()}-баннеры-2x.zip`;
     downloadBlob(archive, archiveFilename);
-    showToast(`Семь баннеров сохранены в ${archiveFilename}`);
+    showToast(`Сохранено ${formats.length} баннеров в ${archiveFilename}`);
   } catch (error) {
     console.error(error);
     showToast(error.message || "Не удалось собрать ZIP-архив.", true);
@@ -4331,7 +4589,7 @@ async function exportCurrentCreativeMp4() {
 async function exportAllCreativeMp4s() {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   const formatBeforeExport = appState.ui.activeBannerFormat;
-  const formats = Object.keys(BANNER_FORMATS);
+  const formats = getEnabledBannerFormats();
   const animationBeforeExport = {
     playing: bannerAnimationRuntime.playing,
     progress: bannerAnimationRuntime.progress
@@ -4360,7 +4618,7 @@ async function exportAllCreativeMp4s() {
     const archive = await zip.generateAsync({ type: "blob", compression: "STORE" });
     const archiveFilename = `${getCreativeTitlePrefix()}-анимации.zip`;
     downloadBlob(archive, archiveFilename);
-    showToast(`Семь MP4 сохранены в ${archiveFilename}`);
+    showToast(`Сохранено ${formats.length} MP4 в ${archiveFilename}`);
   } catch (error) {
     console.error(error);
     showToast(error.message || "Не удалось собрать ZIP с MP4.", true);
@@ -4823,7 +5081,7 @@ applyBackgroundShade();
 applyTheme();
 applyCaseComposition();
 syncBannerControls();
-setBannerFormat(BANNER_FORMATS[startupFormat] ? startupFormat : BANNER_FORMATS[appState.ui.activeBannerFormat] ? appState.ui.activeBannerFormat : "square");
+setBannerFormat(isBannerFormatEnabled(startupFormat) ? startupFormat : isBannerFormatEnabled(appState.ui.activeBannerFormat) ? appState.ui.activeBannerFormat : "square");
 applyBannerAnimationFrame(1);
 resetBannerHistory();
 syncMp4Support();

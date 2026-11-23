@@ -13,9 +13,10 @@ const COPY_RULES = `Ты арт-директор Calltouch. Собери ред�
 Если в ТЗ есть готовые тексты, CTA, даты, цифры, названия, условия и ссылки, сохрани их. Если ТЗ состоит из указаний, напиши нужный текст на его языке. Не выдумывай цены, сроки, статистику, условия и URL. Не включай служебные комментарии ТЗ в готовый текст. Верстку делает редактор, HTML запрещён.
 visualIdea — короткое описание одной узнаваемой метафоры для фирменной 3D-иллюстрации, без букв, цифр, логотипов и служебных деталей ТЗ.`;
 const DRAFT_PROMPTS = {
-  banner: `Собери один комплект текста для семи форматов баннера, от квадрата до компактных вертикальных и горизонтальных. Короткий заголовок и только нужные элементы. Не сокращай готовый текст произвольно. Тема и схема зависят от ТЗ.
-Формат {"title":"","subtitle":"","labels":["",""],"cta":"","additionalText":"","theme":"light|dark","composition":"classic|alternate","accent":"","visualIdea":""}.
-accent — точная короткая подстрока заголовка для цветового акцента или пустая строка. Служебный текст, например erid, перенеси в additionalText.`,
+  banner: `Собери редактируемый комплект баннеров Calltouch. Короткий заголовок, живой подзаголовок и крупный кей-вижуал. Сохрани готовые тексты из ТЗ. CTA добавляй только по прямому указанию, а для рекламы без кнопки оставь cta пустым.
+Формат {"title":"","subtitle":"","labels":["",""],"cta":"","additionalText":"","offer":{"value":"","caption":"","style":"cyan|purple|cyanPlate|purplePlate"},"theme":"light|dark","composition":"classic|alternate|campaign","profile":"split|reverse|editorial|offer|center","density":"auto|airy|compact","framing":"auto|contain|bleed","copyBackdrop":false,"backdrop":"library|violet|blue","backgroundIndex":"1","placements":false,"logo":true,"limitTextCoverage":false,"accent":"","visualIdea":""}.
+Выбери profile под главную мысль. offer для ведущего числового оффера, editorial для сильного заголовка или объёмного текста со сносками, split или reverse для диалога текста и предмета, center для короткой симметричной композиции. Учитывай в том же решении объём текста и место под визуал. Для длинных сносок и сложного заголовка выбери compact, для короткой рекламы airy, в остальных случаях auto. contain сохраняет силуэт целиком, bleed разрешает обрезать его краями кадра. copyBackdrop включай, если тексту нужна контрастная подложка из-за сложного фона.
+Для рекламной кампании выбери campaign. Если в ТЗ есть явно выделяемая скидка, бонус или цена, перенеси точное значение в offer.value, а его пояснение в offer.caption. Не повторяй их в subtitle. Не выделяй скидку или число, которого нет в ТЗ. В additionalText помести сноски, условия акции и ERID целиком, сохрани переносы между сносками. Accent — точная короткая подстрока заголовка. В placements поставь true, если в ТЗ есть 240 × 400, 960 × 150, 2184 × 270 или просьба включить допформаты. Logo false только по требованию ТЗ. LimitTextCoverage true только при явном ограничении площади текста до 20%. Для светлого фона используй library и backgroundIndex 1–6. Для тёмного фона с фиолетовым или синим пятном снизу используй violet или blue, для остальных фирменных фонов library и backgroundIndex 1–6.`,
   email: `Собери письмо из упорядоченных модулей. В начале заголовок или промо, где есть явный оффер; далее 1–2 разных типа осмысленных блоков. Набор преимуществ верстай сеткой только при 2–6 коротких тезисах, длинные списки оставляй текстом. Сохрани все смысловые секции, сноски, абзацы и ссылки. Не дублируй тезисы ради оформления. Для ссылок внутри текста используй [текст](https://...). CTA без URL оставь с пустым url. Болванки полей не выводи как текст.
 Формат {"subject":"","preheader":"","theme":"classic|editorial","visualIdea":"","blocks":[{"type":"title|promo|text|benefits|cta","heading":"","body":"","eyebrow":"","offer":"","cta":"","url":"","items":[{"heading":"","body":""}]}],"footnotes":[""]}.
 body в type title — подзаголовок, в type cta — пояснение. Поля можно опускать, когда они не нужны. Сноски передавай в исходном порядке, сохрани маркеры.`
@@ -74,14 +75,29 @@ export function normalizeDraft(value, target, brief) {
     const title = field(value.title, 160);
     if (!title) throw new RequestError(502, "В черновике баннера отсутствует заголовок.");
     const accent = field(value.accent, 48);
+    const offer = {
+      value: field(value.offer?.value, 24),
+      caption: field(value.offer?.caption, 100),
+      style: ["cyan", "purple", "cyanPlate", "purplePlate"].includes(value.offer?.style) ? value.offer.style : "cyan"
+    };
     return {
       title, accent: title.includes(accent) ? accent : "",
       subtitle: field(value.subtitle, 280),
       cta: field(value.cta, 48),
-      additionalText: field(value.additionalText, 180),
+      additionalText: field(value.additionalText, 420),
+      offer,
       labels: Array.isArray(value.labels) ? value.labels.slice(0, 2).map((label) => field(label, 48)) : [],
       theme: value.theme === "dark" ? "dark" : "light",
-      composition: value.composition === "alternate" ? "alternate" : "classic",
+      composition: ["alternate", "campaign"].includes(value.composition) ? value.composition : "classic",
+      profile: ["split", "reverse", "editorial", "offer", "center"].includes(value.profile) ? value.profile : "auto",
+      density: ["airy", "compact"].includes(value.density) ? value.density : "auto",
+      framing: ["contain", "bleed"].includes(value.framing) ? value.framing : "auto",
+      copyBackdrop: value.copyBackdrop === true,
+      backdrop: ["violet", "blue"].includes(value.backdrop) && value.theme === "dark" ? value.backdrop : "library",
+      backgroundIndex: /^[1-6]$/.test(String(value.backgroundIndex)) ? String(value.backgroundIndex) : "1",
+      placements: value.placements === true || /(?:240\s*[×xх]\s*400|960\s*[×xх]\s*150|2184\s*[×xх]\s*270)/iu.test(brief),
+      logo: value.logo !== false,
+      limitTextCoverage: value.limitTextCoverage === true,
       visualIdea
     };
   }
@@ -119,7 +135,7 @@ function authorizationMatches(header, token) {
 }
 
 async function providerCall(fetcher, key, path, body, signal, idempotencyKey) {
-  const timeout = path.startsWith("/api/media/") ? 15000 : 110000;
+  const timeout = path.startsWith("/api/media/") ? 15000 : 135000;
   let response;
   try {
     response = await fetcher(PROVIDER_ORIGIN + path, {
@@ -180,13 +196,13 @@ async function readCompletionStream(body) {
 }
 
 async function textCompletion(fetcher, env, instructions, input, maxTokens, signal, json = false) {
-  const model = json ? env.PLUSVIBE_TEXT_MODEL || "gpt-5.6-luna" : "gemini-3.8-flash";
+  const model = json ? "gpt-6-luna" : "gemini-3.8-flash";
   const response = await providerCall(fetcher, env.PLUSVIBE_API_KEY, "/v1/chat/completions", {
     model,
     messages: [{ role: "system", content: instructions }, { role: "user", content: input }],
     max_tokens: maxTokens,
-    ...(model === "gpt-5.6-luna" && {
-      reasoning_effort: "minimal",
+    ...(json && {
+      reasoning_effort: "high",
       response_format: { type: "json_object" }
     }),
     ...(!json && { stream: true })
@@ -334,7 +350,7 @@ export function createCreativeHandler({ env = process.env, localOrigin, fetcher 
         const brief = field(input.text, 24000);
         if (!brief) throw new RequestError(400, "Добавьте текст ТЗ.");
         const instructions = input.target === "campaign" ? CAMPAIGN_PROMPT : DRAFT_PROMPTS[input.target];
-        const text = await textCompletion(fetcher, env, COPY_RULES + "\n\n" + instructions, brief, input.target === "banner" ? 2600 : 12000, signal, true);
+        const text = await textCompletion(fetcher, env, COPY_RULES + "\n\n" + instructions, brief, 12000, signal, true);
         return send(res, 200, normalizeDraft(modelObject(text), input.target, brief));
       }
       throw new RequestError(400, "Выберите тип генерации.");

@@ -316,7 +316,7 @@
           <header class="control-panel__header">
             <p class="control-panel__eyebrow">Calltouch</p>
             <h1>Генератор баннеров</h1>
-            <p>Один набор данных — семь готовых размеров.</p>
+            <p>Один набор данных для всех форматов.</p>
             <label class="toggle-row control-panel__theme-toggle" for="bannerLightThemeToggle">
               <span><strong><i data-lucide="sun" aria-hidden="true"></i>Светлая тема</strong><small>Светлый фон и тёмный текст</small></span>
               <input id="bannerLightThemeToggle" type="checkbox" role="switch" checked>
@@ -421,15 +421,25 @@
                 </div>
               </div>
               <div class="field-group">
+                <label class="toggle-row" for="bannerOfferToggle">
+                  <span><strong><i data-lucide="badge-percent" aria-hidden="true"></i>Оффер</strong><small>Крупная цифра или короткая выгода</small></span>
+                  <input id="bannerOfferToggle" type="checkbox" role="switch" data-banner-path="content.offer.enabled">
+                </label>
+                <div class="field-stack" id="bannerOfferSettings" hidden>
+                  <label class="field"><span class="field__label">Акцент</span><input type="text" maxlength="24" placeholder="Например, +10%" data-banner-path="content.offer.value"></label>
+                  <label class="field"><span class="field__label">Подпись</span><textarea rows="2" maxlength="100" data-banner-path="content.offer.caption"></textarea></label>
+                  <label class="field"><span class="field__label">Оформление оффера</span><select data-banner-path="content.offer.style"><option value="cyan">Циановый текст</option><option value="purple">Фиолетовый текст</option><option value="cyanPlate">Циановая плашка</option><option value="purplePlate">Фиолетовая плашка</option></select></label>
+                </div>
+              </div>
+              <div class="field-group">
                 <label class="toggle-row" for="bannerAdditionalTextToggle">
-                  <span><strong><i data-lucide="file-text" aria-hidden="true"></i>Дополнительный текст</strong><small>ERID, сноска или уточнение</small></span>
+                  <span><strong><i data-lucide="file-text" aria-hidden="true"></i>Условия и сноски</strong><small>Уточнения акции, юридический текст или ERID</small></span>
                   <input id="bannerAdditionalTextToggle" type="checkbox" role="switch" data-banner-path="content.additionalText.enabled">
                 </label>
                 <div class="field-stack" id="bannerAdditionalTextSettings">
                   <label class="field">
                     <span class="field__label">Текст</span>
-                    <textarea rows="2" maxlength="180" data-banner-path="content.additionalText.text" placeholder="Например: erid: 2Vtz..." spellcheck="false"></textarea>
-                    <span class="field__hint">Показывается мелким текстом снизу баннера.</span>
+                    <textarea rows="3" maxlength="420" data-banner-path="content.additionalText.text" spellcheck="false"></textarea>
                   </label>
                   <div class="range-group">
                     <div class="range-group__header"><span>Отступ от нижнего края</span><output id="bannerAdditionalTextBottomOffsetValue">24 px</output></div>
@@ -480,6 +490,7 @@
 
             <section class="form-section">
               <h2><i data-lucide="image" aria-hidden="true"></i>Фон баннера</h2>
+              <label class="field"><span class="field__label">Тип фона</span><select data-banner-path="visual.backdrop"><option value="library">Фон из библиотеки</option><option value="violet">Фиолетовое свечение</option><option value="blue">Синее свечение</option></select></label>
 
               <fieldset class="background-picker">
                 <legend class="visually-hidden">Выбор фонового изображения баннера</legend>
@@ -527,6 +538,7 @@
                   <span class="field__label">Способ выбора</span>
                   <select data-banner-path="visual.mode"><option value="auto">Автоматически</option><option value="manual">Вручную</option><option value="custom">Своя картинка</option></select>
                 </label>
+                <label class="field"><span class="field__label">Кадрирование в кампании</span><select data-banner-path="visual.framing"><option value="auto">Автоматически</option><option value="contain">Целиком с полями</option><option value="bleed">Крупно с обрезкой по краям</option></select></label>
                 <p class="selection-note" id="bannerAutoVisualNote"></p>
                 <section class="field field--visual-picker" id="bannerManualVisualSettings" hidden>
                   <span class="field__label">Изображение</span>
@@ -553,7 +565,15 @@
             <section class="form-section">
               <h2><i data-lucide="sliders-horizontal" aria-hidden="true"></i>Компоновка</h2>
 
-              <label class="field"><span class="field__label">Схема</span><select data-banner-path="layout.composition"><option value="classic">Классическая</option><option value="alternate">Альтернативная</option></select></label>
+              <label class="field"><span class="field__label">Схема</span><select data-banner-path="layout.composition"><option value="classic">Классическая</option><option value="alternate">Альтернативная</option><option value="campaign">Рекламная кампания</option></select></label>
+              <button class="panel-button creative-ai-trigger" id="bannerVariantsButton" type="button"><i data-lucide="layout-template" aria-hidden="true"></i>Сравнить композиции</button>
+              <label class="field"><span class="field__label">Плотность кампании</span><select data-banner-path="layout.density"><option value="auto">По объёму текста</option><option value="airy">Воздушно</option><option value="compact">Компактно</option></select></label>
+              <label class="field"><span class="field__label">Композиция этого размера</span><select id="bannerFormatProfile"><option value="">Как в комплекте</option><option value="split">Текст слева</option><option value="reverse">Визуал слева</option><option value="editorial">Крупный заголовок</option><option value="offer">Акцент на оффер</option><option value="center">По центру</option></select></label>
+              <label class="toggle-row" for="bannerCopyBackdropToggle"><span><strong>Подложка под текст</strong><small>Для пёстрого фона</small></span><input id="bannerCopyBackdropToggle" type="checkbox" role="switch" data-banner-path="layout.copyBackdrop"></label>
+              <label class="toggle-row" for="bannerPlacementsToggle">
+                <span><strong>Дополнительные форматы</strong><small>240 × 400, 960 × 150 и 2184 × 270</small></span>
+                <input id="bannerPlacementsToggle" type="checkbox" role="switch" data-banner-path="layout.placements">
+              </label>
               <label class="field"><span class="field__label">Выравнивание текста</span><select data-banner-path="layout.textAlign"><option value="left">По левому краю</option><option value="center">По центру</option><option value="right">По правому краю</option></select></label>
               <label class="field"><span class="field__label">По вертикали</span><select data-banner-path="layout.verticalAlign"><option value="start">Сверху</option><option value="center" selected>По центру</option><option value="end">Снизу</option></select></label>
 
@@ -733,7 +753,7 @@
 
             <section class="form-section">
               <h2><i data-lucide="files" aria-hidden="true"></i>Пакетный экспорт</h2>
-              <button class="panel-button" id="bannerExportAllButton" type="button">Скачать семь размеров в ZIP</button>
+              <button class="panel-button" id="bannerExportAllButton" type="button">Скачать все размеры в ZIP</button>
               <button class="panel-button panel-button--quiet" id="bannerResetButton" type="button">Сбросить настройки</button>
             </section>
           </form>
@@ -742,7 +762,7 @@
         <main class="workspace banner-workspace" id="bannerWorkspace">
           <header class="workspace__header workspace__header--banners">
             <div>
-              <p>Семь размеров</p>
+              <p id="bannerFormatCount">7 форматов</p>
               <strong id="bannerSizeLabel">Выбран: квадрат 1080 × 1080 px</strong>
             </div>
             <div class="workspace__actions workspace__actions--banners">
@@ -787,6 +807,9 @@
                   <option value="ad">Реклама · 1200 × 628</option>
                   <option value="adCenter">Реклама по центру · 1200 × 628</option>
                   <option value="adVisual">Реклама без текста · 1200 × 628</option>
+                  <option value="narrowAd" hidden>Узкий вертикальный, 240 × 400</option>
+                  <option value="shortStrip" hidden>Узкая полоса, 960 × 150</option>
+                  <option value="wideStrip" hidden>Широкая полоса, 2184 × 270</option>
                 </select>
               </label>
             </div>
@@ -812,6 +835,20 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <dialog class="creative-ai-dialog campaign-variant-dialog" id="bannerVariantDialog" aria-labelledby="bannerVariantTitle">
+    <form class="campaign-variant-form" method="dialog">
+      <header class="campaign-variant-header">
+        <h2 id="bannerVariantTitle">Композиции баннера</h2>
+        <button class="panel-button panel-button--quiet" type="submit">Закрыть</button>
+      </header>
+      <div class="campaign-variant-toolbar">
+        <label class="creative-ai-field"><span>Формат предпросмотра</span><select id="bannerVariantFormat"></select></label>
+        <label class="creative-ai-check"><input id="bannerVariantSingle" type="checkbox"><span>Применить только к этому формату</span></label>
+      </div>
+      <div class="campaign-variant-grid" id="bannerVariantGrid"></div>
+    </form>
+  </dialog>
 
   <div class="app-dialog-backdrop" id="bannerResetDialog" hidden>
     <section class="app-dialog" role="dialog" aria-modal="true" aria-labelledby="bannerResetDialogTitle">
