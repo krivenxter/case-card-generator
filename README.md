@@ -34,7 +34,7 @@
 node --env-file=/путь/к/.env cloud/creative-ai/dev.mjs
 ```
 
-Откройте `http://127.0.0.1:8781/banners.html` или `http://127.0.0.1:8781/email.html`. Файл окружения должен содержать `PLUSVIBE_API_KEY`. Для Vercel нужны серверные переменные `PLUSVIBE_API_KEY` и `AI_ACCESS_TOKEN`. Код доступа вводится при первом запросе к ИИ. Статическое зеркало Yandex Object Storage использует защищённый API на Vercel.
+Откройте `http://127.0.0.1:8781/banners.html` или `http://127.0.0.1:8781/email.html`. Файл окружения должен содержать `PLUSVIBE_API_KEY`. Если ключ ограничен списком моделей, ему нужен доступ к моделям для текста и изображений: GPT-5.6 Luna, Gemini 3.8 Flash и Nano Banana 2.1. Для Vercel нужны серверные переменные `PLUSVIBE_API_KEY` и `AI_ACCESS_TOKEN`. Код доступа вводится при первом запросе к ИИ. Статическое зеркало Yandex Object Storage использует защищённый API на Vercel.
 
 ## Архитектура рассылок
 

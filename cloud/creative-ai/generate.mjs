@@ -142,12 +142,13 @@ async function providerCall(fetcher, key, path, body, signal, idempotencyKey) {
   if (response.status === 402) throw new RequestError(402, "На балансе PlusVibe недостаточно средств.");
   if (response.status === 429) throw new RequestError(429, "PlusVibe временно ограничил число запросов.");
   if (response.status === 404) throw new RequestError(404, "Задача PlusVibe не найдена или срок хранения истёк.");
-  if (path === "/api/media/generate") {
-    const code = result.error?.code ?? result.errorCode ?? result.code;
-    const detail = typeof code === "string" && /^[a-z_0-9-]{1,70}$/i.test(code) ? ", " + code : "";
-    throw new RequestError(502, `PlusVibe отклонил запуск иллюстрации (HTTP ${response.status}${detail}).`);
+  if (response.status === 403 && path === "/api/media/generate" && String(result.error).includes("список разрешённых моделей")) {
+    throw new RequestError(403, "Добавьте Nano Banana 2.1 в список разрешённых моделей ключа PlusVibe.");
   }
-  throw new RequestError(502, "PlusVibe не выполнил запрос. Проверьте настройки или повторите позже.");
+  const code = result.error?.code ?? result.errorCode ?? result.code;
+  const detail = typeof code === "string" && /^[a-z_0-9-]{1,70}$/i.test(code) ? ", " + code : "";
+  const action = path === "/api/media/generate" ? "запуск иллюстрации" : "запрос";
+  throw new RequestError(502, `PlusVibe отклонил ${action} (HTTP ${response.status}${detail}).`);
 }
 
 async function readCompletionStream(body) {
@@ -179,15 +180,16 @@ async function readCompletionStream(body) {
 }
 
 async function textCompletion(fetcher, env, instructions, input, maxTokens, signal, json = false) {
-  const model = env.PLUSVIBE_TEXT_MODEL || "gpt-5.6-luna";
+  const model = json ? env.PLUSVIBE_TEXT_MODEL || "gpt-5.6-luna" : "gemini-3.8-flash";
   const response = await providerCall(fetcher, env.PLUSVIBE_API_KEY, "/v1/chat/completions", {
     model,
     messages: [{ role: "system", content: instructions }, { role: "user", content: input }],
     max_tokens: maxTokens,
     ...(model === "gpt-5.6-luna" && {
       reasoning_effort: "minimal",
-      ...(json ? { response_format: { type: "json_object" } } : { stream: true })
-    })
+      response_format: { type: "json_object" }
+    }),
+    ...(!json && { stream: true })
   }, signal);
   const choice = response.choices?.[0];
   const text = choice?.message?.content;
