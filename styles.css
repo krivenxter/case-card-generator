@@ -4063,6 +4063,7 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
 
 .creative-canvas[data-template="campaign"] .creative-title {
   text-wrap: balance;
+  overflow-wrap: normal;
 }
 
 .creative-canvas[data-template="campaign"] :is(.creative-subtitle, .creative-additional-text, .creative-offer__caption) {
@@ -4138,10 +4139,6 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
   font-size: calc(var(--runtime-title-size) * 1.08);
 }
 
-.creative-canvas[data-template="campaign"][data-profile="editorial"][data-density="compact"] .creative-title {
-  font-size: calc(var(--runtime-title-size) * 1.08);
-}
-
 .creative-canvas[data-template="campaign"][data-profile="editorial"]:is([data-format="portrait"], [data-format="story"]) .creative-visual {
   width: min(100%, 850px);
   justify-self: center;
@@ -4209,6 +4206,32 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
   justify-self: center;
   width: min(100%, 620px);
   height: 100%;
+}
+
+.creative-canvas[data-template="campaign"][data-profile="wideCopy"].has-keyvisual:not(.is-textless):not([data-placement="strip"]) .creative-body {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "copy" "visual";
+}
+
+.creative-canvas[data-template="campaign"][data-profile="wideCopy"]:not([data-placement="strip"]) .creative-copy {
+  width: 100%;
+  align-self: start;
+}
+
+.creative-canvas[data-template="campaign"][data-profile="wideCopy"]:not([data-placement="strip"]) .creative-visual {
+  align-self: stretch;
+  justify-self: end;
+  width: min(80%, 780px);
+  height: 100%;
+}
+
+.creative-canvas[data-template="campaign"][data-profile="wideCopy"][data-framing="auto"] .creative-keyvisual {
+  transform: translate(var(--visual-x), var(--visual-y)) scale(min(var(--visual-scale, 1), 1));
+}
+
+.creative-canvas[data-template="campaign"][data-placement="strip"][data-profile="wideCopy"].has-keyvisual .creative-body {
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, .6fr) minmax(0, .95fr);
 }
 
 .creative-canvas[data-template="campaign"][data-placement="strip"][data-profile="reverse"].has-keyvisual .creative-body {

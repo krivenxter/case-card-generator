@@ -33,6 +33,7 @@ const BANNER_FORMATS = Object.freeze({
 const BANNER_CAMPAIGN_PROFILES = Object.freeze({
   split: "Текст слева",
   reverse: "Визуал слева",
+  wideCopy: "Широкий текст",
   editorial: "Крупный заголовок",
   offer: "Акцент на оффер",
   center: "По центру"
@@ -227,6 +228,7 @@ function normalizeBannerRichMarkup(value) {
 const BANNER_LAYOUT_KEYS = Object.freeze([
   "composition",
   "campaignVariant",
+  "adaptComposition",
   "density",
   "copyBackdrop",
   "textAlign",
@@ -284,6 +286,7 @@ function createBannerDefaults() {
       composition: "classic",
       placements: false,
       campaignVariant: "auto",
+      adaptComposition: true,
       density: "auto",
       copyBackdrop: false,
       textAlign: "left",
@@ -459,6 +462,7 @@ function normalizeBannerState(source) {
   state.layout.placements = state.layout.placements === true;
   state.layout.campaignVariant = Object.hasOwn(BANNER_CAMPAIGN_PROFILES, state.layout.campaignVariant)
     ? state.layout.campaignVariant : "auto";
+  state.layout.adaptComposition = state.layout.adaptComposition !== false;
   state.layout.density = ["compact", "airy"].includes(state.layout.density) ? state.layout.density : "auto";
   state.layout.copyBackdrop = state.layout.copyBackdrop === true;
   state.content.subtitleBackground.enabled = Boolean(state.content.subtitleBackground.enabled);
@@ -2868,12 +2872,12 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   canvas.dataset.accentStyle = state.branding.accentStyle;
   canvas.dataset.composition = formatConfig.centered ? "centered" : layout.composition;
   canvas.dataset.template = campaign ? "campaign" : "standard";
-  canvas.dataset.profile = campaign ? profile : "";
+  canvas.dataset.preferredProfile = campaign ? profile : "";
+  setBannerCompositionProfile(canvas, canvas.dataset.preferredProfile, layout.textAlign);
   canvas.dataset.density = campaign ? getBannerDensity(state.content, layout.density) : "";
   canvas.dataset.framing = campaign ? state.visual.framing : "";
   canvas.classList.toggle("has-copy-backdrop", Boolean(campaign && layout.copyBackdrop));
   canvas.dataset.backdrop = backgroundUrl ? "library" : state.visual.backdrop;
-  canvas.dataset.textAlign = (campaign ? profile === "center" : formatConfig.centered) ? "center" : layout.textAlign;
   canvas.classList.toggle("is-textless", Boolean(formatConfig.textless));
   canvas.classList.toggle("is-active", format === appState.ui.activeBannerFormat);
   canvas.classList.toggle("has-keyvisual", state.visual.enabled);
@@ -2978,6 +2982,11 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   }
 }
 
+function setBannerCompositionProfile(canvas, profile, textAlign) {
+  canvas.dataset.profile = profile;
+  canvas.dataset.textAlign = (profile === "center" || (!profile && BANNER_FORMATS[canvas.dataset.format].centered)) ? "center" : textAlign;
+}
+
 function isCreativeOverflowing(canvas) {
   const topbar = canvas.querySelector(".creative-topbar");
   const copy = canvas.querySelector(".creative-copy");
@@ -2993,7 +3002,8 @@ function isCreativeOverflowing(canvas) {
     const bounds = element.getBoundingClientRect();
     if (!bounds.width || !bounds.height) return false;
 
-    return bounds.left < canvasBounds.left - 3
+    return (canvas.dataset.template === "campaign" && element.matches(".creative-title, .creative-subtitle") && element.scrollWidth > element.clientWidth + 2)
+      || bounds.left < canvasBounds.left - 3
       || bounds.right > canvasBounds.right + 3
       || bounds.top < canvasBounds.top - 3
       || bounds.bottom > canvasBounds.bottom + 3
@@ -3137,6 +3147,53 @@ function fitCreativeCanvas(canvas) {
   );
 }
 
+function getBannerTextLines(node) {
+  if (!node.clientWidth || !node.textContent.trim()) return 0;
+  const style = getComputedStyle(node);
+  const height = node.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  return Math.round(height / (parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2));
+}
+
+function fitBannerComposition(canvas) {
+  const format = BANNER_FORMATS[canvas.dataset.format];
+  const base = canvas.dataset.preferredProfile;
+  const layout = getBannerLayoutForFormat(canvas.dataset.format);
+  const auto = !isEmailCoverRenderer && layout.adaptComposition && base && !format.centered && !format.textless
+    && !canvas.dataset.previewProfile && !getBannerFormatState(canvas.dataset.format).overrides.campaignVariant;
+  if (auto) setBannerCompositionProfile(canvas, base, layout.textAlign);
+  fitCreativeCanvas(canvas);
+  if (!auto) return;
+
+  const title = canvas.querySelector(".creative-title");
+  const subtitle = canvas.querySelector(".creative-subtitle");
+  const titleLimit = format.placement === "strip" ? 2 : format.placement === "narrow" ? 4 : 3;
+  const subtitleLimit = format.placement === "strip" ? 3 : format.placement === "narrow" ? 6 : 4;
+  const score = () => (canvas.classList.contains("is-text-overflowing") ? 100 : 0)
+    + (canvas.classList.contains("is-text-coverage-over-limit") ? 100 : 0)
+    + 8 * Math.max(0, getBannerTextLines(title) - titleLimit)
+    + 3 * Math.max(0, getBannerTextLines(subtitle) - subtitleLimit);
+  let bestScore = score();
+  let best = base;
+  if (!bestScore) return;
+
+  const candidates = format.width > format.height ? ["editorial", "wideCopy"] : ["wideCopy", "editorial"];
+  for (const candidate of candidates) {
+    if (candidate === base) continue;
+    setBannerCompositionProfile(canvas, candidate, layout.textAlign);
+    fitCreativeCanvas(canvas);
+    const candidateScore = score();
+    if (candidateScore < bestScore) {
+      best = candidate;
+      bestScore = candidateScore;
+    }
+    if (!bestScore) break;
+  }
+  if (canvas.dataset.profile !== best) {
+    setBannerCompositionProfile(canvas, best, layout.textAlign);
+    fitCreativeCanvas(canvas);
+  }
+}
+
 function updateBannerWarning() {
   const activeCanvas = bannerCanvases.get(appState.ui.activeBannerFormat);
   const isOverflowing = activeCanvas?.classList.contains("is-text-overflowing");
@@ -3156,7 +3213,7 @@ function scheduleBannerFit() {
   cancelAnimationFrame(bannerFitFrame);
   bannerFitFrame = requestAnimationFrame(() => {
     const restoreAnimations = [...bannerCanvases.values()].map(setBannerAnimatedElementsToFinal);
-    bannerCanvases.forEach(fitCreativeCanvas);
+    getEnabledBannerFormats().forEach((format) => fitBannerComposition(bannerCanvases.get(format)));
     updateBannerWarning();
     restoreAnimations.forEach((restore) => restore());
   });
@@ -3339,8 +3396,7 @@ function renderBannerVariantPreviews() {
   const source = bannerCanvases.get(format);
   if (!source) return;
   const { content, layout } = appState.banners;
-  const recommended = layout.campaignVariant === "auto"
-    ? getRecommendedBannerProfile(content) : layout.campaignVariant;
+  const recommended = source.dataset.profile || getRecommendedBannerProfile(content);
   const variants = [recommended, ...Object.keys(BANNER_CAMPAIGN_PROFILES).filter((profile) => profile !== recommended)];
   const visual = resolveBannerVisual();
   const config = BANNER_FORMATS[format];
@@ -3364,9 +3420,12 @@ function renderBannerVariantPreviews() {
     option.append(preview, label);
     if (profile === recommended) {
       const hint = document.createElement("small");
-      hint.textContent = layout.campaignVariant === "auto" ? "Подходит к объёму текста" : "Выбрана для комплекта";
+      hint.textContent = layout.adaptComposition ? "Подходит для этого размера" : "Текущая композиция";
       option.append(hint);
     }
+    const metrics = document.createElement("small");
+    metrics.className = "campaign-variant-metrics";
+    option.append(metrics);
     option.addEventListener("click", () => {
       if (document.getElementById("bannerVariantSingle").checked) {
         getBannerFormatState(format).overrides.campaignVariant = profile;
@@ -3374,6 +3433,7 @@ function renderBannerVariantPreviews() {
       } else {
         appState.banners.layout.composition = "campaign";
         appState.banners.layout.campaignVariant = profile;
+        appState.banners.layout.adaptComposition = false;
         Object.values(appState.banners.formats).forEach(({ overrides }) => { delete overrides.campaignVariant; });
       }
       syncBannerControls();
@@ -3395,13 +3455,16 @@ function fitBannerVariantPreviews() {
     const canvas = preview.firstElementChild;
     canvas.style.transform = `scale(${preview.clientWidth / config.width})`;
     fitCreativeCanvas(canvas);
+    const lines = getBannerTextLines(canvas.querySelector(".creative-title"));
+    const metrics = preview.parentElement.querySelector(".campaign-variant-metrics");
+    metrics.textContent = canvas.classList.contains("is-text-overflowing") ? "Текст выходит за границы" : lines ? `Строк заголовка: ${lines}` : "";
   });
 }
 
 function openBannerVariantPicker() {
   if (bannerVariantDialog.open) return;
   const active = appState.ui.activeBannerFormat;
-  const formats = [...new Set(["square", "portrait", "ad", active])].filter(isBannerFormatEnabled);
+  const formats = getEnabledBannerFormats().filter((format) => !BANNER_FORMATS[format].textless);
   bannerVariantFormat.replaceChildren(...formats.map((format) => new Option(BANNER_FORMATS[format].label, format)));
   bannerVariantFormat.value = formats.includes(active) ? active : "square";
   document.getElementById("bannerVariantSingle").checked = false;
@@ -3807,7 +3870,7 @@ async function createCreativeJpg(format, pixelRatio = 2) {
   const canvasNode = bannerCanvases.get(format);
   const restoreValidationElements = setBannerAnimatedElementsToFinal(canvasNode);
   try {
-    fitCreativeCanvas(canvasNode);
+    fitBannerComposition(canvasNode);
     if (canvasNode.classList.contains("is-text-overflowing")) {
       throw new Error(`Текст не помещается в формате «${BANNER_FORMATS[format].label}».`);
     }
@@ -3948,7 +4011,7 @@ async function createCreativeVideoLayers(format) {
   const canvasNode = bannerCanvases.get(format);
   const restoreValidationElements = setBannerAnimatedElementsToFinal(canvasNode);
   try {
-    fitCreativeCanvas(canvasNode);
+    fitBannerComposition(canvasNode);
     if (canvasNode.classList.contains("is-text-overflowing")) {
       throw new Error(`Текст не помещается в формате «${BANNER_FORMATS[format].label}».`);
     }
