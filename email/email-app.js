@@ -1,5 +1,7 @@
 import { BLOCK_DEFINITIONS, DELA_FONT_SIZES, EMAIL_STORAGE_KEY, EMAIL_TOKENS, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
 import { buildAutoVariants, readImportedFile } from "./email-parser.js";
+import { EMAIL_HANDOFF_KEY, openCreativeAi } from "../shared/creative-ai.js";
+import { buildAiEmail, createIllustrationAsset } from "./email-ai.js";
 import { renderEmailDocument, renderBlock } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
 import { BRAND_SCENE_MIN_HEIGHT, BRAND_SCENE_WIDTH, brandSceneSignature, isBrandScenePublished, renderBrandSceneMarkup } from "./email-brand-scene.js";
@@ -279,6 +281,8 @@ function enterEditor(nextEmail) {
 
 function renderEditor() {
   elements.projectTitle.textContent = email.meta.title || "Новое письмо";
+  $("#emailSubjectInput").value = email.meta.title || "";
+  $("#emailPreheaderInput").value = email.meta.preheader || "";
   $$('[data-theme-option]', elements.themePicker).forEach((button) => {
     const active = button.dataset.themeOption === email.settings.theme;
     button.classList.toggle("is-active", active);
@@ -1695,8 +1699,45 @@ function downloadHtml() {
   window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
+function openEmailAiDraft(initialText = "") {
+  openCreativeAi({
+    target: "email",
+    mode: "draft",
+    initialText,
+    apply({ draft, image }) {
+      enterEditor(buildAiEmail(draft, image));
+      showToast("Черновик письма готов.");
+    }
+  });
+}
+
+$("#emailAiImageButton").addEventListener("click", () => {
+  const selection = selectedBlockId;
+  openCreativeAi({
+    target: "email",
+    mode: "illustration",
+    apply({ image, idea }) {
+      const asset = createIllustrationAsset(image, idea);
+      const index = email.blocks.findIndex((block) => block.id === selection);
+      const block = email.blocks[index];
+      if (block && ["promo", "imageText", "image", "featureCard", "brandScene"].includes(block.type)) {
+        block.content.image = asset;
+        if (block.type === "image") block.content.alt = asset.label;
+      } else {
+        const next = createBlock("image", { content: { image: asset, alt: asset.label } });
+        email.blocks.splice(index + 1, 0, next);
+        selectedBlockId = next.id;
+      }
+      commitChange({ rerenderEditor: true });
+      showToast("Иллюстрация добавлена в письмо.");
+    }
+  });
+});
+
 $$('[data-start-action]').forEach((button) => button.addEventListener("click", () => {
-  if (button.dataset.startAction === "paste") {
+  if (button.dataset.startAction === "ai") {
+    openEmailAiDraft();
+  } else if (button.dataset.startAction === "paste") {
     $(".email-start__choices").hidden = true;
     elements.pastePanel.hidden = false;
     elements.importText.focus();
@@ -1707,6 +1748,14 @@ $$('[data-start-action]').forEach((button) => button.addEventListener("click", (
 
 $("#cancelPasteButton").addEventListener("click", () => { elements.pastePanel.hidden = true; $(".email-start__choices").hidden = false; });
 $("#generateVariantsButton").addEventListener("click", () => buildVariants(elements.importText.value));
+$("#emailAiPasteButton").addEventListener("click", () => openEmailAiDraft(elements.importText.value));
+for (const [selector, field] of [["#emailSubjectInput", "title"], ["#emailPreheaderInput", "preheader"]]) {
+  $(selector).addEventListener("change", (event) => {
+    email.meta[field] = event.target.value.trim();
+    elements.projectTitle.textContent = email.meta.title || "Новое письмо";
+    commitChange();
+  });
+}
 elements.fileInput.addEventListener("change", () => importFile(elements.fileInput.files?.[0]));
 $("#backToStartButton").addEventListener("click", () => showScreen("start"));
 $$('[data-variant]').forEach((button) => button.addEventListener("click", () => enterEditor(autoVariants[Number(button.dataset.variant)])));
@@ -2206,6 +2255,28 @@ renderLibrary();
 renderAssetGrid();
 iconRefresh();
 const restored = restoreEmail();
-if (restored) enterEditor(restored);
-else showScreen("start");
+const sourceUrl = new URL(location.href);
+let campaignEmail;
+if (sourceUrl.searchParams.has("from-ai")) {
+  try {
+    const pending = JSON.parse(sessionStorage.getItem(EMAIL_HANDOFF_KEY) || "null");
+    if (pending?.version === 1 && Array.isArray(pending.blocks)) {
+      campaignEmail = pending;
+      sessionStorage.removeItem(EMAIL_HANDOFF_KEY);
+    }
+  } catch {}
+  sourceUrl.searchParams.delete("from-ai");
+  window.history.replaceState(null, "", sourceUrl);
+}
+if (campaignEmail) {
+  enterEditor(campaignEmail);
+  if (restored) {
+    history.undo.unshift(JSON.stringify(restored));
+    syncHistoryButtons();
+  }
+} else if (restored) {
+  enterEditor(restored);
+} else {
+  showScreen("start");
+}
 applyCanvasTransform();

@@ -72,6 +72,7 @@
         <span>Вставьте контент — сетку, стили и адаптивность соберёт система.</span>
       </div>
       <div class="email-start__choices">
+        <button type="button" data-start-action="ai"><i data-lucide="sparkles" aria-hidden="true"></i><strong>Собрать из ТЗ с ИИ</strong><span>Структура письма и фирменная иллюстрация</span></button>
         <button type="button" data-start-action="paste"><i data-lucide="clipboard-paste"></i><strong>Вставить текст</strong><span>Основной и самый быстрый способ</span></button>
         <label class="email-start__file"><input id="importFileInput" type="file" accept=".docx,.txt"><i data-lucide="file-up"></i><strong>Загрузить DOCX / TXT</strong><span>Разберём заголовки, абзацы и списки</span><small>РЕКОМЕНДУЕМ</small></label>
         <button type="button" data-start-action="manual"><i data-lucide="blocks"></i><strong>Собрать вручную</strong><span>Начать с безопасного базового письма</span></button>
@@ -79,7 +80,7 @@
       <div class="email-import" id="pastePanel" hidden>
         <label for="importText">Текст письма</label>
         <textarea id="importText" rows="12" placeholder="Первая короткая строка станет заголовком. Разделяйте смысловые блоки пустой строкой, списки начинайте с дефиса."></textarea>
-        <div><button class="email-button email-button--quiet" id="cancelPasteButton" type="button">Назад</button><button class="email-button email-button--primary" id="generateVariantsButton" type="button">Собрать 2 варианта</button></div>
+        <div><button class="email-button email-button--quiet" id="cancelPasteButton" type="button">Назад</button><button class="email-button email-button--quiet" id="emailAiPasteButton" type="button">Собрать с ИИ</button><button class="email-button email-button--primary" id="generateVariantsButton" type="button">Собрать 2 варианта</button></div>
       </div>
     </section>
 
@@ -98,6 +99,11 @@
           <div><p>ГЕНЕРАТОР РАССЫЛОК</p><h1 id="projectTitle">Новое письмо</h1></div>
           <div class="email-global-fields">
             <div class="email-theme-picker" id="themePicker" role="radiogroup" aria-label="Оформление"><span>Оформление</span><div><button type="button" role="radio" data-theme-option="classic"><i class="email-theme-dot email-theme-dot--classic"></i>Светло-голубое</button><button type="button" role="radio" data-theme-option="editorial"><i class="email-theme-dot email-theme-dot--editorial"></i>Циановое</button></div></div>
+            <details class="email-message-meta">
+              <summary>Тема и прехедер</summary>
+              <label class="email-field"><span>Тема</span><input id="emailSubjectInput" type="text" maxlength="180"></label>
+              <label class="email-field"><span>Прехедер</span><textarea id="emailPreheaderInput" rows="2" maxlength="500"></textarea></label>
+            </details>
           </div>
           <div class="email-brand-actions"><button class="email-button email-button--normalize" id="normalizeButton" type="button"><i data-lucide="wand-sparkles"></i>Привести письмо в порядок</button><button class="email-button email-button--brand" id="brandButton" type="button"><i data-lucide="sparkles"></i>Забрендировать заголовки</button></div>
         </section>
@@ -115,6 +121,7 @@
         <div class="email-workspace__status">
           <span id="saveStatus">Сохранено на этом устройстве</span>
           <div class="email-workspace__quick-actions" aria-label="Действия письма">
+            <button class="email-button email-button--quiet email-quick-action email-quick-action--labeled" id="emailAiImageButton" type="button" title="Создать иллюстрацию с ИИ" aria-label="Создать иллюстрацию с ИИ"><i data-lucide="sparkles" aria-hidden="true"></i><span>Иллюстрация</span></button>
             <button class="email-button email-button--quiet email-history-button" id="undoButton" type="button" disabled title="Отменить действие" aria-label="Отменить действие"><i data-lucide="undo-2"></i></button>
             <button class="email-button email-button--quiet email-history-button" id="redoButton" type="button" disabled title="Повторить действие" aria-label="Повторить действие"><i data-lucide="redo-2"></i></button>
             <button class="email-button email-button--quiet email-quick-action email-quick-action--labeled" id="exportDraftButton" type="button" title="Скачать шаблон"><i data-lucide="download"></i><span>Скачать шаблон</span></button>

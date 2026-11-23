@@ -34,6 +34,7 @@ jobs:
             --exclude "_backups/*" \
             --exclude "backup-govna/*" \
             --exclude "references/*" \
+            --exclude "api/*" \
             --exclude "cloud/*" \
             --exclude "ui-pics/*" \
             --exclude "_tmp-pngsize.html"

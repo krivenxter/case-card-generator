@@ -1210,6 +1210,52 @@ function applyImportedBannerState(banners, message) {
   showToast(message);
 }
 
+async function openBannerAi(mode) {
+  try {
+    const { openCreativeAi, EMAIL_HANDOFF_KEY } = await import("./shared/creative-ai.js");
+    openCreativeAi({
+      target: "banner",
+      mode,
+      async apply({ draft: result, image, emailIllustration }) {
+        const draft = result?.banner || result;
+        if (result?.email) {
+          const { buildAiEmail } = await import("./email/email-ai.js");
+          const emailDraft = buildAiEmail({ ...result.email, visualIdea: result.visualIdea }, emailIllustration);
+          sessionStorage.setItem(EMAIL_HANDOFF_KEY, JSON.stringify(emailDraft));
+          document.getElementById("bannerAiEmailLink").hidden = false;
+        }
+        const state = draft ? createBannerDefaults() : cloneBannerState();
+        if (draft) {
+          const { content } = state;
+          content.title = draft.accent ? draft.title.replace(draft.accent, () => `{{cyan|${draft.accent}}}`) : draft.title;
+          content.subtitle = draft.subtitle;
+          content.subtitleEnabled = Boolean(draft.subtitle);
+          [content.label1, content.label2].forEach((label, index) => {
+            label.text = draft.labels[index] || "";
+            label.enabled = Boolean(label.text);
+          });
+          content.button.text = draft.cta;
+          content.button.enabled = Boolean(draft.cta);
+          content.additionalText.text = draft.additionalText;
+          content.additionalText.enabled = Boolean(draft.additionalText);
+          state.branding.theme = draft.theme;
+          state.layout.composition = draft.composition;
+        }
+        if (image) {
+          Object.assign(state.visual, {
+            enabled: true, mode: "custom", customVisual: image, customVisualName: "Nano Banana 2.1"
+          });
+          bannerAssetCache.clear();
+        }
+        applyImportedBannerState(state, draft ? "Собраны баннеры в семи форматах." : "Иллюстрация установлена.");
+        if (draft && bannerElements.templateNameInput) bannerElements.templateNameInput.value = draft.title.slice(0, 80);
+      }
+    });
+  } catch {
+    showToast("Не удалось открыть генератор ИИ.", true);
+  }
+}
+
 function saveBannerDraft() {
   const now = new Date().toISOString();
   const id = `draft-${Date.now()}`;
@@ -4323,6 +4369,17 @@ async function exportAllCreativeMp4s() {
     if (animationBeforeExport.playing) playBannerAnimation();
   }
 }
+
+const bannerAiEmailLink = document.getElementById("bannerAiEmailLink");
+if (bannerAiEmailLink && location.protocol !== "file:") {
+  const syncAiEmailLink = () => import("./shared/creative-ai.js")
+    .then(({ EMAIL_HANDOFF_KEY }) => { bannerAiEmailLink.hidden = !sessionStorage.getItem(EMAIL_HANDOFF_KEY); })
+    .catch(() => {});
+  syncAiEmailLink();
+  window.addEventListener("pageshow", syncAiEmailLink);
+}
+document.getElementById("bannerAiDraftButton")?.addEventListener("click", () => openBannerAi("draft"));
+document.getElementById("bannerAiImageButton")?.addEventListener("click", () => openBannerAi("illustration"));
 
 document.querySelectorAll("[data-tool-tab]").forEach((tab) => {
   tab.addEventListener("click", (event) => {

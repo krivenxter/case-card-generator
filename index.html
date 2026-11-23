@@ -326,6 +326,8 @@
           <form class="editor-form" id="bannerForm" autocomplete="off">
             <section class="form-section">
               <h2><i data-lucide="type" aria-hidden="true"></i>Содержание</h2>
+              <button class="panel-button panel-button--primary creative-ai-trigger" id="bannerAiDraftButton" type="button"><i data-lucide="sparkles" aria-hidden="true"></i>Собрать баннеры из ТЗ</button>
+              <a class="panel-button creative-ai-trigger" id="bannerAiEmailLink" href="email-editor.html?from-ai=1" target="_top" hidden><i data-lucide="mail" aria-hidden="true"></i>Открыть черновик письма</a>
 
               <label class="field">
                 <span class="field__label">Заголовок</span>
@@ -507,6 +509,7 @@
             <section class="form-section form-section--keyvisual">
               <h2><i data-lucide="sparkles" aria-hidden="true"></i>Кей-вижуал</h2>
               <p class="form-section__hint">Главный объект баннера: подберите его по тексту или выберите вручную.</p>
+              <button class="panel-button creative-ai-trigger" id="bannerAiImageButton" type="button"><i data-lucide="image" aria-hidden="true"></i>Создать иллюстрацию с ИИ</button>
               <label class="toggle-row" for="bannerVisualToggle">
                 <span><strong><i data-lucide="sparkles" aria-hidden="true"></i>Основное изображение</strong><small>Подбирается автоматически или вручную</small></span>
                 <input id="bannerVisualToggle" type="checkbox" role="switch" data-banner-path="visual.enabled" checked>

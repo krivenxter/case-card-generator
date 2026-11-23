@@ -163,7 +163,7 @@ function splitBenefit(value) {
   return match ? { heading: match[1], body: match[2] } : { heading: text, body: "" };
 }
 
-function pickIconId(text) {
+export function pickIconId(text) {
   const source = semanticText(text).toLowerCase();
   const semantic = {
     call: ["звон", "телефон", "колл"],
