@@ -5116,7 +5116,8 @@ if (isEmailCoverRenderer) {
     const state = createAiBannerState(draft);
     state.layout.fontScale = 130;
     state.layout.contentWidth = 100;
-    state.visual.scale = 116;
+    state.visual.framing = "contain";
+    state.visual.scale = 96;
     setAiBannerIllustration(state, image);
     applyImportedBannerState(state, "Обложка письма");
     setBannerFormat("ad");
@@ -5134,11 +5135,6 @@ if (isEmailCoverRenderer) {
     for (const profile of ["editorial", "center"]) {
       if (longestWordRatio() <= 1) break;
       appState.banners.layout.campaignVariant = profile;
-      renderBanners();
-    }
-    if (appState.banners.layout.campaignVariant === "center") {
-      appState.banners.visual.framing = "contain";
-      appState.banners.visual.scale = 106;
       renderBanners();
     }
     const wordRatio = longestWordRatio();
