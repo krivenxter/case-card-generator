@@ -2547,12 +2547,15 @@ function getBannerLogoMode() {
   return state.branding.theme === "dark" ? "light" : "dark";
 }
 
-function setPreviewImage(image, container, src) {
+function setPreviewImage(image, container, src, onLoad) {
   if (image.dataset.requestedSrc === src) return;
 
   image.dataset.requestedSrc = src;
   container.classList.remove("has-image");
-  image.onload = () => container.classList.add("has-image");
+  image.onload = () => {
+    container.classList.add("has-image");
+    onLoad?.();
+  };
   image.onerror = () => container.classList.remove("has-image");
   image.src = src;
 
@@ -2978,7 +2981,9 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   keyvisual.dataset.visualId = resolvedVisual.id;
   keyvisual.querySelector("strong").textContent = resolvedVisual.shortLabel;
   if (state.visual.enabled) {
-    setPreviewImage(visualImage, keyvisual, resolvedVisual.src);
+    setPreviewImage(visualImage, keyvisual, resolvedVisual.src, () => {
+      if (visualImage.getAttribute("src") === resolvedVisual.src) fitBannerArtwork(canvas);
+    });
   }
 }
 
@@ -3052,6 +3057,93 @@ function getCreativeTextCoverage(canvas) {
 
   const rawCoverage = (textArea / (canvasRect.width * canvasRect.height)) * 100;
   return Math.min(100, rawCoverage * TEXT_COVERAGE_SAFETY_MULTIPLIER);
+}
+
+let bannerArtworkBoundsCache;
+
+function getBannerArtworkBounds(image) {
+  const src = image.currentSrc;
+  if (bannerArtworkBoundsCache?.src === src) return bannerArtworkBoundsCache.bounds;
+
+  // Sample the alpha channel once per image so transparent padding does not drive the layout.
+  const sample = document.createElement("canvas");
+  const ratio = 192 / Math.max(image.naturalWidth, image.naturalHeight);
+  sample.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+  sample.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+  const { width, height } = sample;
+  const context = sample.getContext("2d");
+  let bounds = null;
+  try {
+    context.drawImage(image, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height).data;
+    const columns = new Uint32Array(width);
+    const rows = new Uint32Array(height);
+    let total = 0;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const alpha = pixels[(y * width + x) * 4 + 3];
+        if (alpha < 40) continue;
+        columns[x] += alpha;
+        rows[y] += alpha;
+        total += alpha;
+      }
+    }
+
+    // Ignore isolated edge pixels and faint matte left by background removal.
+    const edge = (values, reverse) => {
+      let remaining = total * .002;
+      for (let i = 0; i < values.length; i += 1) {
+        const index = reverse ? values.length - i - 1 : i;
+        remaining -= values[index];
+        if (remaining <= 0) return (index + Number(reverse)) / values.length;
+      }
+    };
+    if (total) {
+      bounds = { left: edge(columns, false), right: edge(columns, true),
+        top: edge(rows, false), bottom: edge(rows, true) };
+    }
+  } catch {
+    // An external image may be displayable but unreadable by canvas.
+    bounds = { left: 0, top: 0, right: 1, bottom: 1 };
+  }
+  bannerArtworkBoundsCache = { src, bounds };
+  return bounds;
+}
+
+function fitBannerArtwork(canvas) {
+  const keyvisual = canvas.querySelector(".creative-keyvisual");
+  keyvisual.style.removeProperty("--artwork-fit");
+  if (isEmailCoverRenderer || canvas.dataset.template !== "campaign") return;
+  const visual = keyvisual.closest(".creative-visual");
+  const image = keyvisual.querySelector("img");
+  if (!visual.clientWidth || !visual.clientHeight || !image.complete || !image.naturalWidth) return;
+  const bounds = getBannerArtworkBounds(image);
+  if (!bounds) return;
+
+  const frameWidth = visual.clientWidth;
+  const frameHeight = visual.clientHeight;
+  const intrinsicFit = Math.min(image.clientWidth / image.naturalWidth, image.clientHeight / image.naturalHeight);
+  const imageWidth = image.naturalWidth * intrinsicFit;
+  const imageHeight = image.naturalHeight * intrinsicFit;
+  const width = imageWidth * (bounds.right - bounds.left);
+  const height = imageHeight * (bounds.bottom - bounds.top);
+  if (!width || !height) return;
+  const contain = Math.min(frameWidth / width, frameHeight / height);
+  const position = getBannerFormatState(canvas.dataset.format);
+  const size = getBannerVisualScaleForFormat(canvas.dataset.format) / 100;
+  const bleed = canvas.dataset.framing === "bleed";
+  const cropAllowance = canvas.dataset.framing === "contain" ? 0 : .05;
+  const zoom = contain * Math.min(cropAllowance ? 1.08 : 1, (bleed ? 1.06 : .96) * size);
+  const limitOffset = (offset, frame, subject) => {
+    // Keep at least 95% of the subject on each axis even with a manual offset.
+    const limit = Math.max(0, (frame - subject) / 2 + subject * cropAllowance);
+    return Math.max(-limit, Math.min(limit, offset));
+  };
+  const x = limitOffset(position.visualX, frameWidth, width * zoom)
+    - ((bounds.left + bounds.right) / 2 - .5) * imageWidth * zoom;
+  const y = limitOffset(position.visualY, frameHeight, height * zoom)
+    - ((bounds.top + bounds.bottom) / 2 - .5) * imageHeight * zoom;
+  keyvisual.style.setProperty("--artwork-fit", `translate(${x}px, ${y}px) scale(${zoom})`);
 }
 
 function fitCreativeCanvas(canvas) {
@@ -3145,6 +3237,7 @@ function fitCreativeCanvas(canvas) {
     "is-text-coverage-over-limit",
     appState.banners.compliance.limitTextCoverage && getCreativeTextCoverage(canvas) > 20
   );
+  fitBannerArtwork(canvas);
 }
 
 function getBannerTextLines(node) {
@@ -3713,6 +3806,7 @@ function updateDraggedVisual(format, x, y) {
   const canvas = bannerCanvases.get(format);
   canvas.style.setProperty("--visual-x", `${formatState.visualX}px`);
   canvas.style.setProperty("--visual-y", `${formatState.visualY}px`);
+  fitBannerArtwork(canvas);
   syncBannerPositionControls();
   scheduleProjectSave();
 }
@@ -3868,6 +3962,7 @@ async function createCreativeJpg(format, pixelRatio = 2) {
   await afterTwoFrames();
 
   const canvasNode = bannerCanvases.get(format);
+  if (appState.banners.visual.enabled) await waitForBannerImage(canvasNode.querySelector(".creative-keyvisual img"));
   const restoreValidationElements = setBannerAnimatedElementsToFinal(canvasNode);
   try {
     fitBannerComposition(canvasNode);
@@ -4009,6 +4104,7 @@ async function createCreativeVideoLayers(format) {
   await afterTwoFrames();
 
   const canvasNode = bannerCanvases.get(format);
+  if (appState.banners.visual.enabled) await waitForBannerImage(canvasNode.querySelector(".creative-keyvisual img"));
   const restoreValidationElements = setBannerAnimatedElementsToFinal(canvasNode);
   try {
     fitBannerComposition(canvasNode);

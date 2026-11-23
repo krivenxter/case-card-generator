@@ -3521,7 +3521,7 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
   height: 92%;
   min-width: 0;
   min-height: 0;
-  transform: translate(var(--visual-x), var(--visual-y)) scale(var(--visual-scale, 1));
+  transform: var(--artwork-fit, translate(var(--visual-x), var(--visual-y)) scale(var(--visual-scale, 1)));
   transform-origin: center;
   cursor: grab;
   touch-action: none;
@@ -4227,7 +4227,7 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
 }
 
 .creative-canvas[data-template="campaign"][data-profile="wideCopy"][data-framing="auto"] .creative-keyvisual {
-  transform: translate(var(--visual-x), var(--visual-y)) scale(min(var(--visual-scale, 1), 1));
+  transform: var(--artwork-fit, translate(var(--visual-x), var(--visual-y)) scale(min(var(--visual-scale, 1), 1)));
 }
 
 .creative-canvas[data-template="campaign"][data-placement="strip"][data-profile="wideCopy"].has-keyvisual .creative-body {
