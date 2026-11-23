@@ -2589,7 +2589,11 @@ function renderBannerRichMarkup(target, value, options) {
 }
 
 function renderTitleMarkup(target, value) {
-  renderBannerRichMarkup(target, value);
+  renderBannerRichMarkup(target, bindBannerRuble(value));
+}
+
+function bindBannerRuble(value) {
+  return String(value).replace(/(\d)[ \t\u202f]+(?=₽)/gu, "$1\u00a0");
 }
 
 function setEditableBannerText(node, value) {
@@ -2944,7 +2948,7 @@ function renderBannerCanvas(canvas, resolvedVisual) {
   const offerCaptionNode = offer.querySelector(".creative-offer__caption");
   offerValueNode.hidden = !offerValue.trim();
   offerCaptionNode.hidden = !offerCaption.trim();
-  setEditableBannerText(offerValueNode, offerValue);
+  setEditableBannerText(offerValueNode, bindBannerRuble(offerValue));
   setEditableBannerText(offerCaptionNode, offerCaption);
 
   const additionalTextValue = String(state.content.additionalText.text || "");
@@ -3789,6 +3793,7 @@ function getCreativeFontFaces() {
       weight: "400",
       unicodeRange: "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
     },
+    { family: "Dela Gothic One", src: "fonts/museosanscyrl-900.woff2", format: "woff2", weight: "400", unicodeRange: "U+20BD" },
     { family: "Museo Sans Cyrl", src: "fonts/museosanscyrl-500.woff2", format: "woff2", weight: "500" },
     { family: "Museo Sans Cyrl", src: "fonts/museosanscyrl-700.woff2", format: "woff2", weight: "700" }
   ];
@@ -5129,6 +5134,11 @@ if (isEmailCoverRenderer) {
     for (const profile of ["editorial", "center"]) {
       if (longestWordRatio() <= 1) break;
       appState.banners.layout.campaignVariant = profile;
+      renderBanners();
+    }
+    if (appState.banners.layout.campaignVariant === "center") {
+      appState.banners.visual.framing = "contain";
+      appState.banners.visual.scale = 106;
       renderBanners();
     }
     const wordRatio = longestWordRatio();

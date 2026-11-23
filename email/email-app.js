@@ -1,4 +1,4 @@
-import { BLOCK_DEFINITIONS, DELA_FONT_SIZES, EMAIL_STORAGE_KEY, EMAIL_TOKENS, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
+import { BLOCK_DEFINITIONS, DELA_FONT_FACES, DELA_FONT_SIZES, EMAIL_STORAGE_KEY, EMAIL_TOKENS, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
 import { buildAutoVariants, readImportedFile } from "./email-parser.js";
 import { EMAIL_HANDOFF_KEY, EMAIL_IMAGE_HANDOFF_KEY, openCreativeAi } from "../shared/creative-ai.js";
 import { buildAiEmailVariants, createBannerEmailBlock, createIllustrationAsset, renderEmailBannerCover } from "./email-ai.js";
@@ -1381,7 +1381,7 @@ async function renderBrandImagePng(block) {
       cacheBust: location.protocol !== "file:",
       backgroundColor: config.background,
       fontFaces: location.protocol === "file:" ? [] : [
-        { family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" },
+        ...DELA_FONT_FACES,
         { family: "Museo Sans Cyrl", src: "fonts/museosanscyrl-500.woff2", format: "woff2", weight: "500" }
       ]
     });
@@ -1583,7 +1583,7 @@ async function renderDelaPng(text, measureDocument = elements.preview.contentDoc
     const element = host.firstElementChild;
     const width = Math.min(560, Math.max(100, Math.ceil(element.getBoundingClientRect().width)));
     const height = Math.max(24, Math.ceil(element.getBoundingClientRect().height));
-    const canvas = await window.DomExport.toCanvas(element, { width, height, pixelRatio: 2, cacheBust: location.protocol !== "file:", backgroundColor: "transparent", fontFaces: location.protocol === "file:" ? [] : [{ family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" }] });
+    const canvas = await window.DomExport.toCanvas(element, { width, height, pixelRatio: 2, cacheBust: location.protocol !== "file:", backgroundColor: "transparent", fontFaces: location.protocol === "file:" ? [] : DELA_FONT_FACES });
     return { blob: await canvasToPngBlob(canvas), width, height };
   } finally { host.remove(); }
 }

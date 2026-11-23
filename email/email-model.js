@@ -7,6 +7,10 @@ export const EMAIL_TOKENS = Object.freeze({
 });
 
 export const DELA_FONT_SIZES = Object.freeze({ small: 16, large: 22 });
+export const DELA_FONT_FACES = Object.freeze([
+  { family: "Dela Gothic One", src: "fonts/DelaGothicOne-Regular.ttf", format: "truetype", weight: "400" },
+  { family: "Dela Gothic One", src: "fonts/museosanscyrl-900.woff2", format: "woff2", weight: "400", unicodeRange: "U+20BD" }
+]);
 
 export const SYSTEM_LINKS = Object.freeze({
   webVersion: "{{link_view_in_browser}}",
