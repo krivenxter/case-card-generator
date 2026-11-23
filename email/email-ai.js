@@ -1,5 +1,6 @@
 import { createBlock, createDefaultEmail, createId } from "./email-model.js";
 import { pickIconId } from "./email-parser.js";
+import { forceDelaMarkup } from "./email-rich-text.js";
 
 const joinParagraphs = (...parts) => parts.filter(Boolean).join("\n\n");
 
@@ -26,27 +27,31 @@ export function buildAiEmail(draft, illustration) {
     if (type === "title" && heading) {
       return createBlock("title", {
         variant: editorial ? "plain" : "accent",
-        content: { heading, subtitle: body, accent: "" }
+        content: { heading: forceDelaMarkup(heading), subtitle: body, accent: "" }
       });
     }
     if (type === "promo") {
       return createBlock("promo", {
-        content: { heading, eyebrow, offer, body, ctaText: cta, ctaUrl: destination, image: null }
+        content: { heading: forceDelaMarkup(heading), eyebrow, offer: forceDelaMarkup(offer), body, ctaText: cta, ctaUrl: destination, image: null }
       });
     }
     if (type === "cta") {
       return createBlock("ctaCard", {
         variant: editorial ? "light" : "dark-gradient",
-        content: { heading, subtitle: body, ctaText: cta, ctaUrl: destination }
+        content: { heading: forceDelaMarkup(heading), subtitle: body, ctaText: cta, ctaUrl: destination }
       });
     }
     if (type === "benefits" && !body && items.length >= 2 && items.length <= 6
       && items.every((item) => item.heading.length <= 80 && item.body.length <= 110)) {
       return createBlock("iconGrid", {
         content: {
-          heading,
+          heading: forceDelaMarkup(heading),
           columns: items.length % 2 ? "1" : "2",
-          items: items.map((item) => ({ ...item, iconId: pickIconId(`${item.heading} ${item.body}`) }))
+          items: items.map((item) => ({
+            ...item,
+            heading: forceDelaMarkup(item.heading),
+            iconId: pickIconId(`${item.heading} ${item.body}`)
+          }))
         }
       });
     }
