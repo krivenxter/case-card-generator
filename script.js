@@ -5108,9 +5108,12 @@ document.fonts.ready.then(scheduleBannerFit);
 if (isEmailCoverRenderer) {
   window.renderEmailBannerJpg = async (draft, image) => {
     const state = createAiBannerState(draft);
+    state.layout.fontScale = 130;
+    state.layout.contentWidth = 100;
+    state.visual.scale = 116;
     setAiBannerIllustration(state, image);
     applyImportedBannerState(state, "Обложка письма");
-    return blobToBannerDataUrl(await createCreativeJpg("landscape", .625));
+    return blobToBannerDataUrl(await createCreativeJpg("ad", 1));
   };
 }
 
@@ -5121,9 +5124,9 @@ document.getElementById("bannerToEmailButton").addEventListener("click", async (
     const { EMAIL_IMAGE_HANDOFF_KEY } = await import("./shared/creative-ai.js");
     const format = appState.ui.activeBannerFormat;
     const width = BANNER_FORMATS[format].width;
-    const image = await blobToBannerDataUrl(await createCreativeJpg(format, Math.min(1, 1200 / width)));
+    const image = await blobToBannerDataUrl(await createCreativeJpg(format, 1));
     const alt = parseBannerRichMarkup(appState.banners.content.title).map(({ text }) => text).join("");
-    sessionStorage.setItem(EMAIL_IMAGE_HANDOFF_KEY, JSON.stringify({ image, alt, width: Math.min(1200, width) }));
+    sessionStorage.setItem(EMAIL_IMAGE_HANDOFF_KEY, JSON.stringify({ image, alt, width }));
     window.top.location.href = "email-editor.html?from-banner=1";
   } catch (error) {
     showToast(error.message || "Не удалось подготовить изображение для письма.", true);

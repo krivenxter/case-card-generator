@@ -11,6 +11,11 @@ function brandedHeading(heading, accent) {
   return forceDelaMarkup(text);
 }
 
+function cleanLayoutMetadata(body = "") {
+  return body.replace(/(^|\n)(?:Связанная ссылка|URL кнопки|URL действия):[ \t]*\n?[ \t]*(https:\/\/[^\s]+)(?=\n|$)/gi,
+    (_match, start, url) => body.includes("](" + url + ")") ? "" : `${start}[Открыть материал](${url})`).trim();
+}
+
 export async function renderEmailBannerCover(draft, illustration) {
   if (draft.cover !== "banner" || !draft.coverBanner || !illustration) return "";
   const frame = document.createElement("iframe");
@@ -62,7 +67,7 @@ export function buildAiEmail(draft, illustration, coverImage = "") {
     const headingMarkup = brandedHeading(heading, accent);
     const list = items.map((item) => `- ${[item.eyebrow, item.heading, item.body,
       item.cta && (item.url ? `[${item.cta}](${item.url})` : item.cta)].filter(Boolean).join(" — ")}`).join("\n");
-    const details = joinParagraphs(body, list);
+    const details = joinParagraphs(cleanLayoutMetadata(body), list);
     if (type === "title" && heading) {
       return createBlock("title", {
         variant: "accent",
@@ -118,6 +123,10 @@ export function buildAiEmail(draft, illustration, coverImage = "") {
     return createBlock("text", {
       content: { body: joinParagraphs(heading && `**${heading}**`, details, cta && (url ? `[${cta}](${url})` : cta)), plate: tone === "white" ? "1" : "" }
     });
+  }).filter((block, index, blocks) => {
+    const previous = blocks[index - 1];
+    return block.type !== "button" || !previous || block.content.text !== previous.content.ctaText
+      || block.content.url !== previous.content.ctaUrl;
   });
 
   if (coverImage) {
