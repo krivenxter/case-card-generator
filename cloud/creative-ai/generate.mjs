@@ -237,8 +237,9 @@ async function illustrationStatus(fetcher, key, jobId, signal) {
     throw new RequestError(502, "PlusVibe не вернул готовую картинку.");
   }
   const url = new URL(job.resultUrls[0], PROVIDER_ORIGIN);
+  const resultPath = url.pathname.startsWith("/api/media/file/") || url.pathname.startsWith("/media/s3/results/");
   if (url.protocol !== "https:" || !PROVIDER_HOSTS.has(url.host) || url.username || url.password
-      || !url.pathname.startsWith("/api/media/file/")) {
+      || !resultPath) {
     throw new RequestError(502, "PlusVibe вернул неизвестный адрес картинки.");
   }
   const response = await fetcher(url, { redirect: "error", signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]) });
