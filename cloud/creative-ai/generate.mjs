@@ -234,9 +234,25 @@ function validateCompiledPrompt(compiled) {
     if (line.startsWith(PROMPT_FIELDS[fieldIndex] + ":")) fieldIndex++;
   }
   if (fieldIndex !== PROMPT_FIELDS.length) {
-    throw new RequestError(422, "Промпт иллюстрации не соответствует метапромпту.");
+    throw new RequestError(422, `Раздел ${PROMPT_FIELDS[fieldIndex]} отсутствует или стоит вне порядка в промпте иллюстрации.`);
   }
   return compiled;
+}
+
+function normalizeCompiledPrompt(text) {
+  const fields = new Set(PROMPT_FIELDS);
+  let started = false;
+  const lines = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (/^\s*```/.test(line)) continue;
+    const heading = line.match(/^\s*(?:[-*]\s+)?(?:\*\*|__)?([A-Za-z ]+?)\s*(?:\*\*|__)?\s*:\s*(?:\*\*|__)?\s*(.*)$/);
+    const name = heading?.[1].trim().toUpperCase();
+    if (name && fields.has(name)) {
+      started ||= name === "SCENE";
+      if (started) lines.push(name + ": " + heading[2]);
+    } else if (started) lines.push(line);
+  }
+  return lines.join("\n").trim();
 }
 
 async function startIllustration(fetcher, env, compiled, aspect, signal, requestId) {
@@ -346,8 +362,8 @@ export function createCreativeHandler({ env = process.env, localOrigin, fetcher 
         const idea = field(input.text, 900);
         if (!idea) throw new RequestError(400, "Опишите иллюстрацию.");
         const compiled = await textCompletion(fetcher, env, ILLUSTRATION_PROMPT,
-          `Requested aspect ratio: ${aspect}\nVisual brief: ${idea}`, 2400, signal);
-        return send(res, 200, { prompt: validateCompiledPrompt(compiled) });
+          `Requested aspect ratio: ${aspect}\nVisual brief: ${idea}`, 3600, signal);
+        return send(res, 200, { prompt: validateCompiledPrompt(normalizeCompiledPrompt(compiled)) });
       }
       if (input.action === "illustration") {
         if (typeof input.requestId !== "string" || !/^[\da-f-]{36}$/i.test(input.requestId)) {

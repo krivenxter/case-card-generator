@@ -4195,6 +4195,13 @@ body[data-theme="dark"] .range-group input[type="range"]::-moz-range-thumb {
   align-self: start;
 }
 
+.creative-canvas[data-template="campaign"][data-profile="center"].has-keyvisual:is([data-format="ad"], [data-format="adCenter"], [data-format="landscape"]) .creative-visual {
+  align-self: stretch;
+  justify-self: center;
+  width: min(100%, 620px);
+  height: 100%;
+}
+
 .creative-canvas[data-template="campaign"][data-placement="strip"][data-profile="reverse"].has-keyvisual .creative-body {
   grid-template-areas: "visual copy commercial";
   grid-template-columns: minmax(0, .72fr) minmax(0, 1.18fr) minmax(0, .88fr);

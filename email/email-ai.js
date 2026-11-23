@@ -23,16 +23,23 @@ export async function renderEmailBannerCover(draft, illustration) {
   frame.setAttribute("aria-hidden", "true");
   frame.inert = true;
   frame.style.cssText = "position:fixed;left:-2000px;top:0;width:1480px;height:900px;border:0;pointer-events:none;";
+  let ready;
+  let timeout;
   try {
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Баннерный редактор не успел загрузиться.")), 20000);
-      frame.addEventListener("load", () => { clearTimeout(timeout); resolve(); }, { once: true });
+      ready = (event) => {
+        if (event.origin === location.origin && event.source === frame.contentWindow && event.data === "calltouch-email-banner-ready") resolve();
+      };
+      window.addEventListener("message", ready);
+      timeout = setTimeout(() => reject(new Error("Баннерный редактор не успел загрузиться.")), 35000);
       frame.src = new URL("../index.html?tool=banners&embedded=1&email-cover=1", import.meta.url);
       document.body.append(frame);
     });
     if (typeof frame.contentWindow?.renderEmailBannerJpg !== "function") throw new Error("Баннерный редактор недоступен.");
     return await frame.contentWindow.renderEmailBannerJpg(draft.coverBanner, illustration);
   } finally {
+    clearTimeout(timeout);
+    window.removeEventListener("message", ready);
     frame.remove();
   }
 }

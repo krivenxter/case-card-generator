@@ -1880,6 +1880,7 @@ function syncBannerFormatOverrides() {
 }
 
 function renderManualVisualPicker() {
+  if (isEmailCoverRenderer) return;
   const selectedId = appState.banners.visual.selectedId;
   const picker = bannerElements.manualVisualPicker;
   if (!picker) return;
@@ -5115,6 +5116,7 @@ if (isEmailCoverRenderer) {
     applyImportedBannerState(state, "Обложка письма");
     return blobToBannerDataUrl(await createCreativeJpg("ad", 1));
   };
+  window.parent.postMessage("calltouch-email-banner-ready", location.origin);
 }
 
 document.getElementById("bannerToEmailButton").addEventListener("click", async (event) => {
