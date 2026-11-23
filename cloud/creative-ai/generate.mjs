@@ -119,7 +119,7 @@ function authorizationMatches(header, token) {
 }
 
 async function providerCall(fetcher, key, path, body) {
-  const timeout = path.startsWith("/api/media/") ? 10000 : 45000;
+  const timeout = path.startsWith("/api/media/") ? 15000 : 110000;
   const response = await fetcher(PROVIDER_ORIGIN + path, {
     method: body ? "POST" : "GET",
     headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
@@ -135,11 +135,13 @@ async function providerCall(fetcher, key, path, body) {
   throw new RequestError(502, "PlusVibe не выполнил запрос. Проверьте настройки или повторите позже.");
 }
 
-async function textCompletion(fetcher, env, instructions, input, maxTokens) {
+async function textCompletion(fetcher, env, instructions, input, maxTokens, json = false) {
+  const model = env.PLUSVIBE_TEXT_MODEL || "gpt-5.6-luna";
   const response = await providerCall(fetcher, env.PLUSVIBE_API_KEY, "/v1/chat/completions", {
-    model: env.PLUSVIBE_TEXT_MODEL || "gpt-5.6-luna",
+    model,
     messages: [{ role: "system", content: instructions }, { role: "user", content: input }],
-    max_tokens: maxTokens
+    max_tokens: maxTokens,
+    ...(model === "gpt-5.6-luna" && { reasoning_effort: "minimal", ...(json && { response_format: { type: "json_object" } }) })
   });
   const choice = response.choices?.[0];
   const text = choice?.message?.content;
@@ -265,11 +267,15 @@ export function createCreativeHandler({ env = process.env, localOrigin, fetcher 
         const brief = field(input.text, 24000);
         if (!brief) throw new RequestError(400, "Добавьте текст ТЗ.");
         const instructions = input.target === "campaign" ? CAMPAIGN_PROMPT : DRAFT_PROMPTS[input.target];
-        const text = await textCompletion(fetcher, env, COPY_RULES + "\n\n" + instructions, brief, input.target === "banner" ? 2600 : 12000);
+        const text = await textCompletion(fetcher, env, COPY_RULES + "\n\n" + instructions, brief, input.target === "banner" ? 2600 : 12000, true);
         return send(res, 200, normalizeDraft(modelObject(text), input.target, brief));
       }
       throw new RequestError(400, "Выберите тип генерации.");
     } catch (error) {
+      if (error.name === "TimeoutError") {
+        send(res, 504, { error: "PlusVibe не успел ответить. Повторите запрос позже." });
+        return;
+      }
       const message = error instanceof RequestError ? error.message : "Сервис PlusVibe временно недоступен.";
       send(res, error.status || 502, { error: message });
     }
