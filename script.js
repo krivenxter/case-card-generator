@@ -3580,7 +3580,8 @@ function getCreativeTitlePrefix() {
 
 function getCreativeFormatSuffix(format) {
   const config = BANNER_FORMATS[format];
-  return `${config.width}x${config.height}`;
+  const variant = config.centered ? "-center" : config.textless ? "-visual" : "";
+  return `${config.width}x${config.height}${variant}`;
 }
 
 function getCreativeFilename(format, pixelRatio = 2) {
