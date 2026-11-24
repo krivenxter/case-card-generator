@@ -160,7 +160,7 @@ function paintBase(ctx, state, mirror) {
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 }
 
-export function drawCover(canvas, state, { background, art, logos }) {
+export function drawCover(canvas, state, { background, art, logos }, { showCategory = true } = {}) {
   const ctx = canvas.getContext('2d');
   ctx.setTransform(canvas.width / WIDTH, 0, 0, canvas.height / HEIGHT, 0, 0);
   const mirror = state.layout === 'mirror';
@@ -187,7 +187,7 @@ export function drawCover(canvas, state, { background, art, logos }) {
   const contrast = coverContrast(canvas, x, width, state);
   paintScrim(ctx, x, width, contrast.scrim, contrast.ink, mirror);
   const badge = state.category.trim();
-  if (badge) {
+  if (badge && showCategory) {
     const label = 'КЕЙСЫ | ' + badge.toUpperCase();
     const block = textBlock(ctx, label, width - 40, 30, 1, bodyFont);
     const w = ctx.measureText(label).width + 44;

@@ -85,10 +85,10 @@ function syncFields() {
   }
 }
 
-async function draw(canvas, snapshot, isCurrent) {
+async function draw(canvas, snapshot, isCurrent, options) {
   const [, assets] = await Promise.all([fontsReady, prepareCover(snapshot)]);
   if (!isCurrent()) return;
-  const contrast = drawCover(canvas, snapshot, assets);
+  const contrast = drawCover(canvas, snapshot, assets, options);
   if (canvas.id === 'cover') {
     const label = { dark: 'тёмный', light: 'белый с голубым знаком', white: 'белый' };
     const result = contrast.ratio >= 4.5 ? 'Достаточный контраст' : 'Низкий контраст';
@@ -362,7 +362,7 @@ byId('download').addEventListener('click', async (event) => {
     const output = document.createElement('canvas');
     output.width = canvas.width;
     output.height = canvas.height;
-    await draw(output, snapshot, () => true);
+    await draw(output, snapshot, () => true, { showCategory: false });
     const blob = await new Promise((resolve) => output.toBlob(resolve, 'image/' + format, .94));
     if (!blob || blob.type !== 'image/' + format) throw new Error('Unsupported format');
     const url = URL.createObjectURL(blob);
