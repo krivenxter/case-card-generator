@@ -5247,9 +5247,14 @@ body[data-theme="dark"] .creative-ai-status.is-error { color: #ffadb9; }
   font-size: 1.24em;
 }
 .creative-canvas[data-profile="wideCopy"] .creative-title:has(.creative-title__number) {
-  font-size: calc(var(--runtime-title-size) * .82);
+  font-size: calc(var(--runtime-title-size) * .77);
   text-wrap: pretty;
 }
 .creative-canvas[data-profile="wideCopy"]:not([data-placement="strip"], [data-placement="narrow"]) .creative-title__number {
   font-size: 1.85em;
+}
+
+.creative-canvas[data-template="campaign"][data-profile="wideCopy"]:is([data-format="square"], [data-format="portrait"], [data-format="story"]) .creative-visual {
+  overflow: visible;
+  clip-path: var(--artwork-clip, inset(0));
 }

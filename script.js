@@ -2541,6 +2541,24 @@ function renderBannerRichMarkup(target, value, options) {
   renderBannerRichRuns(target, parseBannerRichMarkup(value), options);
 }
 
+function bindBannerShortWords(target) {
+  if (document.activeElement === target) return;
+  const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+  const shortWord = /(?<![\p{L}\p{N}-])(а|и|но|да|или|либо|в|во|к|ко|с|со|у|о|об|от|до|за|на|по|из|без|для|под|над|при|не|ни)[ \t\n]+(?=[\p{L}\p{N}«„])/giu;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    node.data = node.data.replace(shortWord, "$1\u00a0")
+      .replace(/(?<![\p{L}\p{N}])([A-Z\u0410-\u042f\u0401]{2,5})-(?=[\p{L}])/gu, "$1-\u2060");
+    // Covers a boundary between a preposition and an accented word.
+    const following = walker.nextNode();
+    if (following) {
+      if (/^[\p{L}\p{N}«„]/u.test(following.data)) {
+        node.data = node.data.replace(/(?<![\p{L}\p{N}-])(а|и|но|да|или|либо|в|во|к|ко|с|со|у|о|об|от|до|за|на|по|из|без|для|под|над|при|не|ни)[ \t\n]+$/iu, "$1\u00a0");
+      }
+      walker.previousNode();
+    }
+  }
+}
+
 function renderTitleMarkup(target, value) {
   if (document.activeElement === target) return;
   renderBannerRichMarkup(target, bindBannerRuble(value));
@@ -2587,7 +2605,7 @@ function getBannerRichEditorRuns(editor) {
   const visit = (node, inherited = {}) => {
     if (node.nodeType === Node.TEXT_NODE) {
       if (node.nodeValue) runs.push({
-        text: node.nodeValue.replace(/\u00a0/g, " "),
+        text: node.nodeValue.replaceAll("\u2060", "").replace(/\u00a0/g, " "),
         tone: inherited.tone || "",
         pill: inherited.pill || ""
       });
@@ -2900,9 +2918,11 @@ function renderBannerCanvas(canvas, resolvedVisual, state = appState.banners) {
 
   title.dataset.titleStyle = state.content.titleStyle;
   renderTitleMarkup(title, state.content.title);
+  bindBannerShortWords(title);
 
   subtitle.hidden = !state.content.subtitleEnabled;
   setEditableBannerText(subtitle, state.content.subtitle);
+  bindBannerShortWords(subtitle);
 
   button.hidden = !state.content.button.enabled;
   button.dataset.buttonStyle = state.content.button.style;
@@ -3073,9 +3093,44 @@ function getBannerArtworkBounds(image) {
   return bounds;
 }
 
+function getExpandedBannerArtworkFrame(canvas, visual, width, height) {
+  if (canvas.dataset.profile !== "wideCopy" || !["square", "portrait", "story"].includes(canvas.dataset.format)) return null;
+  const canvasRect = canvas.getBoundingClientRect();
+  const artRect = visual.getBoundingClientRect();
+  const scale = canvasRect.width / canvas.clientWidth;
+  if (!scale) return null;
+  const relative = (rect) => ({
+    left: (rect.left - artRect.left) / scale, right: (rect.right - artRect.left) / scale,
+    top: (rect.top - artRect.top) / scale, bottom: (rect.bottom - artRect.top) / scale
+  });
+  const bounds = relative(canvasRect);
+  const gap = canvas.clientWidth * .024;
+  const terms = canvas.querySelector(".creative-additional-text:not([hidden])");
+  const footerLimit = terms ? relative(terms.getBoundingClientRect()).top - gap : bounds.bottom - gap;
+  const frame = { left: 0, right: bounds.right - gap, top: 0, bottom: footerLimit };
+  const copy = [...canvas.querySelector(".creative-copy").children].filter(node => !node.hidden && node.offsetHeight);
+  // Use the text ink, since the copy column itself can span the entire banner.
+  const textAreas = copy.map(node => {
+    if (!node.matches(".creative-title, .creative-subtitle")) return relative(node.getBoundingClientRect());
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    return relative(range.getBoundingClientRect());
+  });
+  frame.top = Math.max(bounds.top, ...textAreas.map(rect => rect.bottom + gap));
+  const alternatives = [frame, ...textAreas.map(rect => ({
+    ...frame,
+    left: Math.max(bounds.left + gap, ...textAreas.filter(text => text.bottom > rect.top).map(text => text.right + gap)),
+    top: rect.top + gap
+  }))];
+  const size = ({ left, right, top, bottom }) => Math.min((right - left) / width, (bottom - top) / height);
+  const best = alternatives.reduce((winner, candidate) => size(candidate) > size(winner) ? candidate : winner);
+  return size(best) > Math.min(visual.clientWidth / width, visual.clientHeight / height) ? best : null;
+}
+
 function fitBannerArtwork(canvas) {
   const keyvisual = canvas.querySelector(".creative-keyvisual");
   keyvisual.style.removeProperty("--artwork-fit");
+  keyvisual.closest(".creative-visual").style.removeProperty("--artwork-clip");
   if (isEmailCoverRenderer || canvas.dataset.template !== "campaign") return;
   const visual = keyvisual.closest(".creative-visual");
   const image = keyvisual.querySelector("img");
@@ -3091,7 +3146,11 @@ function fitBannerArtwork(canvas) {
   const width = imageWidth * (bounds.right - bounds.left);
   const height = imageHeight * (bounds.bottom - bounds.top);
   if (!width || !height) return;
-  const contain = Math.min(frameWidth / width, frameHeight / height);
+  const safe = getExpandedBannerArtworkFrame(canvas, visual, width, height)
+    || { left: 0, right: frameWidth, top: 0, bottom: frameHeight };
+  const zoneWidth = safe.right - safe.left;
+  const zoneHeight = safe.bottom - safe.top;
+  const contain = Math.min(zoneWidth / width, zoneHeight / height);
   const position = getBannerFormatState(canvas.dataset.format);
   const size = getBannerVisualScaleForFormat(canvas.dataset.format) / 100;
   const bleed = canvas.dataset.framing === "bleed";
@@ -3102,10 +3161,14 @@ function fitBannerArtwork(canvas) {
     const limit = Math.max(0, (frame - subject) / 2 + subject * cropAllowance);
     return Math.max(-limit, Math.min(limit, offset));
   };
-  const x = limitOffset(position.visualX, frameWidth, width * zoom)
+  const x = (safe.left + safe.right - frameWidth) / 2
+    + limitOffset(position.visualX, zoneWidth, width * zoom)
     - ((bounds.left + bounds.right) / 2 - .5) * imageWidth * zoom;
-  const y = limitOffset(position.visualY, frameHeight, height * zoom)
+  const y = (safe.top + safe.bottom - frameHeight) / 2
+    + limitOffset(position.visualY, zoneHeight, height * zoom)
     - ((bounds.top + bounds.bottom) / 2 - .5) * imageHeight * zoom;
+  visual.style.setProperty("--artwork-clip",
+    `inset(${safe.top}px ${frameWidth - safe.right}px ${frameHeight - safe.bottom}px ${safe.left}px)`);
   keyvisual.style.setProperty("--artwork-fit", `translate(${x}px, ${y}px) scale(${zoom})`);
 }
 
@@ -3222,11 +3285,12 @@ function fitBannerComposition(canvas) {
 
   const title = canvas.querySelector(".creative-title");
   const subtitle = canvas.querySelector(".creative-subtitle");
+  const numericLead = base === "wideCopy" && title.querySelector(".creative-title__number");
   const titleLimit = format.placement === "strip" ? 2 : format.placement === "narrow" ? 4 : 3;
   const subtitleLimit = format.placement === "strip" ? 3 : format.placement === "narrow" ? 6 : 4;
   const score = () => (canvas.classList.contains("is-text-overflowing") ? 100 : 0)
     + (canvas.classList.contains("is-text-coverage-over-limit") ? 100 : 0)
-    + 8 * Math.max(0, getBannerTextLines(title) - titleLimit)
+    + (numericLead && canvas.dataset.profile === "wideCopy" ? 0 : 8 * Math.max(0, getBannerTextLines(title) - titleLimit))
     + 3 * Math.max(0, getBannerTextLines(subtitle) - subtitleLimit);
   let bestScore = score();
   let best = base;
@@ -3743,7 +3807,7 @@ function getBannerEditableFromEvent(event) {
 }
 
 function getBannerEditableText(node) {
-  return node.textContent.replace(/\u00a0/g, " ").replace(/\r\n/g, "\n");
+  return node.textContent.replaceAll("\u2060", "").replace(/\u00a0/g, " ").replace(/\r\n/g, "\n");
 }
 
 function enforceBannerEditableLimit(node) {
