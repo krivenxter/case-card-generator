@@ -176,7 +176,7 @@ export function drawCover(canvas, state, { background, art, logos }) {
   }
   const story = state.layout === 'story';
   const x = art && mirror ? 884 : 100;
-  const width = art ? 936 : 1720;
+  const width = art ? 880 : 1720;
   const zoom = Number(state.zoom) / 100;
   if (art) {
     const artWidth = (state.art.width || 842) * zoom;
