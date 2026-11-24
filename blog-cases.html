@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Кейсы для блога v2 — Calltouch</title>
+  <link rel="icon" href="favicon/favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="blog-cases/editor.css">
+</head>
+<body class="blog-editor" data-theme="light">
+  <section class="access-gate" id="accessGate" aria-labelledby="accessGateTitle">
+    <div class="access-gate__glow access-gate__glow--one" aria-hidden="true"></div>
+    <div class="access-gate__glow access-gate__glow--two" aria-hidden="true"></div>
+    <div class="access-gate__grid" aria-hidden="true"></div>
+    <div class="access-gate__card">
+      <div class="access-gate__symbol" aria-hidden="true">
+        <img src="icons/lock.svg" alt="">
+      </div>
+      <p class="access-gate__eyebrow">ДОСТУП К МАТЕРИАЛАМ</p>
+      <h1 id="accessGateTitle">Генераторы<br><span>Calltouch</span></h1>
+      <p class="access-gate__copy">Введите пароль, чтобы перейти на сайт</p>
+      <form class="access-gate__form" id="accessGateForm">
+        <label class="access-gate__field" for="accessGatePassword">
+
+          <input id="accessGatePassword" type="password" autocomplete="current-password" placeholder="Пароль" required>
+        </label>
+        <button class="access-gate__submit" type="submit">Открыть генераторы <span aria-hidden="true">→</span></button>
+        <p class="access-gate__error" id="accessGateError" role="alert" hidden>Пароль не подошёл. Попробуйте ещё раз.</p>
+      </form>
+    </div>
+  </section>
+  <div class="app-frame">
+    <header class="app-toolbar">
+      <a class="app-brand" href="banners.html"><span>Calltouch</span><i class="app-brand__divider" aria-hidden="true"></i><strong>Генераторы</strong></a>
+      <nav class="tool-tabs" aria-label="Выбор генератора">
+        <a class="tool-tab" href="banners.html"><i data-lucide="image"></i>Баннеры</a>
+        <a class="tool-tab" href="cases.html"><i data-lucide="layout-template"></i>Карточки кейсов</a>
+        <a class="tool-tab is-active" href="blog-cases.html" aria-current="page"><i data-lucide="panels-top-left"></i>Кейсы для блога</a>
+        <a class="tool-tab" href="email.html"><i data-lucide="mail"></i>Рассылки</a>
+      </nav>
+    </header>
+    <main class="blog-main">
+      <div class="blog-heading">
+        <h1>Кейсы для блога <small>v2</small></h1>
+        <div class="blog-export">
+          <label><span class="blog-sr">Формат экспорта</span><select id="export-format"><option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select></label>
+          <button class="blog-primary" id="download" type="button"><i data-lucide="download"></i>Скачать</button>
+        </div>
+      </div>
+      <div class="blog-workspace">
+        <section class="blog-stage" aria-label="Холст и варианты">
+          <div class="blog-stage-bar"><strong>Холст</strong><span class="blog-dimensions">1920 × 1080</span>
+            <div class="blog-zoom" role="group" aria-label="Навигация по холсту">
+              <button type="button" id="zoom-out" aria-label="Уменьшить" title="Уменьшить"><i data-lucide="minus"></i></button>
+              <button type="button" id="zoom-fit" aria-label="Вписать в окно" title="Вписать в окно (0)">100%</button>
+              <button type="button" id="zoom-in" aria-label="Увеличить" title="Увеличить"><i data-lucide="plus"></i></button>
+              <button type="button" id="zoom-center" aria-label="Центрировать" title="Центрировать"><i data-lucide="focus"></i></button>
+            </div>
+          </div>
+          <div class="blog-canvas-wrap" tabindex="0" aria-label="Область холста. Стрелки перемещают холст, плюс и минус меняют масштаб, 0 вписывает холст."><canvas id="cover" width="1920" height="1080" aria-label="Предпросмотр обложки"></canvas></div>
+          <section class="blog-variations" aria-labelledby="variations-title">
+            <div class="blog-variants-bar">
+              <h2 id="variations-title">Варианты</h2>
+              <button class="blog-secondary" type="button" id="generate"><i data-lucide="sparkles"></i>Сгенерировать 4 варианта</button>
+            </div>
+            <div id="variants" class="blog-variant-grid"></div>
+          </section>
+        </section>
+        <aside class="blog-inspector" aria-label="Настройки карточки">
+          <div class="blog-tabs" role="tablist" aria-label="Настройки">
+            <button id="tab-content" role="tab" aria-controls="panel-content" aria-selected="true">Текст</button>
+            <button id="tab-art" role="tab" aria-controls="panel-art" aria-selected="false" tabindex="-1">Картинки</button>
+            <button id="tab-style" role="tab" aria-controls="panel-style" aria-selected="false" tabindex="-1">Оформление</button>
+          </div>
+          <section id="panel-content" role="tabpanel" aria-labelledby="tab-content">
+            <button type="button" class="blog-secondary blog-brief-trigger" data-dialog="brief-dialog"><i data-lucide="file-text"></i>Заполнить из текста</button>
+            <label>Категория <input data-field="category" maxlength="38" placeholder="Например, Авторитейл"></label>
+            <label>Заголовок <textarea data-field="title" maxlength="220" rows="2" placeholder="Заголовок кейса"></textarea></label>
+            <div class="blog-field-group">
+              <label>Первая метрика <input data-field="metric1" maxlength="55"></label>
+              <label>Пояснение <textarea data-field="caption1" maxlength="180" rows="2"></textarea></label>
+            </div>
+            <div class="blog-field-group">
+              <label>Вторая метрика <input data-field="metric2" maxlength="55"></label>
+              <label>Пояснение <textarea data-field="caption2" maxlength="180" rows="2"></textarea></label>
+            </div>
+          </section>
+          <section id="panel-art" role="tabpanel" aria-labelledby="tab-art" hidden>
+            <div class="blog-library-tabs" role="group" aria-label="Источники картинок">
+              <button type="button" data-library="figma" aria-pressed="true">Из Figma</button>
+              <button type="button" data-library="shared" aria-pressed="false">Библиотека Calltouch</button>
+            </div>
+            <label>Поиск <input type="search" id="asset-search" placeholder="Название или отрасль"></label>
+            <div id="assets" class="blog-assets"></div>
+            <label class="blog-upload"><i data-lucide="upload"></i><span>Загрузить картинку<small>или перетащить файл</small></span><input type="file" id="upload-art" accept="image/*"></label>
+            <label>Масштаб <input data-field="zoom" type="range" min="50" max="145" step="1"></label>
+            <button type="button" class="blog-secondary" id="reset-art">Убрать картинку</button>
+          </section>
+          <section id="panel-style" role="tabpanel" aria-labelledby="tab-style" hidden>
+            <label>Композиция <select data-field="layout">
+              <option value="double">Две метрики</option><option value="single">Крупная метрика</option>
+              <option value="story">Заголовок и метрики</option><option value="mirror">Картинка слева</option>
+            </select></label>
+            <label>Фон <select data-field="background" id="background"></select></label>
+            <label class="blog-upload"><i data-lucide="upload"></i><span>Загрузить фон<small>или перетащить файл</small></span><input type="file" id="upload-background" accept="image/*"></label>
+            <div id="gradient-settings" class="blog-gradient-settings">
+              <div class="blog-colors">
+                <label>Начало градиента <input data-field="gradientStart" type="color"></label>
+                <label>Конец градиента <input data-field="gradientEnd" type="color"></label>
+              </div>
+              <label>Направление <input data-field="angle" type="range" min="0" max="359" aria-label="Направление градиента"></label>
+            </div>
+            <div class="blog-colors">
+              <label>Сплошной цвет <input data-field="color" type="color"></label>
+              <label id="manual-ink" hidden>Цвет текста <input data-field="ink" type="color"></label>
+            </div>
+            <label class="blog-check"><input data-field="autoContrast" type="checkbox">Автоконтраст текста</label>
+            <p class="blog-contrast" id="contrast-summary"></p>
+            <label class="blog-check"><input data-field="logo" type="checkbox">Логотип Calltouch</label>
+          </section>
+        </aside>
+      </div>
+      <div class="blog-feedback">
+        <progress id="operation" aria-label="Выполнение операции" hidden></progress>
+        <p id="status" role="status" class="blog-status"></p>
+      </div>
+    </main>
+  </div>
+  <dialog id="brief-dialog" class="blog-dialog" aria-labelledby="brief-title">
+    <div class="blog-dialog-head"><h2 id="brief-title">Заполнить из текста</h2><button type="button" data-close aria-label="Закрыть"><i data-lucide="x"></i></button></div>
+    <label for="brief">Заголовок и результаты с новой строки</label>
+    <textarea id="brief" rows="6" autofocus placeholder="Как выросли продажи автодилера&#10;+68% — подняли конверсию&#10;в 2 раза — снизили стоимость заявки"></textarea>
+    <button type="button" class="blog-primary" id="from-brief"><i data-lucide="sparkles"></i>Собрать варианты</button>
+  </dialog>
+  <dialog id="color-dialog" class="blog-dialog" aria-labelledby="color-title">
+    <div class="blog-dialog-head"><h2 id="color-title">Цвет</h2><button type="button" data-close aria-label="Закрыть"><i data-lucide="x"></i></button></div>
+    <div class="blog-swatches" aria-label="Палитра"></div>
+    <form id="color-form">
+      <label>HEX <input id="color-value" pattern="#?[0-9a-fA-F]{6}" maxlength="7" required autocomplete="off"></label>
+      <button class="blog-primary" type="submit">Применить</button>
+    </form>
+  </dialog>
+  <script src="shared/generator-access.js"></script>
+  <script src="shared/assets.js"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script type="module" src="blog-cases/editor.js"></script>
+</body>
+</html>
