@@ -249,6 +249,102 @@ function createAiProgress(panel) {
   };
 }
 
+function enhanceAiSelect(select, dialog) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "custom-select creative-ai-select";
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "custom-select__trigger";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  const label = select.previousElementSibling.textContent;
+  const value = document.createElement("span");
+  const chevron = document.createElement("span");
+  chevron.className = "custom-select__chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  trigger.append(value, chevron);
+
+  const menu = document.createElement("div");
+  menu.className = "custom-select__menu creative-ai-select-menu";
+  menu.setAttribute("role", "listbox");
+  menu.setAttribute("aria-label", label);
+  menu.setAttribute("popover", "manual");
+  select.replaceWith(wrapper);
+  select.hidden = true;
+  wrapper.append(select, trigger, menu);
+
+  const sync = () => {
+    value.textContent = select.selectedOptions[0]?.textContent || "";
+    trigger.setAttribute("aria-label", `${label}: ${value.textContent}`);
+    trigger.disabled = select.disabled;
+  };
+  const close = () => {
+    if (menu.matches(":popover-open")) menu.hidePopover();
+    trigger.setAttribute("aria-expanded", "false");
+    wrapper.classList.remove("is-open");
+  };
+  const open = () => {
+    dialog.dispatchEvent(new Event("ai-menu-open"));
+    menu.replaceChildren(...[...select.options].filter(option => !option.hidden).map(option => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "custom-select__option";
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", String(option.selected));
+      item.disabled = option.disabled;
+      item.tabIndex = -1;
+      item.textContent = option.textContent;
+      item.addEventListener("click", () => {
+        select.value = option.value;
+        close();
+        trigger.focus();
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      return item;
+    }));
+    const bounds = trigger.getBoundingClientRect();
+    const below = window.innerHeight - bounds.bottom - 12;
+    const above = bounds.top - 12;
+    const openAbove = below < 220 && above > below;
+    menu.style.cssText = `left:${bounds.left}px;width:${bounds.width}px;max-height:${Math.min(290, openAbove ? above : below)}px;`
+      + (openAbove ? `bottom:${window.innerHeight - bounds.top + 6}px;transform-origin:bottom center;` : `top:${bounds.bottom + 6}px;`);
+    menu.showPopover();
+    wrapper.classList.add("is-open");
+    trigger.setAttribute("aria-expanded", "true");
+    menu.querySelector('[aria-selected="true"]')?.focus();
+  };
+  trigger.addEventListener("click", () => menu.matches(":popover-open") ? close() : open());
+  trigger.addEventListener("keydown", event => {
+    if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    open();
+  });
+  menu.addEventListener("keydown", event => {
+    if (event.key === "Escape" || event.key === "Tab") {
+      close();
+      trigger.focus();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
+    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const items = [...menu.querySelectorAll("button:not(:disabled)")];
+    const index = items.indexOf(document.activeElement);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+      : Math.min(items.length - 1, Math.max(0, index + (event.key === "ArrowDown" ? 1 : -1)));
+    items[next]?.focus();
+  });
+  dialog.addEventListener("ai-menu-open", close);
+  dialog.addEventListener("pointerdown", event => { if (!wrapper.contains(event.target)) close(); });
+  dialog.querySelector(".creative-ai-body").addEventListener("scroll", close);
+  select.addEventListener("change", sync);
+  close();
+  sync();
+  return () => { close(); sync(); };
+}
+
 export function openCreativeAi({ target, mode, initialText = "", apply, onComplete }) {
   const isImage = mode === "illustration";
   const title = isImage ? "Создать иллюстрацию" : target === "banner" ? "Собрать баннеры из ТЗ" : "Собрать письмо из ТЗ";
@@ -311,6 +407,7 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
   const catalog = [...(window.CALLTOUCH_ASSETS?.visuals || []), ...(window.CALLTOUCH_ASSETS?.generalVisuals || [])];
   libraryChoice.append(...catalog.map(asset => new Option(asset.label, asset.id)));
   imageSource.value = isImage ? "ai" : "library";
+  const syncSelects = [imageSource, libraryChoice, aspect].filter(Boolean).map(select => enhanceAiSelect(select, dialog));
   const preview = form.querySelector(".creative-ai-image-preview");
   let previewUrl;
   const selectedAsset = () => catalog.find(({ id }) => id === libraryChoice.value) || matchCreativeVisual(text.value, catalog);
@@ -383,6 +480,7 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
     imageSource.disabled = libraryChoice.disabled = upload.disabled = busy;
     if (withEmail) withEmail.disabled = busy || Boolean(draft);
     if (aspect) aspect.disabled = busy || Boolean(compiledPrompt);
+    syncSelects.forEach(sync => sync());
     skip.hidden = busy || !draft;
     submit.textContent = busy ? "Генерация…" : jobId && imageSource.value === "ai" ? "Проверить задачу" : draft ? "Продолжить" : submitLabel;
     if (busy) close.focus();
