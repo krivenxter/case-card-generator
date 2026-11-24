@@ -128,7 +128,7 @@ function drawCoverImage(context, image) {
 
 const logoSources = {
   light: 'logos/calltouch-light.svg',
-  dark: 'logos/calltouch-dark.svg',
+  dark: 'blog-cases/assets/logo-dark.svg',
   white: 'blog-cases/assets/logo.svg'
 };
 

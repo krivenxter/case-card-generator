@@ -31,8 +31,8 @@ const brandGradients = [
   { id: 'cyan-gradient', label: 'Голубой', gradient: ['#005c85', '#26ccef'], angle: 13 },
   { id: 'night-gradient', label: 'Тёмный сине-фиолетовый', gradient: ['#18193f', '#5039a4'], angle: 20 },
   { id: 'sky-gradient', label: 'Светлый голубой', gradient: ['#eafaff', '#a9d9f4'], angle: 13 },
-  { id: 'mist-gradient', label: 'Приглушённый голубой', gradient: ['#d6e6ea', '#8ea6c3'], angle: 16 },
-  { id: 'lilac-gradient', label: 'Приглушённый лиловый', gradient: ['#e1dcef', '#afa6d0'], angle: 22 },
+  { id: 'mist-gradient', label: 'Ледяной голубой', gradient: ['#effbff', '#9ee1ff'], angle: 16 },
+  { id: 'lilac-gradient', label: 'Светлый лиловый', gradient: ['#f5efff', '#c6b2ff'], angle: 22 },
   { id: 'custom-gradient', label: 'Свой градиент', gradient: ['#5141c9', '#d8d2f3'], angle: 14 }
 ];
 const backgrounds = [
