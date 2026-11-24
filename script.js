@@ -2599,7 +2599,25 @@ function renderBannerRichMarkup(target, value, options) {
 }
 
 function renderTitleMarkup(target, value) {
+  if (document.activeElement === target) return;
   renderBannerRichMarkup(target, bindBannerRuble(value));
+  const match = target.textContent.match(/^[+−-]?\d+(?:[.,]\d+)?[ \t\u00a0]*(?:%|₽)\**(?=\s|$)/u);
+  if (!match || match[0].length === target.textContent.length) return;
+  const range = document.createRange();
+  range.selectNodeContents(target);
+  const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+  let remaining = match[0].length;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (remaining <= node.length) {
+      range.setEnd(node, remaining);
+      const accent = document.createElement("span");
+      accent.className = "creative-title__number";
+      accent.append(range.extractContents());
+      range.insertNode(accent);
+      break;
+    }
+    remaining -= node.length;
+  }
 }
 
 function bindBannerRuble(value) {

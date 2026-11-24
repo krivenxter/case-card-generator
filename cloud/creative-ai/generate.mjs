@@ -13,7 +13,7 @@ const COPY_RULES = `Ты арт-директор Calltouch. Собери ред�
 Если в ТЗ есть готовые тексты, CTA, даты, цифры, названия, условия и ссылки, сохрани их. Если ТЗ состоит из указаний, напиши нужный текст на его языке. Не выдумывай цены, сроки, статистику, условия и URL. Не включай служебные комментарии ТЗ в готовый текст. Верстку делает редактор, HTML запрещён.
 Голос Calltouch: по-деловому и по-человечески. Сначала задача клиента или конкретное предложение, потом как продукт помогает. Активные глаголы, короткие фразы, без «эффективных решений», «новых возможностей», «выводите бизнес на новый уровень» и других универсальных обещаний. Готовую формулировку клиента сохрани, даже если она отличается от этого стиля.
 Перед ответом выдели из ТЗ точное название продукта, кому он нужен, действие, выгоду, количественные факты, условия и ссылки. Разнеси их по полям и блокам по смыслу. Не заменяй название продукта общим словом «аналитика» или «ИИ», если в ТЗ есть точное название. Для ориентира по терминологии: Коллтрекинг — атрибуция звонков, Сквозная аналитика — связь рекламы с заявками и продажами, Медийный формат — интерактивные промо-баннеры, Войс Таргет — связь с потенциальными клиентами, ИИ Оператор — работа со звонками. Используй продукт, если он назван или однозначно следует из конкретной механики ТЗ. Не приписывай инструмент или коммерческие условия неопределённой акции.
-visualIdea — короткое описание одной узнаваемой метафоры для фирменной 3D-иллюстрации, без букв, цифр, логотипов и служебных деталей ТЗ.`;
+visualIdea берётся из главного продукта и механики ТЗ, даже если в подзаголовке есть самостоятельная выгода. Для таргетированных СМС главный мотив — мишень и сообщение. visualIdea — короткое описание одной узнаваемой метафоры для фирменной 3D-иллюстрации, без букв, цифр, логотипов и служебных деталей ТЗ.`;
 const DRAFT_PROMPTS = {
   banner: `Собери редактируемый комплект баннеров Calltouch. Распредели материал по визуальной иерархии: заголовок — одно обещание или событие; subtitle — конкретная механика или результат; labels — до двух коротких плашек с разными ролями (продукт, дата, формат события, сегмент или тип акции); offer — главный факт отдельной крупной плашкой; cta — действие; additionalText — условия. Не дублируй факт между ролями. Если есть самостоятельный факт, используй подходящую сущность, даже если ТЗ не описывает макет. Сохрани готовые тексты из ТЗ. CTA бери из ТЗ или сформулируй по явно заданному действию («Зарегистрироваться» на событие по ссылке), для рекламы без кнопки оставь пустым.
 Пример рекламного брифа «Интерактивные баннеры Calltouch собирают заявки за 1 шаг прямо внутри объявления. В октябре +10% трафика на размещение»: заголовок «Собирайте заявки прямо из рекламы», subtitle «Клиент оставляет заявку в баннере за 1 шаг», labels ["Медийный формат"], offer.value "+10%", offer.caption "трафика в октябре на размещение". Это пример распределения данных, его факты нельзя переносить в другое ТЗ.
@@ -70,18 +70,55 @@ function withBriefLinks(text, links) {
   });
 }
 
-export function normalizeDraft(value, target, brief) {
-  const visualIdea = field(value.visualIdea, 700);
+const LEADING_NUMBER = /^[+−-]?\d+(?:[.,]\d+)?[ \t\u00a0]*(?:%|₽)\**/u;
+
+function exactBannerCopy(brief, preserveCopy) {
+  const source = brief.replace(/\r\n?/g, "\n").trim();
+  const labeled = /^заголовок[ \t]*:/iu.test(source);
+  if (!preserveCopy && !labeled && !LEADING_NUMBER.test(source)) return null;
+
+  const fields = {};
+  const fieldNames = { "заголовок": "title", "подзаголовок": "subtitle", "cta": "cta",
+    "кнопка": "cta", "условия": "additionalText", "сноски": "additionalText" };
+  if (labeled) {
+    const entries = source.split(/^(заголовок|подзаголовок|кнопка|cta|условия|сноски)[ \t]*:[ \t]*/gimu);
+    for (let i = 1; i < entries.length; i += 2) {
+      const key = fieldNames[entries[i].toLowerCase()];
+      const value = entries[i + 1].trim();
+      fields[key] = [fields[key], value].filter(Boolean).join("\n\n");
+    }
+  }
+  const copy = labeled ? [fields.title, fields.subtitle].filter(Boolean).join("\n\n") : source;
+  const footnote = copy.search(/\n[ \t]*\*+[ \t]*(?=[^*\s])/u);
+  const text = footnote < 0 ? copy : copy.slice(0, footnote);
+  const terms = footnote < 0 ? "" : copy.slice(footnote).trim();
+  // Blank lines separate blocks. A colon followed by a lowercase line also marks a subheading.
+  const boundary = text.search(/\n[ \t]*\n|(?<=:)\n(?=[ \t]*[а-яё])/u);
+  const title = (labeled ? fields.title : boundary < 0 ? text : text.slice(0, boundary))?.trim();
+  if (!title) return null;
+  const subtitle = labeled ? fields.subtitle : boundary < 0 ? "" : text.slice(boundary).trim();
+  return { title, subtitle: subtitle || "", cta: fields.cta || "", additionalText: fields.additionalText || terms };
+}
+
+function productIllustration(brief, idea) {
+  if (!/(?:таргетир[а-яё]*[\s‑–—-]+(?:смс|sms)|(?:смс|sms)[\s‑–—-]+таргет)/iu.test(brief)) return idea;
+  return "Hero concept: targeted SMS messaging. A large unmistakable concentric bullseye with a single compact mobile message bubble or SMS envelope, integrated as one 3D object. The bullseye is the focal point. No pearls, bead clusters, or generic floating audience figures.";
+}
+
+export function normalizeDraft(value, target, brief, { preserveCopy = false } = {}) {
+  const visualIdea = productIllustration(brief, field(value.visualIdea, 700));
   if (target === "campaign") {
     if (!value.banner || !value.email) throw new RequestError(502, "PlusVibe не вернул оба материала.");
-    const banner = normalizeDraft(value.banner, "banner", brief);
+    const banner = normalizeDraft(value.banner, "banner", brief, { preserveCopy });
     const email = normalizeDraft(value.email, "email", brief);
     return { banner, email, visualIdea: visualIdea || banner.visualIdea || email.visualIdea };
   }
   if (target === "banner") {
-    const title = field(value.title, 160);
+    const exact = exactBannerCopy(brief, preserveCopy);
+    const title = field(exact?.title ?? value.title, 160);
+    const headlineOffer = exact && LEADING_NUMBER.test(title);
     if (!title) throw new RequestError(502, "В черновике баннера отсутствует заголовок.");
-    const accent = field(value.accent, 48);
+    const accent = exact ? "" : field(value.accent, 48);
     const offer = {
       value: field(value.offer?.value, 24),
       caption: field(value.offer?.caption, 100),
@@ -89,14 +126,14 @@ export function normalizeDraft(value, target, brief) {
     };
     return {
       title, accent: title.includes(accent) ? accent : "",
-      subtitle: field(value.subtitle, 280),
-      cta: field(value.cta, 48),
-      additionalText: field(value.additionalText, 420),
-      offer,
-      labels: Array.isArray(value.labels) ? value.labels.slice(0, 2).map((label) => field(label, 48)) : [],
+      subtitle: field(exact?.subtitle ?? value.subtitle, 280),
+      cta: field(exact?.cta ?? value.cta, 48),
+      additionalText: field(exact?.additionalText ?? value.additionalText, 420),
+      offer: exact ? { value: "", caption: "", style: "cyan" } : offer,
+      labels: !exact && Array.isArray(value.labels) ? value.labels.slice(0, 2).map((label) => field(label, 48)) : [],
       theme: value.theme === "dark" ? "dark" : "light",
-      composition: ["alternate", "campaign"].includes(value.composition) ? value.composition : "classic",
-      profile: ["split", "reverse", "wideCopy", "editorial", "offer", "center"].includes(value.profile) ? value.profile : "auto",
+      composition: headlineOffer ? "campaign" : ["alternate", "campaign"].includes(value.composition) ? value.composition : "classic",
+      profile: headlineOffer ? "wideCopy" : ["split", "reverse", "wideCopy", "editorial", "offer", "center"].includes(value.profile) ? value.profile : "auto",
       density: ["airy", "compact"].includes(value.density) ? value.density : "auto",
       framing: ["contain", "bleed"].includes(value.framing) ? value.framing : "auto",
       copyBackdrop: value.copyBackdrop === true,
@@ -380,7 +417,7 @@ export function createCreativeHandler({ env = process.env, localOrigin, fetcher 
         if (!brief) throw new RequestError(400, "Добавьте текст ТЗ.");
         const instructions = input.target === "campaign" ? CAMPAIGN_PROMPT : DRAFT_PROMPTS[input.target];
         const text = await textCompletion(fetcher, env, COPY_RULES + "\n\n" + instructions, brief, 12000, signal, true);
-        return send(res, 200, normalizeDraft(modelObject(text), input.target, brief));
+        return send(res, 200, normalizeDraft(modelObject(text), input.target, brief, { preserveCopy: input.preserveCopy === true }));
       }
       throw new RequestError(400, "Выберите тип генерации.");
     } catch (error) {

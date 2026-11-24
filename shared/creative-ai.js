@@ -157,6 +157,10 @@ const normalizeVisualText = (value) => value.toLocaleLowerCase("ru").replaceAll(
 
 export function matchCreativeVisual(text, catalog) {
   const source = normalizeVisualText(text);
+  if (/(?:таргетир[а-яё]* (?:смс|sms)|(?:смс|sms) таргет)/u.test(source)) {
+    const targeted = catalog.find(({ id }) => id === "target-sms");
+    if (targeted) return targeted;
+  }
   const words = source.split(" ");
   let best;
   let highest = 0;
@@ -369,7 +373,8 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
         <option value="1:1">Квадрат, 1:1</option><option value="4:3">Горизонтальный, 4:3</option>
         <option value="3:4">Вертикальный, 3:4</option><option value="16:9">Широкий, 16:9</option><option value="9:16">Вертикальный, 9:16</option>
       </select></label>` : `
-      ${target === "banner" ? `<label class="creative-ai-check"><input name="withEmail" type="checkbox"><span>Также собрать письмо по этому ТЗ</span></label>
+      ${target === "banner" ? `<label class="creative-ai-check"><input name="preserveCopy" type="checkbox"><span>Сохранить готовый текст и порядок</span></label>
+      <label class="creative-ai-check"><input name="withEmail" type="checkbox"><span>Также собрать письмо по этому ТЗ</span></label>
       <p class="creative-ai-note">Черновик заменит текущие баннеры. Изменения можно отменить.</p>` : ""}`}
       <label class="creative-ai-field"><span>Иллюстрация</span>
         <select name="imageSource">
@@ -403,7 +408,7 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
   window.lucide?.createIcons({ root: dialog });
 
   const form = dialog.querySelector("form");
-  const { text, token, imageSource, libraryChoice, upload, withEmail, aspect } = form.elements;
+  const { text, token, imageSource, libraryChoice, upload, withEmail, preserveCopy, aspect } = form.elements;
   const catalog = [...(window.CALLTOUCH_ASSETS?.visuals || []), ...(window.CALLTOUCH_ASSETS?.generalVisuals || [])];
   libraryChoice.append(...catalog.map(asset => new Option(asset.label, asset.id)));
   imageSource.value = isImage ? "ai" : "library";
@@ -478,6 +483,7 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
     token.disabled = busy;
     text.readOnly = busy || Boolean(draft || compiledPrompt);
     imageSource.disabled = libraryChoice.disabled = upload.disabled = busy;
+    if (preserveCopy) preserveCopy.disabled = busy || Boolean(draft);
     if (withEmail) withEmail.disabled = busy || Boolean(draft);
     if (aspect) aspect.disabled = busy || Boolean(compiledPrompt);
     syncSelects.forEach(sync => sync());
@@ -519,7 +525,7 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
     try {
       if (!isImage && !draft) {
         showPhase("draft");
-        draft = await requestAi({ action: "draft", target: withEmail?.checked ? "campaign" : target, text: input }, signal);
+        draft = await requestAi({ action: "draft", target: withEmail?.checked ? "campaign" : target, text: input, preserveCopy: preserveCopy?.checked }, signal);
       }
       if (source === "ai" && (isImage || draft?.cover !== "none")) {
         if (!resultImage) {
