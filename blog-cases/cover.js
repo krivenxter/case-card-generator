@@ -1,3 +1,5 @@
+import { coverContrast, paintScrim } from './contrast.js';
+
 const WIDTH = 1920;
 const HEIGHT = 1080;
 const headlineFont = '"Dela Gothic One", "Museo Sans Cyrl", sans-serif';
@@ -124,19 +126,45 @@ function drawCoverImage(context, image) {
   context.drawImage(image, (WIDTH - width) / 2, (HEIGHT - height) / 2, width, height);
 }
 
-export async function prepareCover(state, logoSource) {
-  const [background, art, logo] = await Promise.all([
-    loadImage(state.backgroundImage), loadImage(state.art?.source), loadImage(state.logo ? logoSource : null)
+const logoSources = {
+  light: 'logos/calltouch-light.svg',
+  dark: 'logos/calltouch-dark.svg',
+  white: 'blog-cases/assets/logo.svg'
+};
+
+export async function prepareCover(state) {
+  const [background, art, logos] = await Promise.all([
+    loadImage(state.backgroundImage),
+    loadImage(state.art?.source),
+    state.logo ? Promise.all(Object.values(logoSources).map(loadImage)) : []
   ]);
-  return { background, art, logo };
+  return { background, art, logos: Object.fromEntries(Object.keys(logoSources).map((key, index) => [key, logos[index]])) };
 }
 
-export function drawCover(canvas, state, { background, art, logo }) {
+function paintBase(ctx, state, mirror) {
+  if (!state.gradient) {
+    ctx.fillStyle = state.color;
+  } else {
+    const angle = state.angle * Math.PI / 180;
+    const dx = Math.cos(angle) * (mirror ? -1 : 1);
+    const dy = Math.sin(angle);
+    const radius = (Math.abs(dx) * WIDTH + Math.abs(dy) * HEIGHT) / 2;
+    const gradient = ctx.createLinearGradient(
+      WIDTH / 2 - dx * radius, HEIGHT / 2 - dy * radius,
+      WIDTH / 2 + dx * radius, HEIGHT / 2 + dy * radius
+    );
+    gradient.addColorStop(0, state.gradient[0]);
+    gradient.addColorStop(1, state.gradient[1]);
+    ctx.fillStyle = gradient;
+  }
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+}
+
+export function drawCover(canvas, state, { background, art, logos }) {
   const ctx = canvas.getContext('2d');
   ctx.setTransform(canvas.width / WIDTH, 0, 0, canvas.height / HEIGHT, 0, 0);
-  ctx.fillStyle = state.color;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
   const mirror = state.layout === 'mirror';
+  paintBase(ctx, state, mirror);
   if (background) {
     ctx.save();
     if (mirror && ['figma', 'blue', 'pearl'].includes(state.background)) {
@@ -156,7 +184,8 @@ export function drawCover(canvas, state, { background, art, logo }) {
     const centerX = mirror ? 465 : 1404;
     drawAsset(ctx, art, state.art, centerX - artWidth / 2, 562 - artHeight / 2, artWidth, artHeight);
   }
-  ctx.fillStyle = state.ink;
+  const contrast = coverContrast(canvas, x, width, state);
+  paintScrim(ctx, x, width, contrast.scrim, contrast.ink, mirror);
   const badge = state.category.trim();
   if (badge) {
     const label = 'КЕЙСЫ | ' + badge.toUpperCase();
@@ -169,13 +198,12 @@ export function drawCover(canvas, state, { background, art, logo }) {
     ctx.fillStyle = '#242142';
     drawText(ctx, block, x + 22, 76);
   }
+  const logo = logos[contrast.logo];
   if (logo) {
-    ctx.save();
-    if (state.background === 'pearl') ctx.filter = 'brightness(.25)';
-    ctx.drawImage(logo, x, 150, 527, 87);
-    ctx.restore();
+    const scale = Math.min(527 / logo.naturalWidth, 87 / logo.naturalHeight);
+    ctx.drawImage(logo, x, 150, logo.naturalWidth * scale, logo.naturalHeight * scale);
   }
-  ctx.fillStyle = state.ink;
+  ctx.fillStyle = contrast.ink;
 
   const rows = [[state.metric1, state.caption1], [state.metric2, state.caption2]].filter(row => row.some(value => value.trim()));
   const title = state.title.trim();
@@ -205,4 +233,5 @@ export function drawCover(canvas, state, { background, art, logo }) {
     drawText(ctx, description, x, y + (value?.height || 0));
     y += rowHeight + gap;
   }
+  return contrast;
 }

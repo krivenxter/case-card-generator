@@ -362,3 +362,14 @@
   .blog-variants-bar .blog-secondary { min-height: 30px; }
   .blog-variant-grid canvas { max-height: 64px; }
 }
+.blog-gradient-settings {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--blog-border);
+  border-radius: 10px;
+  background: #f8f7fd;
+}
+.blog-contrast { margin: -6px 0 0; color: var(--blog-muted); font-size: 12px; }
+.blog-editor .blog-color { min-width: 0; }
+.blog-color::before { flex: 0 0 22px; }

@@ -14,7 +14,6 @@ function trackOperation(start) {
 }
 const fields = [...document.querySelectorAll('[data-field]')];
 const assetPath = 'blog-cases/assets/';
-const logoSource = assetPath + 'logo.svg';
 const toolsArt = {
   source: assetPath + 'tools.png', label: 'Инструменты', category: 'Услуги',
   width: 834, height: 824, aspect: 824 / 834, rotate: 90, crop: [-16.91, -17.62, 135.27, 133.68]
@@ -27,19 +26,30 @@ const featured = [
 let figma = featured;
 const shared = [...CALLTOUCH_ASSETS.visuals, ...CALLTOUCH_ASSETS.generalVisuals]
   .map(({ previewSource, label, keywords }) => ({ source: previewSource, label, keywords }));
+const brandGradients = [
+  { id: 'violet-gradient', label: 'Фиолетовый', gradient: ['#4d3ac6', '#d8d2f3'], angle: 14 },
+  { id: 'cyan-gradient', label: 'Голубой', gradient: ['#005c85', '#26ccef'], angle: 13 },
+  { id: 'night-gradient', label: 'Тёмный сине-фиолетовый', gradient: ['#18193f', '#5039a4'], angle: 20 },
+  { id: 'sky-gradient', label: 'Светлый голубой', gradient: ['#eafaff', '#a9d9f4'], angle: 13 },
+  { id: 'mist-gradient', label: 'Приглушённый голубой', gradient: ['#d6e6ea', '#8ea6c3'], angle: 16 },
+  { id: 'lilac-gradient', label: 'Приглушённый лиловый', gradient: ['#e1dcef', '#afa6d0'], angle: 22 },
+  { id: 'custom-gradient', label: 'Свой градиент', gradient: ['#5141c9', '#d8d2f3'], angle: 14 }
+];
 const backgrounds = [
   { id: 'figma', label: 'Фиолетовый из Figma', source: assetPath + 'gradient.svg' },
   { id: 'blue', label: 'Голубой из Figma', source: assetPath + 'gradient-blue.svg' },
-  { id: 'pearl', label: 'Серебристый из Figma', source: assetPath + 'gradient-pearl.svg', ink: '#23213c' },
+  { id: 'pearl', label: 'Серебристый из Figma', source: assetPath + 'gradient-pearl.svg' },
+  ...brandGradients,
   { id: 'solid', label: 'Сплошной цвет' },
-  ...CALLTOUCH_ASSETS.backgrounds.map(({ id, label, previewSource }) => ({ id, label, source: previewSource, ink: '#23213c' }))
+  ...CALLTOUCH_ASSETS.backgrounds.map(({ id, label, previewSource }) => ({ id, label, source: previewSource }))
 ];
 const layouts = [...document.querySelector('[data-field="layout"]').options];
 let state = {
   title: '', category: '', metric1: '+68% ↑', caption1: 'подняли конверсию',
   metric2: 'в 2 раза', caption2: 'снизили стоимость оптовой заявки',
   layout: 'double', art: toolsArt, zoom: 100, logo: true,
-  background: 'figma', backgroundImage: backgrounds[0].source, color: '#5141c9', ink: '#ffffff'
+  background: 'figma', backgroundImage: backgrounds[0].source, color: '#5141c9', ink: '#ffffff',
+  autoContrast: true, gradient: null, angle: 14, gradientStart: '#5141c9', gradientEnd: '#d8d2f3'
 };
 
 let variants = [];
@@ -55,10 +65,18 @@ const fontsReady = Promise.all([
 ]);
 
 function selectBackground(item) {
-  return { background: item.id, backgroundImage: item.source, ink: item.ink || '#ffffff' };
+  const gradient = item.id === 'custom-gradient' ? [state.gradientStart, state.gradientEnd] : item.gradient;
+  return {
+    background: item.id, backgroundImage: item.source, gradient: gradient || null,
+    ...(gradient ? {
+      gradientStart: gradient[0], gradientEnd: gradient[1],
+      angle: item.id === 'custom-gradient' ? state.angle : item.angle
+    } : {})
+  };
 }
 
 function syncFields() {
+  byId('manual-ink').hidden = state.autoContrast;
   for (const field of fields) {
     const value = state[field.dataset.field];
     if (field.type === 'checkbox') field.checked = value;
@@ -68,8 +86,18 @@ function syncFields() {
 }
 
 async function draw(canvas, snapshot, isCurrent) {
-  const [, assets] = await Promise.all([fontsReady, prepareCover(snapshot, logoSource)]);
-  if (isCurrent()) drawCover(canvas, snapshot, assets);
+  const [, assets] = await Promise.all([fontsReady, prepareCover(snapshot)]);
+  if (!isCurrent()) return;
+  const contrast = drawCover(canvas, snapshot, assets);
+  if (canvas.id === 'cover') {
+    const label = { dark: 'тёмный', light: 'белый с голубым знаком', white: 'белый' };
+    const result = contrast.ratio >= 4.5 ? 'Достаточный контраст' : 'Низкий контраст';
+    byId('contrast-summary').textContent = result + ' ' + contrast.ratio.toFixed(1) + ':1' +
+      (snapshot.logo ? ' — логотип ' + label[contrast.logo] : '');
+    canvas.dataset.logoTone = contrast.logo;
+    canvas.dataset.ink = contrast.ink;
+    canvas.dataset.contrast = contrast.ratio.toFixed(2);
+  }
 }
 
 function render() {
@@ -153,7 +181,7 @@ function generate() {
   const matches = relevantArt();
   const related = state.art?.category ? figma.filter((asset) => asset.category === state.art.category) : [];
   const illustrations = matches.length ? matches : related.length ? related : state.art ? [state.art] : featured;
-  const automaticBackgrounds = backgrounds.slice(0, 3);
+  const automaticBackgrounds = brandGradients.filter(({ id }) => id !== 'custom-gradient');
   variants = layouts.map((layout, index) => ({
     ...state,
     ...selectBackground(automaticBackgrounds[(setNumber + index) % automaticBackgrounds.length]),
@@ -254,7 +282,15 @@ for (const field of fields) {
       const item = backgrounds.find((background) => background.id === value) || uploadedBackground;
       update(selectBackground(item), true);
     } else if (key === 'color') {
-      update({ color: value, background: 'solid', backgroundImage: undefined }, true);
+      update({ color: value, background: 'solid', backgroundImage: undefined, gradient: null }, true);
+    } else if (['gradientStart', 'gradientEnd', 'angle'].includes(key)) {
+      const next = { ...state, [key]: value };
+      update({
+        [key]: value, background: 'custom-gradient', backgroundImage: undefined,
+        gradient: [next.gradientStart, next.gradientEnd]
+      }, true);
+    } else if (key === 'autoContrast') {
+      update({ autoContrast: value }, true);
     } else {
       update({ [key]: value });
     }
@@ -266,7 +302,7 @@ for (const background of backgrounds) backgroundSelect.add(new Option(background
 setupUpload(byId('upload-art'), (file) => upload(file, (source) => update({ art: { source }, zoom: 100 }, true)));
 setupUpload(byId('upload-background'), (file) => upload(file, (source) => {
   if (!uploadedBackground) backgroundSelect.add(new Option('Свой фон', 'upload'));
-  uploadedBackground = { id: 'upload', source, ink: state.ink };
+  uploadedBackground = { id: 'upload', source };
   update(selectBackground(uploadedBackground), true);
 }));
 byId('reset-art').addEventListener('click', () => update({ art: null }));

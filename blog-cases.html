@@ -104,10 +104,19 @@
             </select></label>
             <label>Фон <select data-field="background" id="background"></select></label>
             <label class="blog-upload"><i data-lucide="upload"></i><span>Загрузить фон<small>или перетащить файл</small></span><input type="file" id="upload-background" accept="image/*"></label>
-            <div class="blog-colors">
-              <label>Цвет фона <input data-field="color" type="color"></label>
-              <label>Цвет текста <input data-field="ink" type="color"></label>
+            <div id="gradient-settings" class="blog-gradient-settings">
+              <div class="blog-colors">
+                <label>Начало градиента <input data-field="gradientStart" type="color"></label>
+                <label>Конец градиента <input data-field="gradientEnd" type="color"></label>
+              </div>
+              <label>Направление <input data-field="angle" type="range" min="0" max="359" aria-label="Направление градиента"></label>
             </div>
+            <div class="blog-colors">
+              <label>Сплошной цвет <input data-field="color" type="color"></label>
+              <label id="manual-ink" hidden>Цвет текста <input data-field="ink" type="color"></label>
+            </div>
+            <label class="blog-check"><input data-field="autoContrast" type="checkbox">Автоконтраст текста</label>
+            <p class="blog-contrast" id="contrast-summary"></p>
             <label class="blog-check"><input data-field="logo" type="checkbox">Логотип Calltouch</label>
           </section>
         </aside>
