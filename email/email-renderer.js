@@ -286,7 +286,9 @@ function renderImageText(block, preview, feature = false) {
   if (!hasImage && !hasHeading && !hasBody && !hasLink) return "";
   const topAlign = content.imageAlign === "left" ? "left" : "center";
   const textAlign = block.variant === "image-top" ? topAlign : "left";
-  const textContent = `${hasHeading ? displayText(content.heading, C.ink, 24, textAlign, "content.heading", preview, DELA_FONT_SIZES.small) : ""}${hasBody ? `<div style="padding-top:${hasHeading ? "10px" : "0"};text-align:${textAlign};">${bodyText(content.body, bodyColor, 16, "content.body", preview, "bullet", textAlign)}</div>` : ""}${hasLink ? `<div style="text-align:${textAlign};"><a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="display:inline-block;margin-top:${hasHeading || hasBody ? "14px" : "0"};font-family:${fontBody};font-weight:700;color:${linkColor};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a></div>` : ""}`;
+  const headingMarkup = hasHeading ? displayText(content.heading, C.ink, 24, textAlign, "content.heading", preview, DELA_FONT_SIZES.small) : "";
+  const detailMarkup = `${hasBody ? `<div style="padding-top:${hasHeading ? "10px" : "0"};text-align:${textAlign};">${bodyText(content.body, bodyColor, 16, "content.body", preview, "bullet", textAlign)}</div>` : ""}${hasLink ? `<div style="text-align:${textAlign};"><a${editAttrs(preview, "content.linkText")} href="${safeUrl(content.linkUrl)}" target="_blank" style="display:inline-block;margin-top:${hasHeading || hasBody ? "14px" : "0"};font-family:${fontBody};font-weight:700;color:${linkColor};word-break:break-word;overflow-wrap:break-word;">${rubleSafe(content.linkText)}</a></div>` : ""}`;
+  const textContent = headingMarkup + detailMarkup;
   if (!hasImage) {
     return wrapBlock(block, `<div style="padding:${feature ? "22px" : "14px 18px"};background:${plate};border-radius:${feature ? "22px" : "28px"};">${textContent}</div>`, "transparent", "0 0 12px");
   }
@@ -298,6 +300,18 @@ function renderImageText(block, preview, feature = false) {
     const topImage = td(img(content.image, content.heading, preview, 604, 0, imageWidth / 100, topAlign), `padding:0;vertical-align:top;text-align:${topAlign};`);
     const bottomText = td(textContent, `padding:${feature ? 22 : 24}px;vertical-align:top;`, 'class="stack-column"');
     return wrapBlock(block, table(`<tr>${topImage}</tr><tr>${bottomText}</tr>`, `background:${plate};border-radius:${feature ? 22 : 28}px;overflow:${hasPlate ? "hidden" : "visible"};`, 'class="image-text-table image-text-table--top"'), "transparent", "0 0 12px");
+  }
+  // For substantial copy, give the description a full-width row.
+  const bodyLength = plainLabel(content.body).trim().length;
+  if (isImageText && hasHeading && bodyLength > 210) {
+    const art = td(img(content.image, content.heading, preview, 176, 14),
+      `width:36%;vertical-align:middle;padding:${block.variant === "image-right" ? "0 0 0 14px" : "0 14px 0 0"};`, 'class="image-text-header-art"');
+    const title = td(headingMarkup, "width:64%;vertical-align:middle;", 'class="image-text-header-title"');
+    const header = table(`<tr>${block.variant === "image-right" ? title + art : art + title}</tr>`, "table-layout:fixed;");
+    const rows = `<tr>${td(header, "padding:20px 18px 0;")}</tr><tr>${td(detailMarkup, "padding:4px 18px 18px;")}</tr>`;
+    return wrapBlock(block, table(rows,
+      `background:${plate};border-radius:28px;overflow:${hasPlate ? "hidden" : "visible"};`,
+      'class="image-text-table image-text-table--full-copy"'), "transparent", "0 0 12px");
   }
   const imageCell = td(img(content.image, content.heading, preview, feature ? 150 : 140, 16), `width:${feature ? 34 : 38}%;padding:${feature ? 18 : "10px 16px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
   const textCell = td(textContent, `width:${feature ? 66 : 62}%;padding:${feature ? 22 : "14px 18px"};vertical-align:middle;direction:ltr;`, 'class="stack-column"');
@@ -427,7 +441,7 @@ export function renderEmailDocument(email, { preview = false, mobile = false } =
   const main = table(`<tr>${td(mainContent, "padding:28px;", 'class="email-main-pad"')}</tr>`, `background:${background};border-radius:30px;`, `bgcolor="${background}"`);
   const responsive = `@media only screen and (max-width:620px){${[
     ".email-shell,.footer-shell{width:100%!important}.email-outer-pad{padding:0 12px 20px!important}.email-main-pad{padding:22px!important}",
-    blocks.includes('class="image-text-table') ? ".image-text-table{direction:ltr!important}" : "",
+    blocks.includes('class="image-text-table') ? ".image-text-table{direction:ltr!important}.image-text-header-art{width:29%!important}.image-text-header-title{width:71%!important}" : "",
     blocks.includes('class="stack-column"') ? ".stack-column{display:block!important;width:100%!important;box-sizing:border-box!important}" : "",
     blocks.includes('class="benefits-grid"') ? ".benefits-grid{table-layout:auto!important}.benefits-grid .benefits-row,.benefits-grid td.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}.grid-column{display:block!important;width:100%!important;box-sizing:border-box!important}" : "",
     blocks.includes('grid-column--empty') ? ".benefits-grid td.grid-column--empty{display:none!important}" : "",

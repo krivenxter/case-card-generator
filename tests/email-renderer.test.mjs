@@ -99,3 +99,20 @@ const collectionHtml = renderEmailDocument(primary, { preview: true, mobile: tru
 assert.ok(collectionHtml.includes('utm_source=mail&amp;campaign=1'));
 checkTables(collectionHtml);
 console.log(`Passed ${cases} block/theme/preview cases and export regressions.`);
+
+const illustrated = createDefaultEmail();
+const block = createBlock('imageText', {
+  variant: 'image-left', content: {
+    heading: 'Разбор сценария',
+    body: 'Проверяем, какие объявления приводят звонки и заявки. '.repeat(7),
+    image: libraryAsset
+  }
+});
+illustrated.blocks = [block];
+for (const preview of [false, true]) {
+  const longHtml = renderEmailDocument(illustrated, {preview});
+  assert.match(longHtml, /image-text-table--full-copy/);
+  checkTables(longHtml);
+}
+block.content.body = 'Проверяем источники звонков.';
+assert.doesNotMatch(renderEmailDocument(illustrated), /image-text-table--full-copy/);
