@@ -23,7 +23,7 @@ function checkTables(html) {
 let cases = 0;
 for (const type of BLOCK_DEFINITIONS.map(({ type }) => type)) {
   for (const preview of [false, true]) {
-    for (const theme of ['classic', 'editorial']) {
+    for (const theme of ['classic', 'editorial', 'mist', 'lavender', 'white']) {
       const email = createDefaultEmail();
       email.settings.theme = theme;
       email.blocks = [createBlock(type)];
@@ -76,6 +76,25 @@ assert.equal(primary.blocks[0].content.image.previewSource, 'data:image/jpeg;bas
 assert.ok(primary.blocks[1].content.body.includes('Самостоятельная практика'));
 assert.equal(primary.blocks[2].content.items[0].ctaUrl, resourceUrl);
 assert.ok(alternative.blocks.some((block) => block.content.image?.previewSource === 'data:image/png;base64,illustration'));
+assert.equal(primary.settings.theme, 'mist');
+assert.equal(alternative.settings.theme, 'classic');
+const enrichedDraft = normalizeDraft({
+  subject: 'Цифры и ответы',
+  cover: 'inline',
+  theme: 'lavender',
+  blocks: [
+    { type: 'metrics', heading: 'Показатели', items: [{ eyebrow: '15 минут', heading: 'Демо' }] },
+    { type: 'faq', heading: 'Вопросы', items: [{ heading: 'Что понадобится?', body: 'Доступ к кабинету' }] }
+  ]
+}, 'email', 'Демо длится 15 минут. Понадобится доступ к кабинету.');
+const libraryAsset = { id: 'call-tracking', label: 'Коллтрекинг', previewSource: 'visuals/Коллтрекинг.png', exportUrl: 'https://example.com/visual.png' };
+const [enriched] = buildAiEmailVariants(enrichedDraft, libraryAsset.previewSource, '', libraryAsset);
+const richHtml = renderEmailDocument(enriched);
+assert.match(richHtml, /bgcolor="#F7F3FC"/);
+assert.match(richHtml, /15 минут/);
+assert.match(richHtml, /Что понадобится/);
+assert.ok(richHtml.includes(libraryAsset.exportUrl));
+checkTables(richHtml);
 const collectionHtml = renderEmailDocument(primary, { preview: true, mobile: true });
 assert.ok(collectionHtml.includes('utm_source=mail&amp;campaign=1'));
 checkTables(collectionHtml);

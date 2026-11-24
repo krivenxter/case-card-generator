@@ -1321,9 +1321,13 @@ function createAiBannerState(draft) {
   return state;
 }
 
-function setAiBannerIllustration(state, image) {
+function setAiBannerIllustration(state, image, libraryAsset, imageName) {
+  if (libraryAsset) {
+    Object.assign(state.visual, { enabled: true, mode: "manual", selectedId: libraryAsset.id });
+    return;
+  }
   Object.assign(state.visual, {
-    enabled: true, mode: "custom", customVisual: image, customVisualName: "Nano Banana 2.1"
+    enabled: true, mode: "custom", customVisual: image, customVisualName: imageName || "Nano Banana 2.1"
   });
   bannerAssetCache.clear();
 }
@@ -1335,18 +1339,19 @@ async function openBannerAi(mode) {
       target: "banner",
       mode,
       onComplete: () => openBannerVariantPicker({ generated: true }),
-      async apply({ draft: result, image, emailIllustration, signal }) {
+      async apply({ draft: result, image, emailIllustration, libraryAsset, imageName, signal }) {
         const draft = result?.banner || result;
         if (result?.email) {
           const { buildAiEmail, renderEmailBannerCover } = await import("./email/email-ai.js");
           const emailCover = await renderEmailBannerCover(result.email, emailIllustration);
           signal.throwIfAborted();
-          const emailDraft = buildAiEmail({ ...result.email, visualIdea: result.visualIdea }, emailIllustration, emailCover);
+          const emailDraft = buildAiEmail({ ...result.email, visualIdea: result.visualIdea }, emailIllustration, emailCover, libraryAsset);
           sessionStorage.setItem(EMAIL_HANDOFF_KEY, JSON.stringify(emailDraft));
           document.getElementById("bannerAiEmailLink").hidden = false;
         }
         const state = draft ? createAiBannerState(draft) : cloneBannerState();
-        if (image) setAiBannerIllustration(state, image);
+        if (image) setAiBannerIllustration(state, image, libraryAsset, imageName);
+        else if (draft) state.visual.enabled = false;
         applyImportedBannerState(state, draft ? "Комплект баннеров собран." : "Иллюстрация установлена.");
         if (draft) {
           if (bannerElements.templateNameInput) bannerElements.templateNameInput.value = draft.title.slice(0, 80);

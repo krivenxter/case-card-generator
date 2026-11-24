@@ -123,7 +123,7 @@ function illustrationBounds({ data, width, height }) {
   return { left, top, width: Math.min(width, right + margin + 1) - left, height: Math.min(height, bottom + margin + 1) - top };
 }
 
-export async function prepareIllustration(blob, target) {
+export async function prepareIllustration(blob, target, { cutout = true } = {}) {
   const bitmap = await createImageBitmap(blob);
   try {
     const scale = Math.min(1, (target === "email" ? 768 : 1152) / Math.max(bitmap.width, bitmap.height));
@@ -132,6 +132,11 @@ export async function prepareIllustration(blob, target) {
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     const context = canvas.getContext("2d", { willReadFrequently: true });
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if (!cutout) {
+      const resized = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", .9));
+      if (!resized) throw new Error("Не удалось подготовить файл изображения.");
+      return fileAsDataUrl(resized);
+    }
     const image = context.getImageData(0, 0, canvas.width, canvas.height);
     removeWhiteBackdrop(image.data, canvas.width, canvas.height);
     const bounds = target === "email" ? illustrationBounds(image) : { left: 0, top: 0, width: canvas.width, height: canvas.height };
@@ -145,6 +150,29 @@ export async function prepareIllustration(blob, target) {
   } finally {
     bitmap.close();
   }
+}
+
+const normalizeVisualText = (value) => value.toLocaleLowerCase("ru").replaceAll("ё", "е")
+  .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+export function matchCreativeVisual(text, catalog) {
+  const source = normalizeVisualText(text);
+  const words = source.split(" ");
+  let best;
+  let highest = 0;
+  for (const asset of catalog) {
+    const name = normalizeVisualText(asset.label);
+    const keywords = asset.keywords.map(normalizeVisualText).filter((word) => word && word !== name);
+    const score = (name && ` ${source} `.includes(` ${name} `) ? 24 + name.length : 0)
+      + keywords.reduce((total, keyword) => total + (keyword.includes(" ")
+        ? (` ${source} `.includes(` ${keyword} `) ? 8 : 0)
+        : words.some((word) => word === keyword || (keyword.length >= 5 && word.startsWith(keyword.slice(0, -1)))) ? 2 : 0), 0);
+    if (score > highest) {
+      highest = score;
+      best = asset;
+    }
+  }
+  return best;
 }
 
 // Initial UI estimates in seconds. Completion always comes from the actual request.
@@ -194,6 +222,7 @@ function createAiProgress(panel) {
         started = Date.now();
         timer = setInterval(updateClock, 1000);
       }
+      if (phase === current) return;
       if (phase === "finish" && current) phases = [...phases.slice(0, phases.indexOf(current) + 1), "finish"];
       if (!phases.includes(phase)) phases.splice(phases.length - 1, 0, phase);
       current = phase;
@@ -214,6 +243,7 @@ function createAiProgress(panel) {
     stop() {
       clearInterval(timer);
       timer = undefined;
+      current = undefined;
       bar.style.removeProperty("--ai-progress");
     }
   };
@@ -242,9 +272,18 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
       ${isImage ? `<label class="creative-ai-field"><span>Формат иллюстрации</span><select name="aspect">
         <option value="1:1">Квадрат, 1:1</option><option value="4:3">Горизонтальный, 4:3</option>
         <option value="3:4">Вертикальный, 3:4</option><option value="16:9">Широкий, 16:9</option><option value="9:16">Вертикальный, 9:16</option>
-      </select></label>` : `<label class="creative-ai-check"><input name="withImage" type="checkbox" checked><span>Сгенерировать фирменную иллюстрацию</span></label>
+      </select></label>` : `
       ${target === "banner" ? `<label class="creative-ai-check"><input name="withEmail" type="checkbox"><span>Также собрать письмо по этому ТЗ</span></label>
       <p class="creative-ai-note">Черновик заменит текущие баннеры. Изменения можно отменить.</p>` : ""}`}
+      <label class="creative-ai-field"><span>Иллюстрация</span>
+        <select name="imageSource">
+          <option value="library">Из библиотеки</option><option value="upload">Свой файл</option>
+          <option value="ai">Новая иллюстрация с ИИ</option>${isImage ? "" : '<option value="none">Без иллюстрации</option>'}
+        </select>
+      </label>
+      <label class="creative-ai-field" data-library><span>Выбор в библиотеке</span><select name="libraryChoice"><option value="">Автоподбор по ТЗ</option></select></label>
+      <label class="creative-ai-field" data-upload hidden><span>Загрузить изображение</span><input type="file" name="upload" accept="image/png,image/jpeg,image/webp,image/avif"></label>
+      <div class="creative-ai-image-preview" hidden><img alt=""><span></span></div>
       <label class="creative-ai-field" hidden><span>Код доступа к ИИ</span><input name="token" type="password" autocomplete="off" maxlength="256"></label>
       </div>
       <section class="creative-ai-progress" hidden aria-label="Ход генерации">
@@ -268,7 +307,34 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
   window.lucide?.createIcons({ root: dialog });
 
   const form = dialog.querySelector("form");
-  const { text, token, withImage, withEmail, aspect } = form.elements;
+  const { text, token, imageSource, libraryChoice, upload, withEmail, aspect } = form.elements;
+  const catalog = [...(window.CALLTOUCH_ASSETS?.visuals || []), ...(window.CALLTOUCH_ASSETS?.generalVisuals || [])];
+  libraryChoice.append(...catalog.map(asset => new Option(asset.label, asset.id)));
+  imageSource.value = isImage ? "ai" : "library";
+  const preview = form.querySelector(".creative-ai-image-preview");
+  let previewUrl;
+  const selectedAsset = () => catalog.find(({ id }) => id === libraryChoice.value) || matchCreativeVisual(text.value, catalog);
+  const refreshImageSource = () => {
+    form.querySelector("[data-library]").hidden = imageSource.value !== "library";
+    form.querySelector("[data-upload]").hidden = imageSource.value !== "upload";
+    upload.required = imageSource.value === "upload";
+    text.required = !isImage || imageSource.value === "ai";
+    if (aspect) aspect.closest("label").hidden = imageSource.value !== "ai";
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = undefined;
+    const asset = imageSource.value === "library" ? selectedAsset() : null;
+    const file = imageSource.value === "upload" ? upload.files[0] : null;
+    if (file) previewUrl = URL.createObjectURL(file);
+    const src = asset?.previewSource || previewUrl;
+    const img = preview.querySelector("img");
+    img.hidden = !src;
+    if (src) img.src = src;
+    else img.removeAttribute("src");
+    preview.hidden = !src && imageSource.value !== "library";
+    preview.querySelector("span").textContent = asset?.label || file?.name || "Пока нет совпадения. Добавьте тему или выберите картинку из списка.";
+  };
+  text.addEventListener("input", refreshImageSource);
+  [imageSource, libraryChoice, upload].forEach((field) => field.addEventListener("change", refreshImageSource));
   const status = form.querySelector("[role=status]");
   const submit = form.querySelector('[type="submit"]');
   const skip = form.querySelector("[data-skip]");
@@ -278,7 +344,7 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
   const close = form.querySelector("[data-close]");
   const showPhase = (phase) => progress.show(phase, [
     ...(!isImage && !draft ? ["draft"] : []),
-    ...(isImage || withImage?.checked ? [...(!compiledPrompt && !jobId ? ["prompt"] : []), "image"] : []),
+    ...(imageSource.value === "ai" ? [...(!compiledPrompt && !jobId ? ["prompt"] : []), "image"] : []),
     "finish"
   ]);
   const submitLabel = submit.textContent;
@@ -297,9 +363,9 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
     status.textContent = message;
     status.classList.toggle("is-error", error);
   };
-  const finish = async (image, emailIllustration) => {
+  const finish = async (image, emailIllustration, libraryAsset, imageName) => {
     showPhase("finish");
-    await apply({ draft, image, emailIllustration, idea: isImage ? text.value.trim() : draft?.visualIdea, signal: controller.signal });
+    await apply({ draft, image, emailIllustration, libraryAsset, imageName, idea: isImage ? text.value.trim() : draft?.visualIdea, signal: controller.signal });
     dialog.close();
     onComplete?.();
   };
@@ -314,17 +380,19 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
     else progress.stop();
     token.disabled = busy;
     text.readOnly = busy || Boolean(draft || compiledPrompt);
-    if (withImage) withImage.disabled = busy || Boolean(draft);
+    imageSource.disabled = libraryChoice.disabled = upload.disabled = busy;
     if (withEmail) withEmail.disabled = busy || Boolean(draft);
     if (aspect) aspect.disabled = busy || Boolean(compiledPrompt);
     skip.hidden = busy || !draft;
-    submit.textContent = busy ? "Генерация…" : jobId ? "Проверить задачу" : draft ? "Повторить генерацию картинки" : submitLabel;
+    submit.textContent = busy ? "Генерация…" : jobId && imageSource.value === "ai" ? "Проверить задачу" : draft ? "Продолжить" : submitLabel;
     if (busy) close.focus();
   };
 
   text.value = initialText;
+  refreshImageSource();
   dialog.addEventListener("close", () => {
     progress.stop();
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     controller.abort();
     dialog.remove();
   }, { once: true });
@@ -343,16 +411,19 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
     event.preventDefault();
     if (running) return;
     const input = text.value.trim();
-    if (!input) return report("Добавьте текст.", true);
+    if (text.required && !input) return report("Добавьте текст.", true);
     if (!token.closest("label").hidden) accessToken = token.value.trim();
     const signal = controller.signal;
+    const source = imageSource.value;
+    const file = source === "upload" ? upload.files[0] : null;
+    if (file && file.size > 20 * 1024 * 1024) return report("Выберите изображение до 20 МБ.", true);
     setBusy(true);
     try {
       if (!isImage && !draft) {
         showPhase("draft");
         draft = await requestAi({ action: "draft", target: withEmail?.checked ? "campaign" : target, text: input }, signal);
       }
-      if (isImage || (withImage?.checked && draft?.cover !== "none")) {
+      if (source === "ai" && (isImage || draft?.cover !== "none")) {
         if (!resultImage) {
           if (jobId) showPhase("image");
           else {
@@ -373,8 +444,24 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
         }
         if (draft?.email && !emailImage) emailImage = await prepareIllustration(generatedImage, "email");
       }
-      signal.throwIfAborted();
-      await finish(resultImage, emailImage);
+      const libraryAsset = source === "library"
+        ? selectedAsset() || matchCreativeVisual([draft?.title, draft?.banner?.title, draft?.subject, draft?.visualIdea].filter(Boolean).join(" "), catalog)
+        : null;
+      if (isImage && source === "library" && !libraryAsset) throw new Error("Выберите иллюстрацию из списка.");
+      if (libraryAsset) {
+        signal.throwIfAborted();
+        await finish(libraryAsset.previewSource, libraryAsset.previewSource, libraryAsset);
+      } else if (file) {
+        const emailDraft = draft?.email || (target === "email" ? draft : null);
+        if (emailDraft?.cover === "none") emailDraft.cover = "inline";
+        showPhase("finish");
+        const uploaded = await prepareIllustration(file, target, { cutout: false });
+        signal.throwIfAborted();
+        await finish(uploaded, uploaded, null, file.name);
+      } else {
+        signal.throwIfAborted();
+        await finish(source === "ai" ? resultImage : undefined, source === "ai" ? emailImage : undefined);
+      }
     } catch (error) {
       if (signal.aborted) return;
       if (error.status === 401) {

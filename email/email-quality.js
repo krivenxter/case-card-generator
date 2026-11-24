@@ -54,7 +54,7 @@ function delaAssetKeys(email) {
 
 export function normalizeEmailDesign(email) {
   const normalized = JSON.parse(JSON.stringify(email));
-  normalized.settings.theme = ["classic", "editorial"].includes(normalized.settings.theme) ? normalized.settings.theme : "classic";
+  normalized.settings.theme = ["classic", "editorial", "mist", "lavender", "white"].includes(normalized.settings.theme) ? normalized.settings.theme : "classic";
   normalized.settings.logo = ["dark", "color"].includes(normalized.settings.logo) ? normalized.settings.logo : "dark";
   normalized.blocks = normalized.blocks.filter((block) => block?.type && block?.id).map((block) => {
     block.content = block.content || {};
@@ -75,7 +75,7 @@ export function normalizeEmailDesign(email) {
     if (["panel", "collection"].includes(block.type)) {
       block.content.tone = ["plain", "ice", "lilac"].includes(block.content.tone) ? block.content.tone : "white";
       if (block.type === "collection") {
-        block.variant = ["agenda", "resources", "comparison", "steps"].includes(block.variant) ? block.variant : "agenda";
+        block.variant = ["agenda", "resources", "comparison", "steps", "metrics", "faq"].includes(block.variant) ? block.variant : "agenda";
         block.content.items = Array.isArray(block.content.items) ? block.content.items.filter((item) => item && typeof item === "object") : [];
       }
     }

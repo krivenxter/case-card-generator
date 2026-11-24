@@ -1081,7 +1081,7 @@ function renderPanelControls(block) {
   const content = block.content;
   const collection = block.type === "collection";
   const tones = [["plain", "Без фона"], ["white", "Белая"], ["ice", "Голубая"], ["lilac", "Сиреневая"]];
-  const layouts = [["agenda", "Программа"], ["resources", "Материалы"], ["comparison", "Сравнение"], ["steps", "Шаги"]];
+  const layouts = [["agenda", "Программа"], ["resources", "Материалы"], ["comparison", "Сравнение"], ["steps", "Шаги"], ["metrics", "Цифры"], ["faq", "Вопросы и ответы"]];
   const options = collection ? field("Композиция", "variant", block.variant, { options: layouts }) : "";
   const items = collection ? (content.items || []) : [];
   const rows = items.map((item, index) => {
@@ -1737,10 +1737,10 @@ function openEmailAiDraft(initialText = "") {
     target: "email",
     mode: "draft",
     initialText,
-    async apply({ draft, image, signal }) {
+    async apply({ draft, image, libraryAsset, signal }) {
       const coverImage = await renderEmailBannerCover(draft, image);
       signal.throwIfAborted();
-      showEmailVariants(buildAiEmailVariants(draft, image, coverImage));
+      showEmailVariants(buildAiEmailVariants(draft, image, coverImage, libraryAsset));
       showToast("Варианты письма готовы.");
     }
   });
@@ -1751,8 +1751,8 @@ $("#emailAiImageButton").addEventListener("click", () => {
   openCreativeAi({
     target: "email",
     mode: "illustration",
-    apply({ image, idea }) {
-      const asset = createIllustrationAsset(image, idea);
+    apply({ image, idea, imageName, libraryAsset }) {
+      const asset = libraryAsset || createIllustrationAsset(image, imageName || idea);
       const index = email.blocks.findIndex((block) => block.id === selection);
       const block = email.blocks[index];
       if (block && ["promo", "imageText", "image", "featureCard", "brandScene"].includes(block.type)) {

@@ -252,9 +252,15 @@ function renderPanel(block, preview, darkText) {
       const details = td(marker + text, "padding:0 14px 0 0;vertical-align:middle;", 'class="stack-column"');
       return table(`<tr>${details}${td(action(item.ctaText, item.ctaUrl, path + ".ctaText", false), "width:30%;vertical-align:middle;", 'class="stack-column"')}</tr>`, "table-layout:fixed;");
     }
+    if (block.variant === "metrics" && item.eyebrow) {
+      return `<div style="padding-bottom:6px;">${heading(item.eyebrow, path + ".eyebrow", 22)}</div>${text}${link}`;
+    }
+    if (block.variant === "faq") {
+      return table(`<tr>${td(marker + text + link, "padding:14px;")}</tr>`, "background:#FFFFFF;border-radius:12px;", 'bgcolor="#FFFFFF"');
+    }
     return marker + text + link;
   });
-  const compare = block.variant === "comparison" && !content.stacked;
+  const compare = ["comparison", "metrics"].includes(block.variant) && !content.stacked;
   const rows = compare ? Array.from({ length: Math.ceil(entries.length / 2) }, (_, index) => {
     const pair = entries.slice(index * 2, index * 2 + 2);
     return `<tr>${pair.map((entry) => td(entry, `width:${pair.length === 2 ? 50 : 100}%;padding:14px 12px;vertical-align:top;border-top:1px solid #D7DDEA;`, 'class="stack-column"')).join("")}</tr>`;
@@ -413,7 +419,7 @@ function footerShell(content, padding = "") {
 
 export function renderEmailDocument(email, { preview = false, mobile = false } = {}) {
   const logo = window.CALLTOUCH_ASSETS.logos.dark;
-  const background = email.settings.theme === "editorial" ? C.cyan : C.lightCyan;
+  const background = { editorial: C.cyan, mist: "#F0F7FA", lavender: "#F7F3FC", white: "#FFFFFF" }[email.settings.theme] || C.lightCyan;
   const darkText = email.settings.theme === "editorial";
   const blocks = email.blocks.map((block) => renderBlock(block, preview, darkText)).join("");
   const footnotes = email.footnotes.map((note, index) => `<div data-footnote-id="${escapeHtml(note.id)}" data-footnote-edit style="padding:0 0 10px;font-family:${fontBody};font-size:14px;line-height:1.45;color:${C.muted};opacity:.72;word-break:break-word;overflow-wrap:break-word;">${"*".repeat(index + 1)} ${footnoteMarkup(note.text)}</div>`).join("");

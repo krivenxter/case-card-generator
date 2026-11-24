@@ -3,7 +3,7 @@ import { pickIconId } from "./email-parser.js";
 import { forceDelaMarkup } from "./email-rich-text.js";
 
 const joinParagraphs = (...parts) => parts.filter(Boolean).join("\n\n");
-const collections = ["agenda", "resources", "comparison", "steps"];
+const collections = ["agenda", "resources", "comparison", "steps", "metrics", "faq"];
 
 function brandedHeading(heading, accent) {
   const text = accent && heading.includes(accent)
@@ -60,7 +60,7 @@ export function createBannerEmailBlock(source, alt, width = 1200) {
   });
 }
 
-export function buildAiEmail(draft, illustration, coverImage = "") {
+export function buildAiEmail(draft, illustration, coverImage = "", libraryAsset) {
   const email = createDefaultEmail();
   email.meta.title = draft.subject || draft.blocks[0].heading || "Письмо Calltouch";
   email.meta.preheader = draft.preheader;
@@ -140,7 +140,7 @@ export function buildAiEmail(draft, illustration, coverImage = "") {
     const alt = draft.coverAlt || draft.coverBanner?.title || draft.subject;
     email.blocks.unshift(createBannerEmailBlock(coverImage, alt));
   } else if (illustration && draft.cover !== "none") {
-    const asset = createIllustrationAsset(illustration, draft.coverAlt || draft.visualIdea);
+    const asset = libraryAsset || createIllustrationAsset(illustration, draft.coverAlt || draft.visualIdea);
     const placement = draft.cover === "inline" ? "imageText" : "promo";
     const pictureBlock = draft.cover === "banner" ? null
       : email.blocks.find((block, index) => index < (draft.cover ? 5 : 2) && block.type === placement);
@@ -157,12 +157,13 @@ export function buildAiEmail(draft, illustration, coverImage = "") {
   return email;
 }
 
-export function buildAiEmailVariants(draft, illustration, coverImage) {
-  const recommended = buildAiEmail(draft, illustration, coverImage);
-  const alternateCover = draft.cover === "banner" ? "inline" : "banner";
-  const alternate = illustration ? buildAiEmail({ ...draft, cover: alternateCover }, illustration) : cloneEmail(recommended);
+export function buildAiEmailVariants(draft, illustration, coverImage, libraryAsset) {
+  const recommended = buildAiEmail(draft, illustration, coverImage, libraryAsset);
+  const alternateCover = draft.cover === "banner" ? "inline" : draft.cover === "none" ? "none" : "banner";
+  const alternate = illustration ? buildAiEmail({ ...draft, cover: alternateCover }, illustration, "", libraryAsset) : cloneEmail(recommended);
+  alternate.settings.theme = recommended.settings.theme === "mist" ? "classic" : "mist";
   for (const block of alternate.blocks) {
-    if (block.type === "collection" && block.variant === "comparison") block.content.stacked = true;
+    if (block.type === "collection" && ["comparison", "metrics"].includes(block.variant)) block.content.stacked = true;
     if (block.type === "iconGrid") block.content.columns = "1";
     if (block.type === "imageText") block.variant = "image-top";
     if (block.type === "panel" && block.content.tone !== "plain") block.content.tone = "white";

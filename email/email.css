@@ -518,3 +518,7 @@
 .email-message-meta .email-field {
   margin-top: 10px;
 }
+
+.email-theme-dot--mist { background: #f0f7fa; }
+.email-theme-dot--white { background: #fff; }
+.email-theme-dot--lavender { background: #f7f3fc; }
