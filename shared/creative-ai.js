@@ -236,8 +236,9 @@ export function openCreativeAi({ target, mode, initialText = "", apply, onComple
       <label class="creative-ai-field">
         <span>${isImage ? "Что изобразить" : "Текст ТЗ"}</span>
         <textarea name="text" rows="${isImage ? 4 : 5}" maxlength="${isImage ? 900 : 24000}" required autofocus
-          placeholder="${isImage ? "Например, сквозная аналитика как монитор с диаграммой" : "Тема, готовые тексты, оффер, ссылки и требования к оформлению"}"></textarea>
+          placeholder="${isImage ? "Например, сквозная аналитика как монитор с диаграммой" : "Например: продукт, для кого акция, точный оффер, сроки, действие и ссылка"}"></textarea>
       </label>
+      ${isImage ? "" : '<p class="creative-ai-note">Укажите точные цифры, продукт и условия, если они уже известны. Генератор вынесет их в плашки, оффер или другие подходящие блоки.</p>'}
       ${isImage ? `<label class="creative-ai-field"><span>Формат иллюстрации</span><select name="aspect">
         <option value="1:1">Квадрат, 1:1</option><option value="4:3">Горизонтальный, 4:3</option>
         <option value="3:4">Вертикальный, 3:4</option><option value="16:9">Широкий, 16:9</option><option value="9:16">Вертикальный, 9:16</option>
