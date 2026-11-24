@@ -69,6 +69,26 @@ function fileAsDataUrl(blob) {
   });
 }
 
+export async function downloadCreativeIllustration(source, name) {
+  const res = await fetch(source);
+  if (!res.ok) throw new Error("Не удалось скачать иллюстрацию.");
+  const blob = await res.blob();
+  const extensions = { "image/png": "png", "image/webp": "webp", "image/jpeg": "jpg",
+    "image/avif": "avif", "image/gif": "gif", "image/svg+xml": "svg" };
+  const ext = extensions[blob.type];
+  if (!ext) throw new Error("Не удалось определить формат изображения.");
+  const basename = String(name || "Иллюстрация Calltouch").replace(/\.(png|webp|jpe?g|avif|gif|svg)$/iu, "")
+    .replace(/[\\/:*?"<>|]/g, "-").trim() || "Иллюстрация Calltouch";
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${basename}.${ext}`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function removeWhiteBackdrop(pixels, width, height) {
   const visited = new Uint8Array(width * height);
   const queue = new Uint32Array(width * height);

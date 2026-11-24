@@ -3436,6 +3436,7 @@ function syncBannerControls() {
   bannerElements.customBackgroundName.textContent = state.visual.customBackground
     ? state.visual.customBackgroundName || "Свой фон загружен"
     : "Файл не выбран";
+  document.getElementById("bannerDownloadIllustration").hidden = !state.visual.enabled || !resolveBannerVisual().src;
   bannerElements.customVisualName.textContent = state.visual.customVisual
     ? state.visual.customVisualName || "Своя картинка загружена"
     : "Файл не выбран";
@@ -4876,6 +4877,17 @@ if (bannerAiEmailLink && location.protocol !== "file:") {
   window.addEventListener("pageshow", syncAiEmailLink);
 }
 document.getElementById("bannerAiDraftButton")?.addEventListener("click", () => openBannerAi("draft"));
+document.getElementById("bannerDownloadIllustration").addEventListener("click", async () => {
+  const visual = resolveBannerVisual();
+  if (!visual.src) return;
+  try {
+    const { downloadCreativeIllustration } = await import("./shared/creative-ai.js");
+    const name = visual.id === "custom" ? appState.banners.visual.customVisualName : visual.label;
+    await downloadCreativeIllustration(visual.src, name);
+  } catch {
+    showToast("Не удалось скачать иллюстрацию.", true);
+  }
+});
 document.getElementById("bannerAiImageButton")?.addEventListener("click", () => openBannerAi("illustration"));
 
 document.querySelectorAll("[data-tool-tab]").forEach((tab) => {

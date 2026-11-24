@@ -1,6 +1,6 @@
 import { BLOCK_DEFINITIONS, DELA_FONT_FACES, DELA_FONT_SIZES, EMAIL_STORAGE_KEY, EMAIL_TOKENS, createBlock, createDefaultEmail, createId, cloneEmail } from "./email-model.js";
 import { buildAutoVariants, readImportedFile } from "./email-parser.js";
-import { EMAIL_HANDOFF_KEY, EMAIL_IMAGE_HANDOFF_KEY, openCreativeAi } from "../shared/creative-ai.js";
+import { EMAIL_HANDOFF_KEY, EMAIL_IMAGE_HANDOFF_KEY, downloadCreativeIllustration, openCreativeAi } from "../shared/creative-ai.js";
 import { buildAiEmailVariants, createBannerEmailBlock, createIllustrationAsset, renderEmailBannerCover } from "./email-ai.js";
 import { renderEmailDocument, renderBlock } from "./email-renderer.js";
 import { normalizeEmailDesign, validateEmail } from "./email-quality.js";
@@ -996,7 +996,16 @@ function bindPreviewSelection() {
   }
 }
 
+function getEmailIllustration() {
+  const assetFor = block => block?.content?.sourceIllustration || block?.content?.image;
+  const selected = assetFor(email.blocks.find(block => block.id === selectedBlockId));
+  return selected?.previewSource || selected?.exportUrl ? selected
+    : email.blocks.map(assetFor).find(asset => asset?.previewSource || asset?.exportUrl);
+}
+
 function renderBlockList() {
+  const illustration = getEmailIllustration();
+  $("#emailDownloadIllustration").hidden = !(illustration?.previewSource || illustration?.exportUrl);
   elements.blockList.innerHTML = email.blocks.map((block, index) => {
     const definition = getDefinition(block.type);
     const hidden = Boolean(block.settings?.hidden);
@@ -1745,6 +1754,16 @@ function openEmailAiDraft(initialText = "") {
     }
   });
 }
+
+$("#emailDownloadIllustration").addEventListener("click", async () => {
+  const asset = getEmailIllustration();
+  if (!asset?.previewSource && !asset?.exportUrl) return;
+  try {
+    await downloadCreativeIllustration(asset.previewSource || asset.exportUrl, email.meta.title || asset.label);
+  } catch {
+    showToast("Не удалось скачать иллюстрацию.");
+  }
+});
 
 $("#emailAiImageButton").addEventListener("click", () => {
   const selection = selectedBlockId;

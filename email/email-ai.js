@@ -138,7 +138,9 @@ export function buildAiEmail(draft, illustration, coverImage = "", libraryAsset)
 
   if (coverImage) {
     const alt = draft.coverAlt || draft.coverBanner?.title || draft.subject;
-    email.blocks.unshift(createBannerEmailBlock(coverImage, alt));
+    const cover = createBannerEmailBlock(coverImage, alt);
+    if (illustration) cover.content.sourceIllustration = libraryAsset || createIllustrationAsset(illustration, draft.visualIdea);
+    email.blocks.unshift(cover);
   } else if (illustration && draft.cover !== "none") {
     const asset = libraryAsset || createIllustrationAsset(illustration, draft.coverAlt || draft.visualIdea);
     const placement = draft.cover === "inline" ? "imageText" : "promo";
