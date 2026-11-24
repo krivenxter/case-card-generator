@@ -1334,6 +1334,7 @@ async function openBannerAi(mode) {
     openCreativeAi({
       target: "banner",
       mode,
+      onComplete: () => openBannerVariantPicker({ generated: true }),
       async apply({ draft: result, image, emailIllustration, signal }) {
         const draft = result?.banner || result;
         if (result?.email) {
@@ -1349,7 +1350,6 @@ async function openBannerAi(mode) {
         applyImportedBannerState(state, draft ? "Комплект баннеров собран." : "Иллюстрация установлена.");
         if (draft) {
           if (bannerElements.templateNameInput) bannerElements.templateNameInput.value = draft.title.slice(0, 80);
-          requestAnimationFrame(openBannerVariantPicker);
         }
       }
     });
@@ -2531,8 +2531,7 @@ function resolveBannerVisual() {
   return bestVisual;
 }
 
-function getBannerBackgroundUrl() {
-  const state = appState.banners;
+function getBannerBackgroundUrl(state = appState.banners) {
   if (state.visual.customBackground) return state.visual.customBackground;
   if (state.visual.backdrop !== "library") return "";
   const lightTheme = state.branding.theme === "light";
@@ -2541,8 +2540,7 @@ function getBannerBackgroundUrl() {
   return `${folder}/prez-bg-${state.visual.backgroundIndex}.${extension}`;
 }
 
-function getBannerLogoMode() {
-  const state = appState.banners;
+function getBannerLogoMode(state = appState.banners) {
   if (state.branding.logoMode !== "auto") return state.branding.logoMode;
   return state.branding.theme === "dark" ? "light" : "dark";
 }
@@ -2854,14 +2852,13 @@ function normalizeBannerChipStyle(style) {
   return ["graphiteFill", "graphiteOutline", "white", "glass"].includes(style) ? style : "glass";
 }
 
-function renderBannerCanvas(canvas, resolvedVisual) {
-  const state = appState.banners;
+function renderBannerCanvas(canvas, resolvedVisual, state = appState.banners) {
   const format = canvas.dataset.format;
   const formatState = getBannerFormatState(format);
   const formatConfig = BANNER_FORMATS[format];
   const layout = getBannerLayoutForFormat(format);
-  const logoMode = getBannerLogoMode();
-  const backgroundUrl = getBannerBackgroundUrl();
+  const logoMode = getBannerLogoMode(state);
+  const backgroundUrl = getBannerBackgroundUrl(state);
   const buttonRadius = state.content.button.radius === "pill" ? "999px" : "16px";
   const chipRadius = buttonRadius;
 
@@ -3483,6 +3480,15 @@ const bannerVariantDialog = document.getElementById("bannerVariantDialog");
 const bannerVariantFormat = document.getElementById("bannerVariantFormat");
 const bannerVariantGrid = document.getElementById("bannerVariantGrid");
 const bannerFormatProfile = document.getElementById("bannerFormatProfile");
+const bannerVariantSingle = document.getElementById("bannerVariantSingle");
+const BANNER_VARIANT_STYLES = {
+  split: ["blue", "light", "Голубой фон"],
+  reverse: ["blue", "dark", "Синий фон"],
+  wideCopy: ["violet", "dark", "Фиолетовый фон"],
+  editorial: ["violet", "light", "Сиреневый фон"],
+  offer: ["blue", "dark", "Синий фон"],
+  center: ["violet", "light", "Сиреневый фон"]
+};
 
 function renderBannerVariantPreviews() {
   const format = bannerVariantFormat.value;
@@ -3502,28 +3508,50 @@ function renderBannerVariantPreviews() {
     preview.className = "campaign-variant-thumb";
     preview.style.aspectRatio = `${config.width} / ${config.height}`;
     const canvas = source.cloneNode(true);
+    canvas.querySelectorAll("img[data-requested-src]").forEach((image) => {
+      delete image.dataset.requestedSrc;
+      image.removeAttribute("src");
+    });
+    const base = appState.banners;
+    const useTreatment = bannerVariantDialog.dataset.generated === "true" && !bannerVariantSingle.checked && profile !== recommended;
+    const [backdrop, theme, treatmentLabel] = BANNER_VARIANT_STYLES[profile];
+    const variant = useTreatment ? {
+      ...base,
+      branding: { ...base.branding, theme },
+      visual: { ...base.visual, backdrop, customBackground: "", overlayEnabled: false }
+    } : base;
     canvas.dataset.previewProfile = profile;
     canvas.inert = true;
-    renderBannerCanvas(canvas, visual);
+    renderBannerCanvas(canvas, visual, variant);
     setBannerAnimatedElementsToFinal(canvas);
     preview.append(canvas);
     const label = document.createElement("strong");
     label.textContent = profile === "offer" && !appState.banners.content.offer.enabled
       ? "Крупный кей-вижуал" : BANNER_CAMPAIGN_PROFILES[profile];
     option.append(preview, label);
+    if (useTreatment) {
+      const treatment = document.createElement("small");
+      treatment.textContent = treatmentLabel;
+      option.append(treatment);
+    }
     if (profile === recommended) {
       const hint = document.createElement("small");
-      hint.textContent = layout.adaptComposition ? "Подходит для этого размера" : "Текущая композиция";
+      hint.textContent = bannerVariantDialog.dataset.generated === "true" ? "Вариант по ТЗ" : layout.adaptComposition ? "Подходит для этого размера" : "Текущая композиция";
       option.append(hint);
     }
     const metrics = document.createElement("small");
     metrics.className = "campaign-variant-metrics";
     option.append(metrics);
     option.addEventListener("click", () => {
-      if (document.getElementById("bannerVariantSingle").checked) {
+      if (bannerVariantSingle.checked) {
         getBannerFormatState(format).overrides.campaignVariant = profile;
         setBannerFormat(format);
       } else {
+        if (useTreatment) {
+          appState.banners.branding = variant.branding;
+          appState.banners.visual = variant.visual;
+          document.body.dataset.theme = theme;
+        }
         appState.banners.layout.composition = "campaign";
         appState.banners.layout.campaignVariant = profile;
         appState.banners.layout.adaptComposition = false;
@@ -3554,13 +3582,14 @@ function fitBannerVariantPreviews() {
   });
 }
 
-function openBannerVariantPicker() {
+function openBannerVariantPicker({ generated = false } = {}) {
   if (bannerVariantDialog.open) return;
   const active = appState.ui.activeBannerFormat;
   const formats = getEnabledBannerFormats().filter((format) => !BANNER_FORMATS[format].textless);
   bannerVariantFormat.replaceChildren(...formats.map((format) => new Option(BANNER_FORMATS[format].label, format)));
   bannerVariantFormat.value = formats.includes(active) ? active : "square";
-  document.getElementById("bannerVariantSingle").checked = false;
+  bannerVariantDialog.dataset.generated = String(generated);
+  bannerVariantSingle.checked = false;
   syncCustomSelect(bannerVariantFormat);
   bannerVariantDialog.showModal();
   renderBannerVariantPreviews();
@@ -3568,6 +3597,7 @@ function openBannerVariantPicker() {
 
 document.getElementById("bannerVariantsButton").addEventListener("click", openBannerVariantPicker);
 bannerVariantFormat.addEventListener("change", renderBannerVariantPreviews);
+bannerVariantSingle.addEventListener("change", renderBannerVariantPreviews);
 bannerVariantDialog.addEventListener("close", () => bannerVariantGrid.replaceChildren());
 window.addEventListener("resize", fitBannerVariantPreviews, { passive: true });
 bannerFormatProfile.addEventListener("change", () => {

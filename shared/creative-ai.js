@@ -147,7 +147,79 @@ export async function prepareIllustration(blob, target) {
   }
 }
 
-export function openCreativeAi({ target, mode, initialText = "", apply }) {
+// Initial UI estimates in seconds. Completion always comes from the actual request.
+const AI_PHASES = {
+  draft: ["Собираем структуру и текст", "Разбираем ТЗ и подбираем композицию.", 40, "file-text"],
+  prompt: ["Готовим иллюстрацию", "Подбираем сюжет и ракурс для Nano Banana 2.1.", 30, "sparkles"],
+  image: ["Рисуем иллюстрацию", "Nano Banana 2.1 создаёт изображение.", 75, "image"],
+  finish: ["Собираем макет", "Размещаем материалы и открываем редактор.", 10, "layout-template"]
+};
+
+function formatAiTime(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  return minutes ? `${minutes} мин ${seconds % 60} сек` : `${seconds} сек`;
+}
+
+function createAiProgress(panel) {
+  const list = panel.querySelector("ol");
+  const status = panel.querySelector(".creative-ai-phase");
+  const detail = panel.querySelector(".creative-ai-detail");
+  const time = panel.querySelector(".creative-ai-time");
+  const bar = panel.querySelector('[role="progressbar"]');
+  let phases;
+  let current;
+  let started;
+  let phaseStarted;
+  let timer;
+
+  const updateClock = () => {
+    const elapsed = Math.floor((Date.now() - started) / 1000);
+    const phaseElapsed = Math.floor((Date.now() - phaseStarted) / 1000);
+    const index = phases.indexOf(current);
+    const duration = AI_PHASES[current][2];
+    const upcoming = phases.slice(index + 1).reduce((sum, phase) => sum + AI_PHASES[phase][2], 0);
+    const remaining = upcoming + Math.max(0, duration - phaseElapsed);
+    const estimate = remaining >= 60 ? `≈ ${Math.ceil(remaining / 60)} мин` : `≈ ${Math.max(10, Math.ceil(remaining / 10) * 10)} сек`;
+    time.textContent = `Прошло ${formatAiTime(elapsed)} • ${phaseElapsed >= duration ? "Дольше обычного" : `ещё ${estimate}`}`;
+    const budget = phases.reduce((sum, phase) => sum + AI_PHASES[phase][2], 0);
+    const completed = budget - upcoming - duration;
+    const progress = (completed + duration * (1 - Math.exp(-phaseElapsed / duration))) / budget;
+    bar.style.setProperty("--ai-progress", String(Math.max(.04, Math.min(.96, progress))));
+  };
+
+  return {
+    show(phase, plan) {
+      if (!timer) {
+        phases = plan;
+        started = Date.now();
+        timer = setInterval(updateClock, 1000);
+      }
+      if (phase === "finish" && current) phases = [...phases.slice(0, phases.indexOf(current) + 1), "finish"];
+      if (!phases.includes(phase)) phases.splice(phases.length - 1, 0, phase);
+      current = phase;
+      phaseStarted = Date.now();
+      const index = phases.indexOf(phase);
+      const [label, hint] = AI_PHASES[phase];
+      status.textContent = label;
+      detail.textContent = hint;
+      bar.setAttribute("aria-valuetext", `Этап ${index + 1} из ${phases.length}. ${label}`);
+      list.innerHTML = phases.map((step, i) => `
+        <li data-state="${i < index ? "done" : i === index ? "active" : "next"}"${i === index ? ' aria-current="step"' : ""}>
+          <i data-lucide="${i < index ? "check" : AI_PHASES[step][3]}" aria-hidden="true"></i>
+          <span>${AI_PHASES[step][0]}</span>
+        </li>`).join("");
+      window.lucide?.createIcons({ root: list });
+      updateClock();
+    },
+    stop() {
+      clearInterval(timer);
+      timer = undefined;
+      bar.style.removeProperty("--ai-progress");
+    }
+  };
+}
+
+export function openCreativeAi({ target, mode, initialText = "", apply, onComplete }) {
   const isImage = mode === "illustration";
   const title = isImage ? "Создать иллюстрацию" : target === "banner" ? "Собрать баннеры из ТЗ" : "Собрать письмо из ТЗ";
   const dialog = document.createElement("dialog");
@@ -155,10 +227,15 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
   dialog.setAttribute("aria-labelledby", "creativeAiTitle");
   dialog.innerHTML = `
     <form class="creative-ai-form">
-      <h2 id="creativeAiTitle">${title}</h2>
+      <header class="creative-ai-header">
+        <span class="creative-ai-mark" aria-hidden="true"><i data-lucide="${isImage ? "image" : target === "banner" ? "panels-top-left" : "mail"}"></i></span>
+        <h2 id="creativeAiTitle">${title}</h2>
+      </header>
+      <div class="creative-ai-body">
+      <div class="creative-ai-settings">
       <label class="creative-ai-field">
         <span>${isImage ? "Что изобразить" : "Текст ТЗ"}</span>
-        <textarea name="text" rows="${isImage ? 4 : 7}" maxlength="${isImage ? 900 : 24000}" required autofocus
+        <textarea name="text" rows="${isImage ? 4 : 5}" maxlength="${isImage ? 900 : 24000}" required autofocus
           placeholder="${isImage ? "Например, сквозная аналитика как монитор с диаграммой" : "Тема, готовые тексты, оффер, ссылки и требования к оформлению"}"></textarea>
       </label>
       ${isImage ? `<label class="creative-ai-field"><span>Формат иллюстрации</span><select name="aspect">
@@ -168,7 +245,18 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
       ${target === "banner" ? `<label class="creative-ai-check"><input name="withEmail" type="checkbox"><span>Также собрать письмо по этому ТЗ</span></label>
       <p class="creative-ai-note">Черновик заменит текущие баннеры. Изменения можно отменить.</p>` : ""}`}
       <label class="creative-ai-field" hidden><span>Код доступа к ИИ</span><input name="token" type="password" autocomplete="off" maxlength="256"></label>
+      </div>
+      <section class="creative-ai-progress" hidden aria-label="Ход генерации">
+        <div class="creative-ai-progress-header">
+          <span class="creative-ai-pulse" aria-hidden="true"><i data-lucide="sparkles"></i></span>
+          <div><strong class="creative-ai-phase" aria-live="polite"></strong><p class="creative-ai-detail"></p></div>
+        </div>
+        <div class="creative-ai-track" role="progressbar" aria-label="Ход генерации"><span></span></div>
+        <p class="creative-ai-time"></p>
+        <ol class="creative-ai-steps" aria-label="Этапы генерации"></ol>
+      </section>
       <p class="creative-ai-status" role="status" aria-live="polite" hidden></p>
+      </div>
       <div class="creative-ai-actions">
         <button class="panel-button panel-button--quiet" type="button" data-close>Отмена</button>
         <button class="panel-button" type="button" data-skip hidden>Открыть без картинки</button>
@@ -176,12 +264,22 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
       </div>
     </form>`;
   document.body.append(dialog);
+  window.lucide?.createIcons({ root: dialog });
 
   const form = dialog.querySelector("form");
   const { text, token, withImage, withEmail, aspect } = form.elements;
   const status = form.querySelector("[role=status]");
   const submit = form.querySelector('[type="submit"]');
   const skip = form.querySelector("[data-skip]");
+  const progressPanel = form.querySelector(".creative-ai-progress");
+  const settings = form.querySelector(".creative-ai-settings");
+  const progress = createAiProgress(progressPanel);
+  const close = form.querySelector("[data-close]");
+  const showPhase = (phase) => progress.show(phase, [
+    ...(!isImage && !draft ? ["draft"] : []),
+    ...(isImage || withImage?.checked ? [...(!compiledPrompt && !jobId ? ["prompt"] : []), "image"] : []),
+    "finish"
+  ]);
   const submitLabel = submit.textContent;
   const controller = new AbortController();
   let draft;
@@ -199,13 +297,20 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
     status.classList.toggle("is-error", error);
   };
   const finish = async (image, emailIllustration) => {
-    if ((image || emailIllustration) && (draft?.coverBanner || draft?.email?.coverBanner)) report("Рендерим обложку в генераторе баннеров…");
+    showPhase("finish");
     await apply({ draft, image, emailIllustration, idea: isImage ? text.value.trim() : draft?.visualIdea, signal: controller.signal });
     dialog.close();
+    onComplete?.();
   };
   const setBusy = (busy) => {
     running = busy;
     submit.disabled = busy;
+    submit.hidden = busy;
+    settings.hidden = busy;
+    progressPanel.hidden = !busy;
+    close.textContent = busy ? "Закрыть" : "Отмена";
+    if (busy) report("");
+    else progress.stop();
     token.disabled = busy;
     text.readOnly = busy || Boolean(draft || compiledPrompt);
     if (withImage) withImage.disabled = busy || Boolean(draft);
@@ -213,15 +318,16 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
     if (aspect) aspect.disabled = busy || Boolean(compiledPrompt);
     skip.hidden = busy || !draft;
     submit.textContent = busy ? "Генерация…" : jobId ? "Проверить задачу" : draft ? "Повторить генерацию картинки" : submitLabel;
-    form.setAttribute("aria-busy", String(busy));
+    if (busy) close.focus();
   };
 
   text.value = initialText;
   dialog.addEventListener("close", () => {
+    progress.stop();
     controller.abort();
     dialog.remove();
   }, { once: true });
-  form.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+  close.addEventListener("click", () => dialog.close());
   skip.addEventListener("click", async () => {
     setBusy(true);
     try {
@@ -242,25 +348,25 @@ export function openCreativeAi({ target, mode, initialText = "", apply }) {
     setBusy(true);
     try {
       if (!isImage && !draft) {
-        report("ИИ собирает структуру и текст…");
+        showPhase("draft");
         draft = await requestAi({ action: "draft", target: withEmail?.checked ? "campaign" : target, text: input }, signal);
       }
       if (isImage || (withImage?.checked && draft?.cover !== "none")) {
         if (!resultImage) {
-          if (!jobId) {
+          if (jobId) showPhase("image");
+          else {
             const ratio = aspect?.value || (draft?.cover === "banner" ? "4:3" : "1:1");
             if (!compiledPrompt) {
-              report("Готовим промпт для Nano Banana 2.1…");
+              showPhase("prompt");
               const idea = isImage ? input : draft.visualIdea || draft.title || draft.banner?.title || draft.subject || draft.blocks?.[0]?.heading;
               if (!idea) throw new Error("Для иллюстрации нужна короткая идея.");
               ({ prompt: compiledPrompt } = await requestAi({ action: "compile", text: idea.slice(0, 900), aspect: ratio }, signal));
             }
-            report("Отправляем иллюстрацию в Nano Banana 2.1…");
+            showPhase("image");
             requestId ||= crypto.randomUUID();
             ({ jobId } = await requestAi({ action: "illustration", prompt: compiledPrompt, aspect: ratio, requestId }, signal));
             if (!jobId) throw new Error("Генератор не вернул номер задачи.");
           }
-          report("Nano Banana 2.1 рисует иллюстрацию…");
           generatedImage ??= await pollIllustration(jobId, signal);
           resultImage = await prepareIllustration(generatedImage, target);
         }
